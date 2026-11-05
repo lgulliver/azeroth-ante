@@ -6,14 +6,32 @@ local CardWidget = {}
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
 local WIDTH, HEIGHT = 80, 112
 local LIFT_SELECTED, LIFT_HOVER, LIFT_TIME = 24, 8, 0.08
--- Dark inks: every suit is at least 3:1 against the light plates they sit on.
-local SUIT_COLORS = {
-  S = { 0.12, 0.12, 0.2 },
-  C = { 0.08, 0.35, 0.15 },
-  H = { 0.72, 0.08, 0.12 },
-  D = { 0.7, 0.28, 0 },
+-- Rank and suit print straight onto the face, in an ink chosen per face so each
+-- keeps at least about 3:1 against the art behind it (checked against the
+-- Face_*.tga pixels). Light faces take deep saturated inks. Glass is mostly
+-- see-through over a dark backing, so it takes near-white tinted inks plus the
+-- font's OUTLINE flag. Steel is a mid-light grey, where near-white would only
+-- reach about 2:1, so it takes slightly deeper dark inks.
+local INK_DEEP = {
+  S = { 0.04, 0.06, 0.16 }, -- near-black navy
+  C = { 0.02, 0.27, 0.09 }, -- deep green
+  H = { 0.62, 0.03, 0.07 }, -- deep red
+  D = { 0.55, 0.19, 0 },    -- deep burnt orange
 }
-local PLATE_ALPHA = 0.9
+local INK_STEEL = {
+  S = INK_DEEP.S,
+  C = { 0.02, 0.22, 0.08 },
+  H = { 0.5, 0.02, 0.05 },
+  D = { 0.45, 0.15, 0 },
+}
+local INK_LIGHT = {
+  S = { 0.88, 0.92, 1 },
+  C = { 0.82, 1, 0.86 },
+  H = { 1, 0.84, 0.84 },
+  D = { 1, 0.9, 0.72 },
+}
+local FACE_INK = { GLASS = { INK_LIGHT, true }, STEEL = { INK_STEEL, false } } -- {inks, outline}
+local INDEX_INSET = 8 -- inside the card's inner border (about 7 on a 80x112 card)
 local RANK_NAMES = { [11] = "Jack", [12] = "Queen", [13] = "King", [14] = "Ace" }
 local MINI_RANK_PX = 9.5      -- rank height on screen (design units) in the deck view
 local BORDER = { 0.1, 0.08, 0.06 }
@@ -21,14 +39,13 @@ local BORDER_SELECTED = { 1, 0.82, 0 }
 local PAPER = ns.UI.Theme.parchment
 local PAPER_GLASS = { 0.12, 0.18, 0.24 } -- opaque, so the see-through Glass face hides cards behind it
 local SEAL_SIZE = 20
-local PLATE_W, PLATE_TL_H, PLATE_BR_H = 26, 42, 24
-local HALO_SIZE = 54
 local TIP_DELAY = 0.4
 local V = ns.UI.Theme.cardV
 
 CardWidget.WIDTH, CardWidget.HEIGHT = WIDTH, HEIGHT
 CardWidget.LIFT_SELECTED = LIFT_SELECTED
-CardWidget.SUIT_COLORS = SUIT_COLORS
+CardWidget.INKS = { deep = INK_DEEP, steel = INK_STEEL, light = INK_LIGHT }
+CardWidget.INDEX_INSET = INDEX_INSET
 
 -- A widget is a Button (the fixed hit area, tweened for layout) holding a
 -- `body` (tweened for hover/selection lift) holding a `face` (scale pop). The
@@ -118,18 +135,18 @@ function Methods.SetCard(w, card)
   local p = enh == "GLASS" and PAPER_GLASS or PAPER
   w.paper:SetColorTexture(p[1], p[2], p[3], 1)
 
-  local c = SUIT_COLORS[card.suit] or SUIT_COLORS.S
+  local spec = FACE_INK[enh or "Plain"]
+  local inks = spec and spec[1] or INK_DEEP
+  local c = inks[card.suit] or inks.S
+  w.ink = c
+  w.outline = (spec and spec[2]) or w.mini or false
   local label = ns.Cards.label(card)
   w.rankTL:SetText(label)
   w.rankBR:SetText(label)
-  w.rankTL:SetTextColor(c[1], c[2], c[3])
-  w.rankBR:SetTextColor(c[1], c[2], c[3])
   local path = MEDIA .. "Suit_" .. card.suit
   w.suitBig:SetTexture(path)
-  w.suitBig:SetVertexColor(c[1], c[2], c[3])
   w.suitSmall:SetTexture(path)
-  w.suitSmall:SetVertexColor(c[1], c[2], c[3])
-  w.halo:SetTexture(path)
+  w:ApplyInk()
   -- Stone keeps its rank and suit in the data but shows neither.
   for _, r in ipairs(w.indexRegions) do r:SetShown(not stone) end
   if w.mini and not stone then w:LayoutMini() end
@@ -173,22 +190,39 @@ function Methods.SetMini(w, scale)
   if w.card and w.card.enh ~= "STONE" then w:LayoutMini() end
 end
 
-local function fontPath()
-  local f = GameFontNormalLarge
-  if type(f) == "table" and f.GetFont then return (f:GetFont()) end
-  return "Fonts\\FRIZQT__.TTF"
+-- The theme's title font (path and size), so the rank keeps the look it had as a font object.
+local function baseFont()
+  local f = _G[ns.UI.Theme.fonts.title]
+  if type(f) == "table" and f.GetFont then
+    local path, size = f:GetFont()
+    if path then return path, size or 16 end
+  end
+  return "Fonts\\FRIZQT__.TTF", 16
 end
 
--- A mini keeps only a big rank (about MINI_RANK_PX on screen) on its plate and
--- the centre suit; the second rank and the small suit would be unreadable.
+-- Sets the ink colour and the font flags (OUTLINE for Glass and for every mini).
+function Methods.ApplyInk(w)
+  local c = w.ink
+  if not c then return end
+  local path, size = baseFont()
+  if w.mini then size = math.min(34, MINI_RANK_PX / (w.miniScale or 1)) end
+  local flags = w.outline and "OUTLINE" or ""
+  for _, r in ipairs({ w.rankTL, w.rankBR }) do
+    r:SetFont(path, size, flags)
+    r:SetTextColor(c[1], c[2], c[3])
+  end
+  w.suitBig:SetVertexColor(c[1], c[2], c[3])
+  w.suitSmall:SetVertexColor(c[1], c[2], c[3])
+end
+
+-- A mini keeps only a big rank (about MINI_RANK_PX on screen), outlined so it
+-- stays readable, and the centre suit; the second rank and the small suit would
+-- be unreadable.
 function Methods.LayoutMini(w)
-  local size = math.min(34, MINI_RANK_PX / (w.miniScale or 1))
-  w.rankTL:SetFont(fontPath(), size, "")
-  w.plateTL:SetSize(size * 1.25 + 6, size * 1.15 + 6)
+  w.outline = true
+  w:ApplyInk()
   w.rankBR:Hide()
   w.suitSmall:Hide()
-  w.plateBR:Hide()
-  w.miniFont = true
 end
 
 -- Score pop: quick scale up and back.
@@ -205,11 +239,6 @@ function Methods.Reset(w)
   Tween.Cancel(w.face)
   hideTip(w)
   ns.UI.EditionFX.Detach(w.face)
-  if w.miniFont then
-    w.miniFont = false
-    w.rankTL:SetFontObject(ns.UI.Theme.fonts.title)
-    w.plateTL:SetSize(PLATE_W, PLATE_TL_H)
-  end
   w.card, w.cardKey, w.mini, w.miniScale = nil, nil, false, nil
   w.selected, w.hover, w.locked, w.topmost, w.debuffed = false, false, false, false, false
   w:SetScale(1)
@@ -255,39 +284,24 @@ local function create(parent)
   w.art = face:CreateTexture(nil, "ARTWORK", nil, -1)
   w.art:SetAllPoints()
   w.art:SetTexCoord(0, 1, 0, V)
-  face.fxTintBelow = true -- a Negative tint sits on the art, under the plates and text
-
-  -- Light plates and a halo keep rank and suit legible on every face.
-  w.plateTL = face:CreateTexture(nil, "ARTWORK")
-  w.plateTL:SetSize(PLATE_W, PLATE_TL_H)
-  w.plateTL:SetPoint("TOPLEFT", face, "TOPLEFT", 3, -3)
-  w.plateBR = face:CreateTexture(nil, "ARTWORK")
-  w.plateBR:SetSize(PLATE_W, PLATE_BR_H)
-  w.plateBR:SetPoint("BOTTOMRIGHT", face, "BOTTOMRIGHT", -3, 3)
-  for _, plate in ipairs({ w.plateTL, w.plateBR }) do
-    plate:SetColorTexture(PAPER[1], PAPER[2], PAPER[3], PLATE_ALPHA)
-  end
-  w.halo = face:CreateTexture(nil, "ARTWORK")
-  w.halo:SetSize(HALO_SIZE, HALO_SIZE)
-  w.halo:SetPoint("CENTER", face, "CENTER", 0, 0)
-  w.halo:SetVertexColor(PAPER[1], PAPER[2], PAPER[3], PLATE_ALPHA)
+  face.fxTintBelow = true -- a Negative tint sits on the art, under the text
 
   w.suitBig = face:CreateTexture(nil, "ARTWORK")
   w.suitBig:SetSize(44, 44)
   w.suitBig:SetPoint("CENTER", face, "CENTER", 0, 0)
   w.suitSmall = face:CreateTexture(nil, "ARTWORK")
-  w.suitSmall:SetSize(14, 14)
-  w.suitSmall:SetPoint("TOPLEFT", face, "TOPLEFT", 7, -28)
+  w.suitSmall:SetSize(12, 12)
+  w.suitSmall:SetPoint("TOPLEFT", face, "TOPLEFT", INDEX_INSET, -(INDEX_INSET + 19))
 
   w.rankTL = face:CreateFontString(nil, "OVERLAY", ns.UI.Theme.fonts.title)
-  w.rankTL:SetPoint("TOPLEFT", face, "TOPLEFT", 6, -7)
+  w.rankTL:SetPoint("TOPLEFT", face, "TOPLEFT", INDEX_INSET, -INDEX_INSET)
   w.rankBR = face:CreateFontString(nil, "OVERLAY", ns.UI.Theme.fonts.title)
-  w.rankBR:SetPoint("BOTTOMRIGHT", face, "BOTTOMRIGHT", -6, 7)
+  w.rankBR:SetPoint("BOTTOMRIGHT", face, "BOTTOMRIGHT", -INDEX_INSET, INDEX_INSET)
 
   w.seal = face:CreateTexture(nil, "OVERLAY", nil, 2)
   w.seal:SetSize(SEAL_SIZE, SEAL_SIZE)
   w.seal:SetPoint("TOPRIGHT", face, "TOPRIGHT", -3, -3)
-  w.indexRegions = { w.plateTL, w.plateBR, w.halo, w.suitBig, w.suitSmall, w.rankTL, w.rankBR }
+  w.indexRegions = { w.suitBig, w.suitSmall, w.rankTL, w.rankBR }
   w.shade = face:CreateTexture(nil, "OVERLAY", nil, 5)
   w.shade:SetPoint("TOPLEFT", 2, -2)
   w.shade:SetPoint("BOTTOMRIGHT", -2, 2)

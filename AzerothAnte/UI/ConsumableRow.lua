@@ -121,7 +121,7 @@ local function makeSlot(i)
   slot.art:SetTexCoord(0, 1, 0, Theme.cardV)
   slot.icon = holder:CreateTexture(nil, "OVERLAY")
   slot.icon:SetSize(ICON_SIZE, ICON_SIZE)
-  slot.icon:SetPoint("TOP", holder, "TOP", 0, -10)
+  slot.icon:SetPoint("CENTER", holder, "TOP", 0, -math.floor(SLOT_H * 78 / 179 + 0.5)) -- centred in the card art's icon window
   slot.plate = holder:CreateTexture(nil, "OVERLAY")
   slot.plate:SetPoint("BOTTOMLEFT", holder, "BOTTOMLEFT", 3, 3)
   slot.plate:SetPoint("BOTTOMRIGHT", holder, "BOTTOMRIGHT", -3, 3)

@@ -152,6 +152,38 @@ function M.install(env)
   function methods.SetText(self, t) self._text = t end
   function methods.GetText(self) return self._text end
 
+  function methods.SetVertexColor(self, r, g, b) self._vertex = { r, g, b } end
+  function methods.GetVertexColor(self)
+    local c = self._vertex or { 1, 1, 1 }
+    return c[1], c[2], c[3]
+  end
+  function methods.SetFont(self, path, size, flags) self._font = { path, size, flags or "" } end
+  function methods.GetFont(self)
+    local f = self._font
+    if not f then return nil end
+    return f[1], f[2], f[3]
+  end
+  function methods.SetTextColor(self, r, g, b) self._textColor = { r, g, b } end
+  function methods.GetTextColor(self)
+    local c = self._textColor or { 1, 1, 1 }
+    return c[1], c[2], c[3]
+  end
+  function methods.SetBackdropColor(self, r, g, b, a) self._bdColor = { r, g, b, a } end
+  function methods.GetBackdropColor(self)
+    local c = self._bdColor or { 0, 0, 0, 1 }
+    return c[1], c[2], c[3], c[4]
+  end
+  -- Strata is inherited from the parent unless set on the frame itself.
+  function methods.SetFrameStrata(self, s) self._strata = s end
+  function methods.GetFrameStrata(self)
+    local o = self
+    while o do
+      if o._strata then return o._strata end
+      o = o._parent
+    end
+    return "MEDIUM"
+  end
+
   function methods.GetParent(self) return self._parent end
   function methods.SetParent(self, parent)
     if self._parent then
@@ -194,6 +226,7 @@ function M.install(env)
   -- Tooltip: remembers its owner and last text.
   local tip = createFrame("GameTooltip", "GameTooltip", UIParent)
   tip:Hide()
+  tip:SetFrameStrata("TOOLTIP")
   function tip.SetOwner(self, owner) self._owner = owner; self._lines = {} end
   function tip.GetOwner(self) return self._owner end
   function tip.SetText(self, t) self._tipText = t end

@@ -111,7 +111,7 @@ end
 -- Per-card animations. Each calls done exactly once, even if cancelled.
 
 -- Scale X 1 -> 0 -> 1 with the face swap at zero width (SetCard re-skins).
--- The face clips its children while it narrows, so plates, suits, seal and
+-- The face clips its children while it narrows, so suits, seal and
 -- ranks are cut off with the art instead of sitting full size on a sliver; at
 -- width 1 nothing shows, and the swap happens there.
 local function flip(w, delay, done)

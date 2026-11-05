@@ -614,7 +614,7 @@ local function build()
   p:SetPoint("BOTTOMRIGHT", m.buttons, "BOTTOMRIGHT", 0, 0)
   p:SetFrameLevel(m.content:GetFrameLevel() + PANEL_LEVEL)
   p:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
-  p:SetBackdropColor(0.1, 0.08, 0.06, 0.98)
+  p:SetBackdropColor(Theme.bg[1], Theme.bg[2], Theme.bg[3], 1) -- fully opaque: nothing from the shop shows through
   p:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
   p:EnableMouse(true) -- swallows clicks meant for the screen under it
   p.packChoices = entries

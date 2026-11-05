@@ -180,6 +180,37 @@ local function run(w)
   check(cw1.seal:IsShown(), "seal visible on a sealed card")
   eq(cw1.seal:GetTexture(), MEDIA .. "Seal_RED", "seal texture")
   check(cw1.rankTL:IsShown() and cw1.suitBig:IsShown(), "normal card shows rank and suit")
+  -- Rank and suit print straight onto the face: no plates, no halo, a text colour per face.
+  check(cw1.plateTL == nil and cw1.plateBR == nil and cw1.halo == nil, "no index plates or halo on a card")
+  do
+    local known = { cw1.border, cw1.paper, cw1.art, cw1.suitBig, cw1.suitSmall, cw1.seal, cw1.shade, cw1.back }
+    local isKnown, extra = {}, 0
+    for _, t in ipairs(known) do isKnown[t] = true end
+    for _, ch in ipairs(cw1.face._children) do
+      if ch._kind == "Texture" and not isKnown[ch] then extra = extra + 1 end
+    end
+    check(extra <= 1, "card face has no plate textures (only the edition tint beyond the named regions)")
+    local function lum(r, g, b) return 0.2126 * r + 0.7152 * g + 0.0722 * b end
+    local saved, savedSuit = c1.enh, c1.suit
+    for _, enh in ipairs({ false, "BONUS", "MULT", "WILD", "LUCKY", "GOLD", "GLASS", "STEEL" }) do
+      for _, suit in ipairs({ "S", "C", "H", "D" }) do
+        c1.enh, c1.suit = enh or nil, suit
+        cw1:SetCard(c1)
+        local r, g, b = cw1.rankTL:GetTextColor()
+        local sr, sg, sb = cw1.suitBig:GetVertexColor()
+        local _, _, flags = cw1.rankTL:GetFont()
+        local tag = (enh or "Plain") .. " " .. suit
+        check(sr == r and sg == g and sb == b, tag .. ": suit and rank share one ink")
+        if enh == "GLASS" then
+          check(lum(r, g, b) > 0.8 and flags == "OUTLINE", tag .. ": Glass has a light ink and an outline")
+        else
+          check(lum(r, g, b) < 0.4 and flags == "", tag .. ": light and steel faces have a deep ink, no outline")
+        end
+      end
+    end
+    c1.enh, c1.suit = saved, savedSuit
+    cw1:SetCard(c1)
+  end
   eq(cw2.art:GetTexture(), MEDIA .. "Face_STONE", "Stone card face texture")
   check(not cw2.rankTL:IsShown() and not cw2.rankBR:IsShown(), "Stone hides its rank")
   check(not cw2.suitBig:IsShown() and not cw2.suitSmall:IsShown(), "Stone hides its suit")
@@ -230,6 +261,14 @@ local function run(w)
   m1._scripts.OnLeave(m1)
   check(not stub.tooltip:IsShown(), "mini tooltip hides on leave")
   check(m1.rankTL:GetText() ~= nil and not m1.rankBR:IsShown(), "mini shows one rank")
+  do
+    local _, _, flags = m1.rankTL:GetFont()
+    eq(flags, "OUTLINE", "mini rank is outlined")
+    check(m1.plateTL == nil and m1.halo == nil, "mini has no plate or halo")
+    local r, g, b = m1.rankTL:GetTextColor()
+    local ink = ns.UI.CardWidget.INKS.deep[m1.card.suit]
+    check(r == ink[1] and g == ink[2] and b == ink[3], "mini uses the same per-face ink as the full card")
+  end
   -- A locked (in-flight) card never shows a tooltip.
   cw1._scripts.OnEnter(cw1)
   cw1.locked = true
@@ -956,6 +995,11 @@ local function run(w)
     click(pv.pick, "Pick Fury (last pick)")
     check(r.shop.openPack == nil, "the last pick closed the pack in the run")
     check(pv:IsVisible(), "the overlay stays up while the last pick animates")
+    do
+      local br, bg, bb, ba = pv:GetBackdropColor()
+      local bgc = ns.UI.Theme.bg
+      check(ba == 1 and br == bgc[1] and bg == bgc[2] and bb == bgc[3], "pack overlay is fully opaque in the theme bg colour")
+    end
     stub.advance(0.15)
     check(a.face:GetWidth() < 80 and not a.released, "the last pick's flip ran on the pack card")
     stub.advance(2)
@@ -1147,6 +1191,9 @@ local function run(w)
   stub.fire("LFG_PROPOSAL_SHOW")
   stub.advance(1)
   check(stub.findText("Queue popped!"), "paused overlay visible")
+  eq(Main.frame:GetFrameStrata(), "HIGH", "main window sits above world nameplates")
+  eq(Main.content:GetFrameStrata(), "HIGH", "window children inherit the HIGH strata (popovers, pause overlay)")
+  eq(stub.tooltip:GetFrameStrata(), "TOOLTIP", "tooltips stay above the window")
   eq(stub.sounds[#stub.sounds], 8960, "ready check sound")
   stub.fire("LFG_PROPOSAL_SUCCEEDED")
   stub.advance(1)
