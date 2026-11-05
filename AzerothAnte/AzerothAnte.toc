@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120100, 120105, 16001
 ## Title: Azeroth Ante
 ## Notes: Poker roguelike for queue waits
 ## SavedVariables: AzerothAnteDB
