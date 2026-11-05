@@ -159,7 +159,8 @@ T.test("queue_confirm_counts_as_queued_and_active_hides_after_leaving", function
   h:clear()
   h.statuses[1] = "active"
   h:fire("UPDATE_BATTLEFIELD_STATUS", 1)
-  T.eq(h.calls, { "resume", "hide" })
+  -- Leaving the queue while paused and the failed proposal each resume (idempotent).
+  T.eq(h.calls, { "resume", "resume", "hide" })
 end)
 
 T.test("queue_direct_events_sound_guard_and_combat_hide", function()
@@ -224,6 +225,8 @@ T.test("queue_proposal_in_combat_plays_only_sound", function()
 end)
 
 T.test("queue_battlefield_decline_or_expiry_clears_paused", function()
+  -- Dropping out of the queue entirely also resumes via QUEUE_LEFT while paused.
+  local expected = { none = { "resume", "resume" }, queued = { "resume" }, error = { "resume", "resume" } }
   for _, status in ipairs({ "none", "queued", "error" }) do
     local h = harness("Queue.lua")
     h.statuses[1] = "confirm"
@@ -232,7 +235,7 @@ T.test("queue_battlefield_decline_or_expiry_clears_paused", function()
     h.statuses[1] = status
     h:fire("UPDATE_BATTLEFIELD_STATUS", 1)
     h:fire("UPDATE_BATTLEFIELD_STATUS", 1)
-    T.eq(h.calls, { "resume" })
+    T.eq(h.calls, expected[status])
   end
 end)
 
