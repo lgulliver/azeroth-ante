@@ -100,33 +100,36 @@ return function(ns)
     return out
   end
 
-  local function mostPlayed(run)
+  local function mostPlayed(run, played)
     local best, n = nil, 0
-    for id, count in pairs(run.bot.played) do
+    for id, count in pairs(played or run.bot.played) do
       if count > n or (count == n and best and id < best) then best, n = id, count end
     end
     return best
   end
 
-  -- Use held Tomes and untargeted Relics/Scrolls; targeted Scrolls go on the best cards in `cards`.
+  -- Which cards (indexes into `cards`) to use consumable `slot` on, or nil to leave it.
+  -- Held Tomes and untargeted Relics/Scrolls need no cards; targeted Scrolls go on the best cards.
+  local function usePlan(run, slot, cards)
+    local item = run.consumables[slot]
+    local def = item and Consumables.def(item)
+    local want = item and (item.kind == "tome" or item.kind == "relic"
+      or (item.kind == "scroll" and SCROLL_RANK[item.id]))
+    if not (def and want) then return nil end
+    local idx = {}
+    if def.select then
+      if cards then idx = highRankIdx(cards, def.select.max) end
+      if not cards or #idx < def.select.min then return nil end
+    end
+    if Consumables.canUse(run, slot, idx) then return idx end
+    return nil
+  end
+
   local function useConsumables(run, cards)
     local slot = 1
     while slot <= #run.consumables do
-      local item = run.consumables[slot]
-      local def = Consumables.def(item)
-      local used = false
-      local want = item.kind == "tome" or item.kind == "relic"
-        or (item.kind == "scroll" and SCROLL_RANK[item.id])
-      if def and want then
-        local idx = {}
-        if def.select then
-          if cards then idx = highRankIdx(cards, def.select.max) end
-          if not cards or #idx < def.select.min then idx = nil end
-        end
-        if idx and Consumables.canUse(run, slot, idx) then
-          used = Consumables.use(run, slot, idx) ~= nil
-        end
-      end
+      local idx = usePlan(run, slot, cards)
+      local used = idx ~= nil and Consumables.use(run, slot, idx) ~= nil
       if not used then slot = slot + 1 end
     end
   end
@@ -151,25 +154,30 @@ return function(ns)
     end
   end
 
-  local function pickFromPack(run)
-    local pack = run.shop.openPack
-    while pack and run.shop.openPack do
-      local choice, idx, rankBest = nil, nil, 1e9
-      for c, item in ipairs(pack.choices) do
-        if item then
-          local def = Consumables.def(item)
-          local pick, sel = nil, {}
-          if item.kind == "tome" then
-            pick = (item.id == mostPlayed(run)) and 0 or 50
-          elseif item.kind == "scroll" and SCROLL_RANK[item.id] and def then
-            if def.select then sel = highRankIdx(pack.hand or {}, def.select.max) end
-            local cards = {}
-            for _, i in ipairs(sel) do cards[#cards + 1] = pack.hand[i] end
-            if Consumables.canApply(run, item, cards) then pick = 10 + SCROLL_RANK[item.id] end
-          end
-          if pick and pick < rankBest then choice, idx, rankBest = c, sel, pick end
+  -- The pack choice to take and the pack-hand indexes to aim it at, or nil to skip.
+  local function choosePick(run, pack, played)
+    local choice, idx, rankBest = nil, nil, 1e9
+    for c, item in ipairs(pack.choices) do
+      if item then
+        local def = Consumables.def(item)
+        local pick, sel = nil, {}
+        if item.kind == "tome" then
+          pick = (item.id == mostPlayed(run, played)) and 0 or 50
+        elseif item.kind == "scroll" and SCROLL_RANK[item.id] and def then
+          if def.select then sel = highRankIdx(pack.hand or {}, def.select.max) end
+          local cards = {}
+          for _, i in ipairs(sel) do cards[#cards + 1] = pack.hand[i] end
+          if Consumables.canApply(run, item, cards) then pick = 10 + SCROLL_RANK[item.id] end
         end
+        if pick and pick < rankBest then choice, idx, rankBest = c, sel, pick end
       end
+    end
+    return choice, idx
+  end
+
+  local function pickFromPack(run)
+    while run.shop.openPack do
+      local choice, idx = choosePick(run, run.shop.openPack)
       if not choice then break end
       if not Packs.pick(run, choice, idx) then break end
     end
@@ -212,6 +220,11 @@ return function(ns)
     end
     useConsumables(run, nil)
   end
+
+  -- Decision pieces, exposed so a UI harness can drive the same choices through clicks.
+  bot.bestPlay, bot.discardPlan, bot.usePlan = bestPlay, discardPlan, usePlan
+  bot.choosePick, bot.mostPlayed = choosePick, mostPlayed
+  bot.TRINKET_RANK, bot.SCROLL_RANK = TRINKET_RANK, SCROLL_RANK
 
   function bot.playRun(run)
     run.bot = { played = {} }
