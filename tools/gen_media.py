@@ -253,10 +253,13 @@ def parchment(px, py, d):
     return c
 
 
-def _corner_ornament(px, py, inset, col, dark, skip_br=False):
-    """Gold diamonds in the free corners (top-left stays clear for the rank)."""
-    corners = [(FACE_W - inset, inset), (inset, FACE_H - inset), (FACE_W - inset, FACE_H - inset)]
-    for cx, cy in corners[:2] if skip_br else corners:
+def _corner_ornament(px, py, inset, col, dark, skip_bl=False):
+    """Gold diamonds in the free corners. Top-left and bottom-right stay clear:
+    the rank is printed straight onto the face there."""
+    corners = [(FACE_W - inset, inset)]
+    if not skip_bl:
+        corners.append((inset, FACE_H - inset))
+    for cx, cy in corners:
         if _diamond_at(px, py, cx, cy, 5.0):
             return dark if _diamond_at(px, py, cx, cy, 2.0) else col
     return None
@@ -290,7 +293,7 @@ def parchment_face(px, py, frame=None, tint=None, clover=False):
         inner = 11.0
     elif 7.0 <= d < 8.0:
         return _rgb(GOLD_DARK)
-    orn = _corner_ornament(px, py, 20.0, GOLD, GOLD_DARK, skip_br=clover)
+    orn = _corner_ornament(px, py, 20.0, GOLD, GOLD_DARK, skip_bl=clover)
     if orn:
         return _rgb(orn)
     c = parchment(px, py, d)
@@ -301,13 +304,14 @@ def parchment_face(px, py, frame=None, tint=None, clover=False):
     if ring < 0.9 or _rune_row(px, py, h - 22.0, 44.0, 4, 14.0, 9.0, 2):
         c = _shade(c, 0.9)
     if clover:
-        cl = _clover(px, py, 101.0, 152.0)
+        cl = _clover(px, py, 27.0, 150.0)
         if cl:
             return _rgb(cl)
     return _rgb(c)
 
 
 def _clover(px, py, cx, cy):
+    # stem runs down-left so the clover stays clear of the bottom-right rank
     leaf = 5.4
     off = 5.2
     green, vein = (40, 148, 62), (22, 96, 40)
@@ -390,7 +394,7 @@ def face_steel(px, py):
     streak = _vnoise(px / 70.0, py * 1.0, 1.0, 5) * 0.65 + _vnoise(px / 25.0, py * 1.0, 1.0, 6) * 0.35
     c = _mix((128, 134, 146), (176, 182, 194), streak)
     c = _mix(c, (200, 206, 216), max(0.0, 0.5 - abs((px * 0.6 + py * 0.4) % 120 - 60) / 25.0) * 0.5)
-    for cx, cy in ((w - 16.0, 16.0), (16.0, h - 16.0), (w - 16.0, h - 16.0)):
+    for cx, cy in ((w - 16.0, 16.0), (16.0, h - 16.0)):  # bottom-right is left bare for the rank
         r = math.hypot(px - cx, py - cy)
         if r <= 4.0:
             return _rgb(_mix((235, 238, 245), (80, 84, 96), r / 4.0 + (0.0 if px < cx else 0.2)))
@@ -544,122 +548,119 @@ def ed_holo(px, py):
 
 
 # ----------------------------------------------------------- consumables
+# Scrolls, Tomes and Relics are cards: the same rounded 5:7 silhouette and border
+# thickness as the playing cards, with a clear centre window for the item icon.
+WIN_X0, WIN_Y0, WIN_X1, WIN_Y1 = 18.0, 24.0, 110.0, 132.0  # icon window (card px)
+
+
+def _win_d(px, py):
+    """Distance inside the icon window edge (negative outside)."""
+    return min(px - WIN_X0, WIN_X1 - px, py - WIN_Y0, WIN_Y1 - py)
+
+
+def _card_edge(px, py, col, dark):
+    """Shared outline: (d, colour-or-None). d < 0 means outside the card."""
+    d = _edge_dist(px, py, FACE_W, FACE_H, CORNER)
+    if d < 0:
+        return d, CLEAR
+    if d < 3.0:
+        return d, _rgb(col)
+    if d < 4.0:
+        return d, _rgb(dark)
+    return d, None
+
+
 def consumable_scroll(px, py):
+    """Tarot: warm parchment, gold arcane border, rune banner at the foot."""
     w, h = FACE_W, FACE_H
-    # rolled rods at the top and bottom
-    for y0 in (4.0, h - 22.0):
-        if y0 <= py <= y0 + 18.0:
-            u = (py - y0) / 18.0
-            cap = (px < 8.0 or px > w - 8.0)
-            rx = min(px, w - px)
-            if rx < 2.0 + 4.0 * (1 - math.sin(u * math.pi)):
-                return CLEAR
-            shade = 0.55 + 0.75 * math.sin(u * math.pi) ** 1.4
-            wood = _mix((96, 58, 30), (160, 104, 56), _vnoise(px, py * 4.0, 20, 11))
-            c = _shade(wood, shade)
-            if cap:
-                c = _shade(_mix(GOLD_DARK, (250, 226, 130), math.sin(u * math.pi)), 1.0)
-            return _rgb(c)
-    if not (10.0 <= px <= w - 10.0 and 21.0 <= py <= h - 20.0):
-        return CLEAR
-    d = min(px - 10.0, w - 10.0 - px, py - 21.0, h - 20.0 - py)
-    n = _vnoise(px, py, 7, 12) * 0.6 + _vnoise(px, py, 2.5, 13) * 0.4
-    c = _mix((232, 210, 158), (248, 232, 190), n)
-    c = _mix(c, (170, 120, 60), 0.5 * max(0.0, 1 - d / 14.0))
-    if py < 30:
-        c = _shade(c, 0.72 + 0.28 * (py - 21.0) / 9.0)  # shadow under the rod
-    elif py > h - 29.0:
-        c = _shade(c, 0.72 + 0.28 * (h - 20.0 - py) / 9.0)
-    if 8.0 <= d < 9.0:
-        c = GOLD_DARK
-    if 11.0 <= d < 11.8:
-        c = _mix(c, GOLD, 0.6)
-    if _rune_row(px, py, 40.0, 28.0, 5, 18.0, 9.0, 0, 0.9) or _rune_row(px, py, h - 40.0, 28.0, 5, 18.0, 9.0, 3, 0.9):
-        c = _mix(c, (130, 70, 30), 0.65)
+    d, edge = _card_edge(px, py, GOLD, GOLD_DARK)
+    if edge:
+        return edge
+    if 7.0 <= d < 8.0:
+        return _rgb(GOLD_DARK)
+    c = parchment(px, py, d)
+    # arcane ring around the window and a gold diamond at each upper corner
+    for cx in (20.0, w - 20.0):
+        if _diamond_at(px, py, cx, 14.0, 4.0):
+            return _rgb(GOLD_DARK if _diamond_at(px, py, cx, 14.0, 1.6) else GOLD)
+    # rune banner
+    if 140.0 <= py < 166.0 and 12.0 <= px <= w - 12.0:
+        edge_d = min(py - 140.0, 166.0 - py)
+        if edge_d < 1.2:
+            return _rgb(GOLD)
+        band = _mix((132, 52, 40), (96, 36, 30), (py - 140.0) / 26.0)
+        if _rune_row(px, py, 153.0, 32.0, 6, 13.0, 10.0, 0, 1.0):
+            band = (240, 208, 120)
+        return _rgb(band)
+    # icon window: slightly recessed, gold keyline
+    wd = _win_d(px, py)
+    if wd >= 0:
+        if wd < 1.4:
+            return _rgb(GOLD)
+        if wd < 2.6:
+            return _rgb(_shade(c, 0.78))
+        return _rgb(_shade(_mix(c, (250, 238, 205), 0.4), 0.97))
     return _rgb(c)
 
 
 def consumable_tome(px, py):
+    """Planet: deep-blue starfield, silver border."""
     w, h = FACE_W, FACE_H
-    d = _edge_dist(px, py, w, h, 7.0)
-    if d < 0:
-        return CLEAR
-    if d < 2.0:
-        return _rgb((40, 20, 16))
-    leather_n = _vnoise(px, py, 3, 14) * 0.6 + _vnoise(px, py, 11, 15) * 0.4
-    c = _mix((82, 38, 34), (118, 60, 48), leather_n)
-    # page block down the right edge
-    if px > w - 11.0 and d > 2.0:
-        stripe = 0.85 + 0.15 * math.sin(py * 1.4)
-        return _rgb(_shade((236, 224, 188), stripe))
-    # spine on the left with gold bands
-    if px < 16.0:
-        c = _shade(c, 0.75 + 0.25 * math.sin(px / 16.0 * math.pi))
-        for by in (30.0, 89.0, 150.0):
-            if abs(py - by) < 3.0:
-                return _rgb(_mix(GOLD_DARK, (250, 226, 130), 1 - abs(py - by) / 3.0))
-    # gold border and corner brackets
-    if 4.0 <= d < 5.5:
-        return _rgb(GOLD)
-    for cx, cy, sx, sy in ((7.0, 7.0, 1, 1), (w - 7.0, 7.0, -1, 1), (7.0, h - 7.0, 1, -1), (w - 7.0, h - 7.0, -1, -1)):
-        u, v = (px - cx) * sx, (py - cy) * sy
-        if (0 <= u <= 18 and 0 <= v < 3.4) or (0 <= u < 3.4 and 0 <= v <= 18):
-            return _rgb(GOLD)
-    # central recessed panel for the icon, with a gold keyline
-    if 28.0 <= px <= w - 18.0 and 40.0 <= py <= h - 40.0:
-        pd = min(px - 28.0, w - 18.0 - px, py - 40.0, h - 40.0 - py)
-        if pd < 1.6:
-            return _rgb(GOLD)
-        if pd < 3.0:
-            return _rgb(_shade(c, 0.55))
-        return _rgb(_mix(c, (150, 84, 62), 0.55))
-    # clasp strap near the foot
-    if abs(px - 72.0) < 5.0 and py > h - 40.0:
-        return _rgb(_shade((140, 80, 56), 0.9 + 0.2 * math.sin(px)))
-    if math.hypot(px - 72.0, py - (h - 28.0)) < 6.0:
-        return _rgb(_mix(GOLD_DARK, (250, 226, 130), 0.5))
+    silver, silver_dark = (214, 220, 232), (104, 112, 134)
+    d, edge = _card_edge(px, py, silver, silver_dark)
+    if edge:
+        return edge
+    if 7.0 <= d < 8.0:
+        return _rgb(silver_dark)
+    n = _vnoise(px, py, 22, 21) * 0.6 + _vnoise(px, py, 8, 22) * 0.4
+    c = _mix((12, 18, 52), (34, 56, 116), n * 0.8 + (py / h) * 0.2)
+    wd = _win_d(px, py)
+    if wd >= 0:
+        c = _mix(c, (6, 9, 30), 0.65)
+    gx, gy = int(px / 2.0), int(py / 2.0)
+    r = _hash(gx, gy, 23)
+    if r < 0.03:
+        k = 0.45 + 0.55 * _hash(gx, gy, 24)
+        c = _mix(c, (240, 246, 255), k)
+    if wd >= 0:
+        if wd < 1.4:
+            return _rgb(silver)
+        if wd < 2.6:
+            return _rgb(_shade(c, 0.6))
     return _rgb(c)
 
 
 def consumable_relic(px, py):
+    """Spectral: dark violet, pale spectral border, rising wisps."""
     w, h = FACE_W, FACE_H
-    cut = 18.0
-    # chamfered octagon silhouette
-    dx, dy = min(px, w - px), min(py, h - py)
-    if dx + dy < cut:
-        return CLEAR
-    d = min(dx, dy, (dx + dy - cut) / math.sqrt(2.0))
-    if d < 0:
-        return CLEAR
-    base = _mix((20, 32, 42), (34, 56, 66), _vnoise(px, py, 10, 16) * 0.7 + (py / h) * 0.3)
-    glow = (96, 240, 206)
-    if d < 2.5:
-        return _rgb(_mix(glow, (220, 255, 245), 0.4))
-    if d < 4.0:
-        return _rgb(_shade(base, 0.5))
-    c = base
+    pale, pale_dark = (222, 208, 246), (118, 96, 160)
+    d, edge = _card_edge(px, py, pale, pale_dark)
+    if edge:
+        return edge
+    if 7.0 <= d < 8.0:
+        return _rgb(pale_dark)
+    n = _vnoise(px, py, 16, 31) * 0.7 + (py / h) * 0.3
+    c = _mix((26, 12, 44), (58, 30, 88), n)
     if d < 14.0:
-        c = _mix(c, (30, 120, 112), 0.55 * (1 - (d - 4.0) / 10.0))  # inner glow
-    if 8.0 <= d < 9.0:
-        c = _mix(c, glow, 0.8)
-    # rune ring around the centre
-    cx, cy = w / 2.0, h / 2.0
-    r = math.hypot(px - cx, py - cy)
-    if 56.0 <= r < 57.2:
-        c = _mix(c, glow, 0.7)
-    elif 50.0 <= r < 50.8:
-        c = _mix(c, glow, 0.4)
-    elif 50.8 <= r < 56.0:
-        c = _mix(c, (28, 90, 88), 0.35)
-        ang = math.atan2(py - cy, px - cx)
-        for i in range(12):
-            a = i * math.pi / 6.0
-            if _rune(px, py, cx + math.cos(a) * 53.2, cy + math.sin(a) * 53.2, 6.5, i, 0.7):
-                c = _mix(c, glow, 0.9)
-    # jewel at the top and bottom
-    for jy in (22.0, h - 22.0):
-        if _diamond_at(px, py, cx, jy, 9.0):
-            return _rgb(_mix((220, 255, 245), (40, 170, 160), (abs(px - cx) + abs(py - jy)) / 9.0))
+        c = _mix(c, (92, 60, 140), 0.45 * (1 - (d - 4.0) / 10.0))  # inner glow
+    # wisps drifting up the card
+    for k in range(4):
+        cx = 18.0 + k * 30.0 + 7.0 * math.sin(py * 0.06 + k * 1.7)
+        dist = abs(px - cx)
+        rise = max(0.0, (py - 20.0) / (h - 20.0))
+        if dist < 2.2:
+            c = _mix(c, (190, 170, 236), (1 - dist / 2.2) * 0.30 * rise)
+    wd = _win_d(px, py)
+    if wd >= 0:
+        c = _mix(c, (12, 6, 24), 0.7)
+        if wd < 1.4:
+            return _rgb(pale)
+        if wd < 2.6:
+            return _rgb(_shade(c, 0.6))
+    # pale jewels, top and bottom
+    for jy in (12.0, h - 12.0):
+        if _diamond_at(px, py, w / 2.0, jy, 4.0):
+            return _rgb(pale)
     return _rgb(c)
 
 

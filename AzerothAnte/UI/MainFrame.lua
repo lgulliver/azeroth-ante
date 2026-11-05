@@ -50,7 +50,7 @@ function Main.Create()
   Main.frame = frame
   frame:SetBackdrop(Theme.backdrop)
   frame:SetBackdropColor(Theme.bg[1], Theme.bg[2], Theme.bg[3], Theme.bg[4])
-  frame:SetFrameStrata("MEDIUM")
+  frame:SetFrameStrata("HIGH") -- above world nameplates; every child inherits it, and GameTooltip (TOOLTIP) stays above
   frame:SetClampedToScreen(true)
   frame:SetMovable(true)
   frame:SetResizable(true)

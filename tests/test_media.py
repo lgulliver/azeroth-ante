@@ -31,6 +31,15 @@ CARD_PREFIXES = ("Face_", "Consumable_", "Pack")
 COVERAGE = {"Ed_Sheen.tga": (0.1, 0.9), "Ed_Holo.tga": (0.1, 0.9), "Face_GLASS.tga": (0.5, 1.0)}
 
 
+def _plain_alpha():
+    with open(os.path.join(MEDIA, "Face_Plain.tga"), "rb") as f:
+        data = f.read()
+    return data[18 + data[0]:][3::4]
+
+
+PLAIN_ALPHA = _plain_alpha()
+
+
 def is_pow2(n):
     return n > 0 and (n & (n - 1)) == 0
 
@@ -89,7 +98,15 @@ def check_card(name, w, h, alpha):
             row = alpha[y * w + 8:y * w + w - 8]
             if min(row) != 255:
                 return "face not opaque inside the card region (row %d)" % y
-    elif name.startswith(("Consumable_", "Pack")):
+    elif name.startswith("Consumable_"):
+        # Scrolls, Tomes and Relics are cards: opaque inside the same rounded 5:7
+        # silhouette as the playing cards, so the alpha must match Face_Plain exactly.
+        for y in range(8, CARD_H - 8):
+            if min(alpha[y * w + 8:y * w + w - 8]) != 255:
+                return "card not opaque inside the card region (row %d)" % y
+        if alpha != PLAIN_ALPHA:
+            return "silhouette differs from Face_Plain (not the playing-card shape)"
+    elif name.startswith("Pack"):
         if sum(1 for a in top if a == 255) < len(top) * 0.5:
             return "expected a mostly opaque texture"
     return None

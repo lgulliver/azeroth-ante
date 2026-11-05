@@ -276,6 +276,7 @@ end
 -- Item faces and pack info (shared with the pack view)
 
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
+local WINDOW_CY = 78 / 179 -- vertical centre of the consumable cards' icon window (art is 128x179)
 local FRAME_ART = { scroll = "Consumable_Scroll", tome = "Consumable_Tome", relic = "Consumable_Relic" }
 local KIND_NAMES = { trinket = "Trinket", scroll = "Scroll", tome = "Tome", relic = "Relic" }
 local TRINKET_FULL = "Trinket slots full - sell one first"
@@ -365,6 +366,7 @@ function Screens.NewFace(parent, w, h, withPlate)
   f.iconBox = CreateFrame("Frame", nil, f)
   f.iconBox:SetSize(size, size)
   f.iconBox:SetPoint("TOP", f, "TOP", 0, -math.floor(h * 0.14))
+  f.iconBoxH = h
   f.icon = f.iconBox:CreateTexture(nil, "ARTWORK")
   f.icon:SetAllPoints()
   if withPlate then
@@ -402,6 +404,15 @@ function Screens.SkinFace(f, info)
   f.bg:SetShown(trinket)
   f.art:SetShown(not trinket)
   if not trinket then f.art:SetTexture(MEDIA .. FRAME_ART[info.kind]) end
+  -- A consumable card's icon sits centred in the art's icon window (centre at
+  -- WINDOW_CY of the card height), clear of the border.
+  f.iconBox:ClearAllPoints()
+  if trinket then
+    f.iconBox:SetPoint("TOP", f, "TOP", 0, -math.floor(f.iconBoxH * 0.14))
+  else
+    local size = f.iconBox:GetHeight()
+    f.iconBox:SetPoint("TOP", f, "TOP", 0, -math.floor(f.iconBoxH * WINDOW_CY - size / 2 + 0.5))
+  end
   f.baseBorder = trinket and info.color or nil
   Screens.SetFaceSelected(f, false)
   ns.UI.EditionFX.Attach(f.iconBox, trinket and info.ed or nil)
