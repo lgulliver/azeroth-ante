@@ -25,3 +25,5 @@ UI\CardWidget.lua
 UI\HandView.lua
 UI\Tally.lua
 UI\Screens.lua
+Queue.lua
+AzerothAnte.lua
