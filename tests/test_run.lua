@@ -139,6 +139,11 @@ T.test("play_reaches_target_goes_shop", function()
   T.eq(seen.gold, 18)
 end)
 
+local function sortedRank(list)
+  ns.Cards.sort(list, "rank")
+  return list
+end
+
 T.test("play_scores_selected_positions_and_refills", function()
   local run = playing()
   local before, pile = copy(run.hand), copy(run.pile)
@@ -153,7 +158,7 @@ T.test("play_scores_selected_positions_and_refills", function()
   T.eq(run.handsPlayedTotal, 1)
   T.eq(run.handsLeft, 3)
   T.eq(run.discardsLeft, 3)
-  T.eq(run.hand, { before[1], before[3], before[4], before[6], before[8], pile[44], pile[43], pile[42] })
+  T.eq(run.hand, sortedRank({ before[1], before[3], before[4], before[6], before[8], pile[44], pile[43], pile[42] }))
   T.eq(#run.pile, 41)
   T.eq(run.phase, "play")
   T.eq(copy(run), run)
@@ -179,7 +184,7 @@ T.test("discard_removes_positions_and_refills", function()
   local run = playing()
   local before, pile = copy(run.hand), copy(run.pile)
   ns.Run.discard(run, { 6, 1, 3 })
-  T.eq(run.hand, { before[2], before[4], before[5], before[7], before[8], pile[44], pile[43], pile[42] })
+  T.eq(run.hand, sortedRank({ before[2], before[4], before[5], before[7], before[8], pile[44], pile[43], pile[42] }))
   T.eq(#run.pile, 41)
   T.eq(run.discardsLeft, 2)
   T.eq(run.handsLeft, 4)
@@ -288,4 +293,47 @@ T.test("same_seed_same_run", function()
   T.eq(ns.Run.play(a, { 1, 2, 3, 4, 5 }), ns.Run.play(b, { 1, 2, 3, 4, 5 }))
   T.ok(a.rng.s ~= rngBefore, "scoring must consume run RNG")
   T.eq(a, b)
+end)
+
+local function sortedBy(hand, mode)
+  local copyOf = {}
+  for i, c in ipairs(hand) do copyOf[i] = c end
+  ns.Cards.sort(copyOf, mode)
+  for i, c in ipairs(hand) do
+    if copyOf[i] ~= c then return false end
+  end
+  return true
+end
+
+T.test("start_blind_hand_sorted", function()
+  local run = playing()
+  T.eq(run.sortMode, "rank")
+  T.ok(sortedBy(run.hand, "rank"), "dealt hand not sorted by rank")
+end)
+
+T.test("refill_keeps_sort_mode", function()
+  local run = playing()
+  ns.Run.sortHand(run, "suit")
+  T.eq(run.sortMode, "suit")
+  T.ok(sortedBy(run.hand, "suit"), "sortHand did not sort by suit")
+  ns.Run.discard(run, { 1, 2 })
+  T.ok(sortedBy(run.hand, "suit"), "refill after discard lost the suit sort")
+  run.target = 10 ^ 9
+  ns.Run.play(run, { 3 })
+  T.eq(#run.hand, 8)
+  T.ok(sortedBy(run.hand, "suit"), "refill after play lost the suit sort")
+  ns.Run.sortHand(run, "rank")
+  ns.Run.discard(run, { 1 })
+  T.ok(sortedBy(run.hand, "rank"), "refill did not return to rank sort")
+end)
+
+T.test("sort_mode_persists", function()
+  local run = playing()
+  ns.Run.sortHand(run, "suit")
+  local db = {}
+  ns.Save.store(db, run)
+  local loaded = ns.Save.load(db)
+  T.eq(loaded.sortMode, "suit")
+  ns.Run.discard(loaded, { 1 })
+  T.ok(sortedBy(loaded.hand, "suit"), "loaded run lost its sort mode")
 end)
