@@ -167,7 +167,10 @@ function M.install(env)
   function methods.SetFrameLevel(self, n) self._level = n end
   function methods.GetFrameLevel(self) return self._level end
 
-  function methods.RegisterEvent(self, e) self._events[e] = true end
+  function methods.RegisterEvent(self, e)
+    if e == "GLOBAL_MOUSE_DOWN" and stub.noGlobalMouse then error("unknown event " .. e) end
+    self._events[e] = true
+  end
   function methods.UnregisterEvent(self, e) self._events[e] = nil end
 
   function methods.Click(self, button)
@@ -258,6 +261,9 @@ function M.install(env)
       stub.timers[#stub.timers + 1] = { at = stub.clock + seconds, fn = fn }
     end,
   })
+  -- The cursor: stub.over[frame] = true while the mouse is over that frame.
+  stub.over = {}
+  rawset(env, "MouseIsOver", function(f) return stub.over[f] == true end)
   rawset(env, "InCombatLockdown", function() return stub.combat end)
   rawset(env, "LE_LFG_CATEGORY_LFD", 1)
   rawset(env, "LE_LFG_CATEGORY_RF", 2)

@@ -432,17 +432,37 @@ local function run(w)
   -- Popover closes from outside clicks, the action buttons and a phase change; hand clicks still work.
   click(crow.slots[1], "fury slot (outside-click test)")
   check(popover():IsVisible(), "popover open for the outside-click test")
+  local function mouseDown(over)
+    stub.over = {}
+    if over then stub.over[over] = true end
+    stub.fire("GLOBAL_MOUSE_DOWN", "LeftButton")
+  end
+  mouseDown(popover())
+  check(popover():IsShown(), "a mouse-down on the popover keeps it open")
+  mouseDown(crow.slots[1])
+  check(popover():IsShown(), "a mouse-down on its own slot keeps it open (the click toggles it)")
+  mouseDown(Main.handArea)
+  selectCard(4)
+  check(popover():IsVisible(), "selecting a hand card keeps the popover open")
+  mouseDown(Main.sidebar)
+  check(not popover():IsShown(), "a mouse-down elsewhere closes the popover")
+  stub.over = {}
+  stub.fire("GLOBAL_MOUSE_DOWN", "LeftButton")
+  check(not popover():IsShown(), "closed popover ignores further mouse-downs")
+
+  -- Without GLOBAL_MOUSE_DOWN (RegisterEvent errors) a click-catcher is the fallback.
+  stub.noGlobalMouse = true
+  click(crow.slots[1], "fury slot (fallback test)")
   local catcherF
   for _, c in ipairs(Main.content._children) do
     if c._scripts.OnClick and c.RegisterForClicks and not c.use and c:IsShown() and c ~= crow.slots[1] and c._points[1]
       and c._points[1][2] == Main.content and c._level < popover():GetFrameLevel() and c._level > 500 then catcherF = c end
   end
-  check(catcherF, "click catcher is shown under the popover")
+  check(catcherF, "click catcher is the fallback when the event is unavailable")
   eq(catcherF._points[2][2], Main.handArea, "catcher stops above the hand area while playing")
-  selectCard(4)
-  check(popover():IsVisible(), "selecting a hand card keeps the popover open")
   catcherF:Click()
-  check(not popover():IsShown() and not catcherF:IsShown(), "outside click closes the popover")
+  check(not popover():IsShown() and not catcherF:IsShown(), "fallback catcher closes the popover")
+  stub.noGlobalMouse = false
   click(crow.slots[1], "fury slot (button-close test)")
   click(Main.buttons.sortRank, "Sort Rank closes the popover")
   check(not popover():IsShown(), "Sort closes the popover")
@@ -542,6 +562,16 @@ local function run(w)
   click(slot1.sell, "sell trinket")
   check(run.gold > gold, "selling refunds gold")
   eq(#run.trinkets, 0, "trinket sold")
+  -- With the popover open, ONE click on a shop button both acts and closes the popover.
+  click(Main.consumableRow.slots[1], "consumable slot in the shop")
+  check(panel("use"):IsShown(), "popover open on the shop screen")
+  gold = run.gold
+  stub.over = { [shop.reroll] = true }
+  stub.fire("GLOBAL_MOUSE_DOWN", "LeftButton")
+  click(shop.reroll, "Reroll (popover open)")
+  stub.over = {}
+  check(run.gold < gold, "the first click on Reroll still rerolls")
+  check(not panel("use"):IsShown(), "and the same click closed the popover")
   click(shop.next, "Next Blind")
   stub.advance(1)
   eq(run.phase, "blind", "phase after Next Blind")
