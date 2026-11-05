@@ -1226,15 +1226,20 @@ local function run(w)
       if first then -- make sure the first shop has something of everything to click
         r.gold = 100
         r.shop.cards = {
-          { type = "scroll", id = "FURY", cost = 3 },
+          { type = "scroll", id = "GREED", cost = 3 }, -- untargeted: usable in the shop
           { type = "trinket", id = "BLOODLUST", cost = 4 },
         }
         r.shop.packs = { { type = "ARCANA", size = "mega", cost = 8 }, { type = "CELESTIAL", size = "normal", cost = 4 } }
         Main.Render(r)
         ns.UI.OnRunChanged()
         stub.advance(1)
+        -- Guaranteed consumable use on any seed: buy the Scroll and Use it here, by clicks.
+        click(panel("offerCards").offerCards[1].buy, "buy Greed")
+        settle("buy Greed")
+        eq(Main.run.consumables[1] and Main.run.consumables[1].id, "GREED", "bought Greed")
       end
       useConsumables(nil, "shop")
+      if first then check(used.consumables >= 1, "the seeded shop's Scroll was used") end
       local function offers() return panel("offerCards") end
       -- Trinkets, best first.
       local again = true
