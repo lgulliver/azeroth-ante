@@ -306,7 +306,7 @@ local AFFECTS = {
   SPIRITS = "1 selected card gains a Purple seal",
   MIRRORS = "Adds 2 copies of 1 selected card to the deck",
   LEGENDS = "Creates the rarest trinket available",
-  COSMOS = "Levels up every hand type",
+  COSMOS = "Levels up every visible hand type",
 }
 
 Relics.def = def

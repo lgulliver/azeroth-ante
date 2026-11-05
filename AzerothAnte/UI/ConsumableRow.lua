@@ -18,8 +18,8 @@ ConsumableRow.HEIGHT = SLOT_H
 
 local row, popover
 local openSlot                                -- slot index the popover belongs to, or nil
-local NO_HAND, USE_IN_PLAY = "Select cards in a hand", "Use while playing a hand"
-local openPhase, catcher
+local USE_IN_PLAY = "Use while playing a hand"
+local openPhase, catcher, globalMouse
 local openItem                                -- the item that slot held when it opened
 
 local function main()
@@ -195,7 +195,7 @@ function ConsumableRow.Refresh()
     ok, reason = false, "Resolving..."
   else
     ok, reason = ns.Consumables.canUse(run, openSlot, ns.UI.HandView.Selected())
-    if reason == NO_HAND then reason = USE_IN_PLAY end
+    if reason == ns.Consumables.REASON_NO_HAND then reason = USE_IN_PLAY end
   end
   setButton(popover.use, ok, reason)
   setButton(popover.sell, not busy(), "Resolving...")
@@ -203,6 +203,10 @@ end
 
 function ConsumableRow.Close()
   openSlot, openItem, openPhase = nil, nil, nil
+  if globalMouse then
+    row:UnregisterEvent("GLOBAL_MOUSE_DOWN")
+    globalMouse = false
+  end
   if catcher then catcher:Hide() end
   if popover then popover:Hide() end
   if row then
@@ -216,8 +220,14 @@ function ConsumableRow.Open(i)
   local def = item and ns.Consumables.def(item)
   if not def then return end
   openSlot, openItem, openPhase = i, item, run.phase
-  ConsumableRow.LayoutCatcher(run)
-  catcher:Show()
+  -- Preferred: watch every mouse-down and close on one outside the popover; the
+  -- click itself still reaches what was clicked. Where the event does not exist,
+  -- fall back to a click-catcher.
+  globalMouse = pcall(row.RegisterEvent, row, "GLOBAL_MOUSE_DOWN")
+  if not globalMouse then
+    ConsumableRow.LayoutCatcher(run)
+    catcher:Show()
+  end
   for k = 1, #row.slots do row.slots[k].glow:SetShown(k == i) end
   popover.title:SetText(def.name)
   popover.sell:SetText("Sell (" .. sellValue(item) .. "g)")
@@ -350,6 +360,14 @@ function ConsumableRow.Build(frame)
   row = frame
   frame.slots = {}
   for i = 1, MAX_SLOTS do makeSlot(i) end
+  frame:SetScript("OnEvent", function(_, event)
+    if event ~= "GLOBAL_MOUSE_DOWN" or not openSlot then return end
+    local run = main() and main().run
+    local slot = row.slots[openSlot]
+    if MouseIsOver(popover) or (slot and MouseIsOver(slot)) then return end
+    if run and run.phase == "play" and MouseIsOver(main().handArea) then return end -- keep selecting cards
+    ConsumableRow.Close()
+  end)
   frame:SetScript("OnHide", function()
     ConsumableRow.Close()
     GameTooltip:Hide()

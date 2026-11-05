@@ -4,6 +4,7 @@ local _, ns = ...
 local Consumables = {}
 
 Consumables.COST = { tome = 3, scroll = 3, relic = 4 }
+Consumables.REASON_NO_HAND = "Select cards in a hand"
 
 local USABLE_PHASES = { play = true, shop = true, blind = true }
 
@@ -143,7 +144,7 @@ end
 local function selectedCards(run, def, idx)
   if not def.select then return {} end
   local source = Consumables.targetCards(run)
-  if not source then return nil, "Select cards in a hand" end
+  if not source then return nil, Consumables.REASON_NO_HAND end
   local sorted, seen, cards = {}, {}, {}
   for i, index in ipairs(idx or {}) do sorted[i] = index end
   table.sort(sorted)
