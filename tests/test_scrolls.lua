@@ -331,3 +331,29 @@ T.test("summoning_can_roll_editions", function()
   T.ok(editions.FOIL, "Foil rolls")
   T.ok(next(editions) ~= nil)
 end)
+
+T.test("chance_reports_nope_or_trinket_slot", function()
+  local nopes, hits = 0, 0
+  for seed = 1, 100 do
+    local run = newRun()
+    run.rng = ns.RNG.new(seed * 10007919)
+    run.trinkets = { { id = "BLOODLUST" }, { id = "FORTITUDE", ed = "FOIL" } }
+    local outcome = apply(run, "CHANCE", {})
+    if outcome.nope then
+      nopes = nopes + 1
+      T.eq(outcome.trinkets, {})
+      T.eq(run.trinkets[1].ed, nil)
+    else
+      hits = hits + 1
+      T.eq(outcome.trinkets, { 1 })
+    end
+  end
+  T.ok(nopes > 0 and hits > 0)
+end)
+
+T.test("summoning_reports_new_slot", function()
+  local run = newRun()
+  run.trinkets = { { id = "BLOODLUST" } }
+  local outcome = apply(run, "SUMMONING", {})
+  T.eq(outcome.trinkets, { 2 })
+end)

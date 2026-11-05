@@ -179,12 +179,22 @@ T.test("flame_destroys_five_gains_20", function()
   T.eq(#run.deck, 47)
 end)
 
-T.test("flame_needs_five_in_hand", function()
+T.test("flame_with_fewer_than_five_destroys_all_it_has", function()
   local run = newRun("play")
-  while #run.hand > 4 do table.remove(run.hand) end
+  while #run.hand > 3 do table.remove(run.hand) end
+  local gold = run.gold
+  local outcome = apply(run, "FLAME")
+  T.eq(#outcome.destroyed, 3)
+  T.eq(run.gold, gold + 20)
+  T.ok(#run.hand >= 1, "checkHand refilled the emptied hand")
+end)
+
+T.test("flame_needs_a_card_in_hand", function()
+  local run = newRun("play")
+  run.hand = {}
   local ok, reason = ns.Consumables.canApply(run, relic("FLAME"), {})
   T.ok(not ok)
-  T.eq(reason, "Needs 5 cards in hand")
+  T.eq(reason, "Needs 1 card in hand")
 end)
 
 T.test("rebirth_copies_and_drops_negative", function()
@@ -267,12 +277,67 @@ T.test("legends_rarest_available", function()
   T.eq(ns.Trinkets.def[run.trinkets[#run.trinkets].id].rarity, "uncommon")
 end)
 
-T.test("cosmos_levels_visible_hands", function()
+T.test("cosmos_levels_every_hand_including_secret", function()
   local run = newRun("shop")
   run.seenHands.FIVE_KIND = true
-  apply(run, "COSMOS")
+  local outcome = apply(run, "COSMOS")
   for _, id in ipairs(ns.Hands.order) do
-    local visible = not ns.Hands.def[id].secret or run.seenHands[id]
-    T.eq(run.handLevels[id], visible and 2 or 1, id)
+    T.eq(run.handLevels[id], 2, id)
+    T.eq(outcome.levelled[id], 2, id)
   end
+  T.ok(not run.seenHands.FLUSH_FIVE, "secret hands stay hidden")
+  T.eq(#ns.Hands.visible(run), 10)
+end)
+
+T.test("void_penalty_escalates", function()
+  local run = newRun("shop")
+  run.trinkets = { trinket("FORTITUDE"), trinket("WHETSTONE"), trinket("HEALTHSTONE") }
+  T.eq(run.voidPenalty, 1)
+  local outcome = apply(run, "VOID")
+  T.eq(run.handSizeMod, -1)
+  T.eq(outcome.handSize, -1)
+  T.eq(run.voidPenalty, 2)
+  outcome = apply(run, "VOID")
+  T.eq(run.handSizeMod, -3)
+  T.eq(outcome.handSize, -2)
+  T.eq(run.voidPenalty, 3)
+  local desc = ns.Consumables.describe(run, relic("VOID"))
+  T.ok(desc:find("-3 hand size", 1, true), desc)
+  T.ok(ns.Consumables.affects(run, relic("VOID")):find("-3 hand size", 1, true))
+end)
+
+T.test("radiance_refuses_card_with_edition", function()
+  local run = newRun("play")
+  run.hand[1].ed = "FOIL"
+  local ok, reason = ns.Consumables.canApply(run, relic("RADIANCE"), { run.hand[1] })
+  T.ok(not ok)
+  T.eq(reason, "Card already has an edition")
+  T.ok(ns.Consumables.canApply(run, relic("RADIANCE"), { run.hand[2] }))
+end)
+
+T.test("trinket_outcomes_report_slots", function()
+  local run = newRun("shop")
+  run.trinkets = { trinket("FORTITUDE"), trinket("WHETSTONE"), trinket("HEALTHSTONE") }
+  local outcome = apply(run, "VOID")
+  T.eq(#outcome.trinkets, 1)
+  T.eq(run.trinkets[outcome.trinkets[1]].ed, "NEGATIVE")
+  outcome = apply(run, "HEXES")
+  T.eq(outcome.trinkets, { 1 })
+  T.eq(#run.trinkets, 1)
+  run = newRun("shop")
+  run.trinkets = { trinket("FORTITUDE", "FOIL"), trinket("WHETSTONE") }
+  outcome = apply(run, "REBIRTH")
+  T.eq(outcome.trinkets, { 2 })
+  run = newRun("shop")
+  outcome = apply(run, "LICH")
+  T.eq(outcome.trinkets, { 1 })
+  run = newRun("shop")
+  outcome = apply(run, "LEGENDS")
+  T.eq(outcome.trinkets, { 1 })
+end)
+
+T.test("whispers_reports_hand_size", function()
+  local run = newRun("play")
+  local outcome = apply(run, "WHISPERS")
+  T.eq(outcome.handSize, -1)
 end)

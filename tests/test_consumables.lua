@@ -223,3 +223,16 @@ T.test("every_scroll_and_relic_has_an_affects_line", function()
     end
   end
 end)
+
+T.test("tome_outcome_reports_level", function()
+  local run = newRun()
+  run.handLevels.PAIR = 2
+  run.consumables = { tome("PAIR") }
+  T.eq(ns.Consumables.describe(run, tome("PAIR")), "Levels up Pair to level 3.")
+  T.eq(ns.Consumables.affects(run, tome("PAIR")), "Pair: Lv 2 -> 3")
+  local outcome = ns.Consumables.use(run, 1)
+  T.eq(outcome.levelled, { PAIR = 3 })
+  T.eq(outcome.trinkets, {})
+  T.eq(outcome.handSize, nil)
+  T.eq(outcome.nope, nil)
+end)

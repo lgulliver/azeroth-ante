@@ -506,3 +506,97 @@ T.test("winning_play_uses_final_held_cards", function()
   T.eq(run.consumables, { { kind = "tome", id = "HIGH_CARD" } })
   T.eq(#run.pile, pileCount)
 end)
+
+T.test("exhausted_deck_with_hands_left_is_lost", function()
+  local run = ns.Run.new(7, "ADVENTURER")
+  while #run.deck > 12 do table.remove(run.deck) end
+  ns.Run.startBlind(run)
+  run.target = 10 ^ 9
+  T.eq(#run.hand, 8)
+  T.eq(#run.pile, 4)
+  ns.Run.play(run, { 1, 2, 3, 4, 5 })
+  T.eq(#run.hand, 7)
+  T.eq(run.phase, "play")
+  ns.Run.play(run, { 1, 2, 3, 4, 5 })
+  T.eq(run.phase, "play")
+  T.eq(#run.hand, 2)
+  ns.Run.discard(run, { 1, 2 })
+  T.eq(#run.hand, 0)
+  T.eq(run.handsLeft, 2, "hands remain")
+  T.eq(run.phase, "lost", "nothing left to play or discard")
+end)
+
+T.test("empty_hand_refills_from_pile", function()
+  local run = playing()
+  run.target = 10 ^ 9
+  run.hand = {}
+  ns.Run.checkHand(run)
+  T.eq(#run.hand, 8)
+  T.eq(run.phase, "play")
+end)
+
+T.test("hand_size_floor_deals_one_card", function()
+  local run = ns.Run.new(7, "ADVENTURER")
+  run.handSizeMod = -8
+  T.eq(ns.Deck.handSize(run), 1)
+  ns.Run.startBlind(run)
+  T.eq(#run.hand, 1)
+  T.eq(run.phase, "play")
+end)
+
+T.test("empty_deck_at_start_of_blind_is_lost", function()
+  local run = ns.Run.new(7, "ADVENTURER")
+  run.deck = {}
+  ns.Run.startBlind(run)
+  T.eq(run.phase, "lost")
+end)
+
+T.test("sacrificing_last_cards_refills_or_loses", function()
+  local run = playing()
+  run.target = 10 ^ 9
+  run.hand = { table.remove(run.pile), table.remove(run.pile) }
+  run.consumables = { { kind = "scroll", id = "SACRIFICE" } }
+  ns.Consumables.use(run, 1, { 1, 2 })
+  T.eq(#run.hand, 8, "refilled from the pile")
+  T.eq(run.phase, "play")
+
+  run = playing()
+  run.target = 10 ^ 9
+  run.pile = {}
+  run.hand = { run.hand[1], run.hand[2] }
+  run.deck = { run.hand[1], run.hand[2] }
+  run.consumables = { { kind = "scroll", id = "SACRIFICE" } }
+  ns.Consumables.use(run, 1, { 1, 2 })
+  T.eq(#run.hand, 0)
+  T.eq(run.phase, "lost")
+end)
+
+T.test("purple_seal_on_debuffed_discard_does_not_trigger", function()
+  local run = playing("ADVENTURER", "VANCLEEF")
+  local idx
+  for i, card in ipairs(run.hand) do
+    if card.suit == "S" then idx = i; break end
+  end
+  if not idx then error("test seed has no spade in hand") end
+  run.hand[idx].seal = "PURPLE"
+  local outcome = ns.Run.discard(run, { idx })
+  T.eq(#run.consumables, 0)
+  T.eq(#outcome.created, 0)
+
+  run = playing("ADVENTURER", "VANCLEEF")
+  for i, card in ipairs(run.hand) do
+    if card.suit ~= "S" then idx = i; break end
+  end
+  run.hand[idx].seal = "PURPLE"
+  outcome = ns.Run.discard(run, { idx })
+  T.eq(#run.consumables, 1)
+  T.eq(outcome.created[1], run.consumables[1])
+end)
+
+T.test("blue_seal_payout_counts_created", function()
+  local run = playing()
+  run.lastHandId = "PAIR"
+  run.hand[1].seal = "BLUE"
+  ns.Run.winBlind(run)
+  T.eq(run.lastPayout.created, 1)
+end)

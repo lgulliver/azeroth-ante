@@ -17,7 +17,7 @@ function Run.new(seed, deckId)
     seed = seed, rng = ns.RNG.new(seed), deckId = deckId,
     stage = 1, blind = 1, phase = "blind", gold = deck.gold,
     deck = ns.Deck.new(), nextCardId = 53, baseHandSize = 8, handSizeMod = 0,
-    maxTrinkets = 5, trinkets = {}, handLevels = {},
+    maxTrinkets = 5, trinkets = {}, handLevels = {}, voidPenalty = 1,
     consumables = {}, maxConsumables = 2, seenHands = {},
     lastHandId = nil, lastConsumable = nil,
     handsPlayedTotal = 0, bosses = {}, score = 0,
@@ -58,6 +58,7 @@ function Run.startBlind(run)
   run.discardsLeft = boss and boss.discards or deck.discards
   run.score = 0
   run.target = Run.target(run.stage, run.blind, bossId)
+  Run.checkHand(run)
 end
 
 local function validSelection(run, idx)
@@ -106,6 +107,14 @@ local function refill(run)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
 end
 
+-- Never leaves the player with nothing to do. An empty hand refills from the
+-- pile; if there is still nothing to play the blind is lost (unless already won).
+function Run.checkHand(run)
+  if run.phase ~= "play" then return end
+  if #run.hand == 0 then refill(run) end
+  if #run.hand == 0 and run.score < run.target then run.phase = "lost" end
+end
+
 function Run.play(run, idx)
   local ok, reason = Run.canPlay(run, idx)
   if not ok then return nil, reason end
@@ -137,23 +146,34 @@ function Run.play(run, idx)
     Run.winBlind(run)
   elseif run.handsLeft == 0 then
     run.phase = "lost"
+  else
+    Run.checkHand(run)
   end
   return result
 end
 
+-- Returns { created = { items } }: Scrolls the discarded Purple seals made.
 function Run.discard(run, idx)
   local ok, reason = Run.canDiscard(run, idx)
   if not ok then return nil, reason end
   run.discardsLeft = run.discardsLeft - 1
+  local outcome = { created = {} }
   if ns.Consumables then
+    local boss = ns.Bosses.def[Run.bossId(run) or ""]
     for _, index in ipairs(idx) do
-      if run.hand[index].seal == "PURPLE" and #run.consumables < run.maxConsumables then
-        ns.Consumables.add(run, ns.Consumables.random(run, "scroll"))
+      local card = run.hand[index]
+      local debuffed = boss and boss.debuff and boss.debuff(card)
+      if card.seal == "PURPLE" and not debuffed and #run.consumables < run.maxConsumables then
+        local item = ns.Consumables.random(run, "scroll")
+        ns.Consumables.add(run, item)
+        outcome.created[#outcome.created + 1] = item
       end
     end
   end
   removeSelected(run, idx)
   refill(run)
+  Run.checkHand(run)
+  return outcome
 end
 
 function Run.winBlind(run)
@@ -176,6 +196,7 @@ function Run.winBlind(run)
       if card.seal == "BLUE" and run.lastHandId and ns.Consumables
         and #run.consumables < run.maxConsumables then
         ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
+        payout.created = (payout.created or 0) + 1
       end
     end
   end

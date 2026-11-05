@@ -60,8 +60,12 @@ end
 -- Rolls an edition like Summoning does, then appends the trinket.
 local function addTrinket(api, id)
   local trinkets = api.trinkets()
-  trinkets[#trinkets + 1] = { id = id, ed = ns.CardTypes.rollEdition(api.rng, true) }
+  local trinket = { id = id, ed = ns.CardTypes.rollEdition(api.rng, true) }
+  trinkets[#trinkets + 1] = trinket
+  api.touch(trinket)
 end
+
+local function voidPenalty(run) return run.voidPenalty or 1 end
 
 local function handCheck(n)
   return function(run)
@@ -148,6 +152,10 @@ local def = {
     name = "Relic of Radiance",
     desc = "Add Foil, Holo or Polychrome to 1 selected card.",
     select = { min = 1, max = 1 },
+    checkCards = function(_, cards)
+      if cards[1].ed then return false, "Card already has an edition" end
+      return true
+    end,
     use = function(_, cards, api)
       cards[1].ed = ns.CardTypes.rollAura(api.rng)
       api.changed(cards[1])
@@ -185,27 +193,34 @@ local def = {
         card.rank = rank
         api.changed(card)
       end)
-      run.handSizeMod = run.handSizeMod - 1
+      api.handSize(-1)
     end,
   },
   VOID = {
     name = "Relic of the Void",
-    desc = "A random trinket becomes Negative; -1 hand size.",
+    desc = "A random trinket becomes Negative; -1 hand size (grows by 1 each use).",
+    descFor = function(run)
+      return "A random trinket becomes Negative; -" .. voidPenalty(run)
+        .. " hand size (the penalty grows by 1 each use)."
+    end,
     untargeted = true, check = trinketCheck(unedited, EDITIONLESS_REASON),
     use = function(run, _, api)
-      ns.RNG.pick(api.rng, unedited(api.trinkets())).ed = "NEGATIVE"
-      run.handSizeMod = run.handSizeMod - 1
+      local chosen = ns.RNG.pick(api.rng, unedited(api.trinkets()))
+      chosen.ed = "NEGATIVE"
+      api.touch(chosen)
+      api.handSize(-voidPenalty(run))
+      run.voidPenalty = voidPenalty(run) + 1
     end,
   },
   FLAME = {
     name = "Relic of Flame",
-    desc = "Destroy 5 random cards in hand; gain $20.",
-    untargeted = true, check = handCheck(5),
+    desc = "Destroy up to 5 random cards in hand; gain $20.",
+    untargeted = true, check = handCheck(1),
     use = function(run, _, api)
       local pool = {}
       for i, card in ipairs(ns.Consumables.targetCards(run)) do pool[i] = card end
       ns.RNG.shuffle(api.rng, pool)
-      for i = 1, 5 do api.destroy(pool[i]) end
+      for i = 1, math.min(5, #pool) do api.destroy(pool[i]) end
       api.gold(20)
     end,
   },
@@ -221,6 +236,7 @@ local def = {
         if trinkets[i] ~= chosen then table.remove(trinkets, i) end
       end
       trinkets[#trinkets + 1] = copy
+      api.touch(copy)
     end,
   },
   RECURRENCE = {
@@ -236,6 +252,7 @@ local def = {
       local trinkets = api.trinkets()
       local chosen = ns.RNG.pick(api.rng, unedited(trinkets))
       chosen.ed = "POLY"
+      api.touch(chosen)
       for i = #trinkets, 1, -1 do
         if trinkets[i] ~= chosen then table.remove(trinkets, i) end
       end
@@ -273,12 +290,10 @@ local def = {
   },
   COSMOS = {
     name = "Relic of the Cosmos",
-    desc = "Level up every hand type once.",
+    desc = "Levels up every hand type.",
     untargeted = true,
-    use = function(run)
-      for _, id in ipairs(ns.Hands.visible(run)) do
-        run.handLevels[id] = run.handLevels[id] + 1
-      end
+    use = function(_, _, api)
+      for _, id in ipairs(ns.Hands.order) do api.level(id) end -- secret hands too; they stay hidden
     end,
   },
 }
@@ -297,8 +312,8 @@ local AFFECTS = {
   LICH = "Creates a rare trinket - sets gold to $0",
   UNITY = "All cards in hand -> one random suit",
   WHISPERS = "All cards in hand -> one rank; -1 hand size",
-  VOID = "1 random trinket -> Negative; -1 hand size",
-  FLAME = "Destroys 5 random cards in hand; gives $20",
+  VOID = "1 random trinket -> Negative; -1 hand size (grows each use)",
+  FLAME = "Destroys up to 5 random cards in hand; gives $20",
   REBIRTH = "Copies 1 random trinket, destroys the other trinkets",
   RECURRENCE = "1 selected card gains a Red seal",
   HEXES = "1 random trinket -> Polychrome; destroys the other trinkets",
@@ -306,7 +321,13 @@ local AFFECTS = {
   SPIRITS = "1 selected card gains a Purple seal",
   MIRRORS = "Adds 2 copies of 1 selected card to the deck",
   LEGENDS = "Creates the rarest trinket available",
-  COSMOS = "Levels up every visible hand type",
+  COSMOS = "Levels up every hand type",
+}
+
+local AFFECTS_FOR = {
+  VOID = function(run)
+    return "1 random trinket -> Negative; -" .. voidPenalty(run) .. " hand size"
+  end,
 }
 
 Relics.def = def
@@ -314,6 +335,7 @@ for i, id in ipairs(Relics.order) do
   local d = def[id]
   d.id = id
   d.affects = AFFECTS[id]
+  d.affectsFor = AFFECTS_FOR[id]
   d.icon = ICON .. ((i - 1) % 6 + 1)
   d.untargeted = d.untargeted or false
   d.creates = false

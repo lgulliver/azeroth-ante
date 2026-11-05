@@ -62,7 +62,7 @@ function Deck.handSize(run)
   for _, card in ipairs(run.deck) do
     if card.ed == "NEGATIVE" then size = size + 1 end
   end
-  return size
+  return math.max(1, size)
 end
 
 ns.Deck = Deck
