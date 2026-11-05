@@ -52,6 +52,17 @@ luajit tests/syntax.lua
 python3 tests/test_media.py
 ```
 
+## Balance simulator
+
+A greedy bot plays whole runs headless and reports the win rate:
+
+```sh
+luajit tools/sim/sim.lua [runs=200] [deckId=ROGUE] [seed=1]
+```
+
+It prints wins, where runs ended, and mean final gold. The target curve in
+`Core/Run.lua` is tuned so ROGUE at 200 runs and seed 1 wins 10-25%.
+
 ## In-game test checklist
 
 Run these checks in Retail and Forever:
