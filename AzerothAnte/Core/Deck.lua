@@ -1,0 +1,65 @@
+local _, ns = ...
+
+local Deck = {}
+
+function Deck.new()
+  local deck = {}
+  for si, suit in ipairs(ns.Cards.SUITS) do
+    for rank = 2, 14 do
+      deck[#deck + 1] = { rank = rank, suit = suit, id = (si - 1) * 13 + (rank - 1) }
+    end
+  end
+  return deck
+end
+
+function Deck.add(run, card)
+  card.id = run.nextCardId
+  run.nextCardId = run.nextCardId + 1
+  run.deck[#run.deck + 1] = card
+  return card
+end
+
+function Deck.copy(run, card)
+  return Deck.add(run, {
+    rank = card.rank, suit = card.suit, enh = card.enh, ed = card.ed, seal = card.seal,
+  })
+end
+
+function Deck.find(run, id)
+  for _, card in ipairs(run.deck) do
+    if card.id == id then return card end
+  end
+end
+
+function Deck.destroy(run, id)
+  for _, list in ipairs({ run.deck, run.hand, run.pile }) do
+    for i = #list, 1, -1 do
+      if list[i].id == id then table.remove(list, i) end
+    end
+  end
+end
+
+function Deck.shuffledPile(run)
+  local pile = {}
+  for i, card in ipairs(run.deck) do pile[i] = card end
+  ns.RNG.shuffle(run.rng, pile)
+  return pile
+end
+
+function Deck.relink(run)
+  local byId = {}
+  for _, card in ipairs(run.deck) do byId[card.id] = card end
+  for _, list in ipairs({ run.hand, run.pile }) do
+    for i, card in ipairs(list) do list[i] = byId[card.id] end
+  end
+end
+
+function Deck.handSize(run)
+  local size = run.baseHandSize + run.handSizeMod
+  for _, card in ipairs(run.deck) do
+    if card.ed == "NEGATIVE" then size = size + 1 end
+  end
+  return size
+end
+
+ns.Deck = Deck
