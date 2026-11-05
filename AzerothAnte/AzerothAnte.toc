@@ -12,3 +12,4 @@ Data\Trinkets.lua
 Data\Bosses.lua
 Data\Decks.lua
 Core\Scoring.lua
+Core\Run.lua
