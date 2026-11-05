@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Save = {}
 
-Save.VERSION = 1
+Save.VERSION = 2
 
 local function deepCopy(value)
   if type(value) ~= "table" then return value end
@@ -20,7 +20,9 @@ function Save.load(db)
   if not db or db.version ~= Save.VERSION then return nil end
   local run = db.run
   if type(run) ~= "table" or type(run.phase) ~= "string" then return nil end
-  return deepCopy(run)
+  run = deepCopy(run)
+  ns.Deck.relink(run)
+  return run
 end
 
 function Save.clear(db)

@@ -10,16 +10,6 @@ Cards.SUIT_NAMES = { S = "Spades", H = "Hearts", C = "Clubs", D = "Diamonds" }
 local SUIT_ORDER = { S = 1, H = 2, C = 3, D = 4 }
 local LABELS = { [11] = "J", [12] = "Q", [13] = "K", [14] = "A" }
 
-function Cards.newDeck()
-  return ns.Deck.new()
-end
-
-function Cards.shuffledDeck(r)
-  local deck = Cards.newDeck()
-  ns.RNG.shuffle(r, deck)
-  return deck
-end
-
 -- Moves up to n cards from the end of pile into hand. Returns the number drawn.
 function Cards.draw(pile, hand, n)
   local drawn = 0

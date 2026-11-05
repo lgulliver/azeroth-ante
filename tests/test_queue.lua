@@ -68,12 +68,15 @@ end
 T.test("bootstrap_filters_load_creates_before_restore_and_unregisters", function()
   local h = harness("AzerothAnte.lua")
   T.eq(#h.frames, 1)
-  h.env.AzerothAnteDB = { version = 1, run = { phase = "play", score = 42 } }
+  local run = ns.Run.new(7, "ADVENTURER")
+  ns.Run.startBlind(run)
+  run.score = 42
+  h.env.AzerothAnteDB = { version = ns.Save.VERSION, run = run }
   h:fire("ADDON_LOADED", "OtherAddon")
   T.eq(h.calls, {})
   h:fire("ADDON_LOADED", "AzerothAnte")
   T.eq(h.calls, { "create", "setrun" })
-  T.eq(h.run, { phase = "play", score = 42 })
+  T.eq(h.run, run)
   T.ok(h.run ~= h.env.AzerothAnteDB.run)
   h:fire("ADDON_LOADED", "AzerothAnte")
   T.eq(h.calls, { "create", "setrun" })
@@ -90,7 +93,10 @@ T.test("bootstrap_empty_db_slash_in_combat_and_logout_hook", function()
   h.env.SlashCmdList.AZEROTHANTE()
   T.eq(h.calls, { "toggle" })
   -- Match Screens.lua's OnRunChanged: store Main.run through the real Save module.
-  h.ns.UI.Main.SetRun({ phase = "play", score = 42, hand = { { rank = 7, suit = "H" } } })
+  local run = ns.Run.new(7, "ADVENTURER")
+  ns.Run.startBlind(run)
+  run.score = 42
+  h.ns.UI.Main.SetRun(run)
   h:clear()
   h:fire("PLAYER_LOGOUT")
   T.eq(h.calls, { "save" })

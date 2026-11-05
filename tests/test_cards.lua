@@ -5,7 +5,7 @@ local function card(rank, suit)
 end
 
 T.test("new_deck_52_unique", function()
-  local deck = ns.Cards.newDeck()
+  local deck = ns.Deck.new()
   T.eq(#deck, 52)
   local ids, perSuit = {}, {}
   for _, c in ipairs(deck) do
