@@ -115,8 +115,10 @@ function PackView.HandFrame()
 end
 
 -- The pack hand widget showing this card id (valid until the next layout, even
--- for a card just destroyed), or nil.
+-- for a card just destroyed), or nil. Always nil when the overlay is not shown,
+-- so the play hand's widgets resolve normally.
 function PackView.WidgetForCard(id)
+  if not shown then return nil end
   for card, w in pairs(handOf) do
     if card.id == id and not w.released then return w end
   end
@@ -247,6 +249,7 @@ refreshState = function()
   else
     frame.skip:SetPoint("BOTTOM", frame, "BOTTOM", 70, 14)
   end
+  frame.skip:SetText((live > 0 and pack.picksLeft > 0) and ("Skip (" .. pack.picksLeft .. " left)") or "Skip")
   setButton(frame.pick, ok, reason)
   setButton(frame.skip, not busy and not handBusy(), "Resolving...")
   frame.handNote:SetShown(pack.hand ~= nil and #pack.hand == 0)
@@ -348,13 +351,13 @@ local function releaseEntry(c)
   local entry = entries[c]
   if not entry then return end
   entries[c] = nil
+  Tween.Cancel(entry.face)
   if entry.widget then
     entry.widget.pvHover = nil
     CardWidget.Release(entry.widget)
   else
     Tween.Cancel(entry.frame)
     Tween.Cancel(entry.frame.body)
-    Tween.Cancel(entry.face)
     ns.UI.EditionFX.Detach(entry.face.iconBox)
     entry.face:SetScale(1)
     entry.face:SetAlpha(1)
@@ -372,6 +375,9 @@ local function buildEntry(c, item, pack)
     w:SetBaseLevel(frame:GetFrameLevel() + 4)
     hookHover(w, c)
     entry.frame, entry.widget, entry.face = w, w, w.face
+    Tween.Cancel(w.face)
+    w.face:SetScale(1)
+    w.face:SetAlpha(1)
   else
     local b = buttons[c] or makeButton(c)
     b:SetFrameLevel(frame:GetFrameLevel() + 3)
@@ -379,6 +385,9 @@ local function buildEntry(c, item, pack)
     b.body:ClearAllPoints()
     b.body:SetPoint("BOTTOM", b, "BOTTOM", 0, 0)
     b.face:SetFrameLevel(b.body:GetFrameLevel() + 1)
+    Tween.Cancel(b.face)
+    b.face:SetScale(1)
+    b.face:SetAlpha(1)
     Screens.SkinFace(b.face, Screens.ItemInfo(item))
     b:Show()
     entry.frame, entry.face = b, b.face
@@ -553,8 +562,11 @@ local function doPick()
   local function finish()
     busy = false
     GameTooltip:Hide()
+    -- The overlay stayed up for the animations (Hide waits while busy). Now it
+    -- compacts the remaining choices, or closes if the pack is done, then the screens render.
+    PackView.Show(main().run)
     if main().run == run then
-      PackView.Show(run) -- compacts the remaining choices, or closes when none are left
+      main().Render(run, true)
       refreshState()
     end
   end
@@ -660,6 +672,7 @@ end
 
 function PackView.Hide()
   if not frame then return end
+  if busy and shown then return end -- a pick is animating: its finish closes the overlay
   if shown then
     Tween.Cancel(frame)
     resetAll()

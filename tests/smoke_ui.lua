@@ -797,6 +797,111 @@ local function run(w)
   end
   step("4b shop v2: item cards, packs, pack screen, reload, skip")
 
+  -- 4c. The LAST pick of a pack still animates; pooled faces come back clean; a
+  -- reloaded pack applies its Scroll to the real deck cards.
+  do
+    local r = Main.run
+    r.gold = 200
+    r.consumables = {}
+    local sp = panel("offerCards")
+    local pv = panel("packChoices")
+    local function packHand(view)
+      local out = {}
+      for _, c in ipairs(view.hand._children) do
+        if c.card and not c.released and c:IsShown() then out[#out + 1] = c end
+      end
+      table.sort(out, function(a, b) return a._points[1][4] < b._points[1][4] end)
+      return out
+    end
+    local function openPack(def)
+      r.shop.packs[1] = def
+      Main.Render(r)
+      click(sp.packOffers[1].buy, "Open " .. def.type)
+      stub.advance(1)
+      return r.shop.openPack
+    end
+
+    -- Normal Arcana (1 pick): Fury on 2 pack-hand cards, as the last pick.
+    local pack = openPack({ type = "ARCANA", size = "normal", cost = 4 })
+    pack.choices[1] = { kind = "scroll", id = "FURY" }
+    Main.Render(r)
+    stub.advance(1)
+    click(pv.packChoices[1].frame, "Fury choice (last pick)")
+    local a, b = packHand(pv)[1], packHand(pv)[2]
+    a.card.enh, b.card.enh = nil, nil
+    click(a, "card A")
+    click(b, "card B")
+    local ca, cb = a.card, b.card
+    click(pv.pick, "Pick Fury (last pick)")
+    check(r.shop.openPack == nil, "the last pick closed the pack in the run")
+    check(pv:IsVisible(), "the overlay stays up while the last pick animates")
+    stub.advance(0.15)
+    check(a.face:GetWidth() < 80 and not a.released, "the last pick's flip ran on the pack card")
+    stub.advance(2)
+    eq(ca.enh, "MULT", "last-pick Fury changed card A")
+    eq(cb.enh, "MULT", "last-pick Fury changed card B")
+    check(not pv:IsVisible(), "the overlay closes after the animation")
+    check(not HandView.IsBusy() and not ns.UI.PackView.IsBusy(), "unlocked after the last pick")
+
+    -- A Standard card as the last pick: the float is visible.
+    pack = openPack({ type = "STANDARD", size = "normal", cost = 4 })
+    pack.choices[1] = { rank = 9, suit = "S" }
+    Main.Render(r)
+    stub.advance(1)
+    click(pv.packChoices[1].widget, "Standard card (last pick)")
+    click(pv.pick, "Pick the card (last pick)")
+    stub.advance(0.1)
+    check(stub.findText("Added to deck"), "Added to deck floats on the last pick")
+    stub.advance(2)
+    check(not pv:IsVisible(), "Standard overlay closed")
+
+    -- Opening more packs: every choice face is fresh (alpha 1, scale 1).
+    for _, def in ipairs({ { type = "ARCANA", size = "normal", cost = 4 }, { type = "STANDARD", size = "normal", cost = 4 } }) do
+      pack = openPack(def)
+      stub.advance(1)
+      local n = 0
+      for _, e in pairs(pv.packChoices) do
+        n = n + 1
+        eq(e.face:GetAlpha(), 1, def.type .. " choice face alpha")
+        eq(e.face:GetScale(), 1, def.type .. " choice face scale")
+      end
+      check(n > 0, "choices built")
+      click(pv.skip, "Skip " .. def.type)
+      stub.advance(1)
+    end
+
+    -- Reload mid-pack, then pick a Scroll in the reloaded world.
+    pack = openPack({ type = "ARCANA", size = "normal", cost = 4 })
+    pack.choices[1] = { kind = "scroll", id = "FURY" }
+    ns.UI.OnRunChanged()
+    local w3 = newWorld(deepCopy(env.AzerothAnteDB))
+    w3.env.SlashCmdList.AZEROTHANTE()
+    w3.stub.advance(1)
+    local pv3
+    for _, c in ipairs(w3.ns.UI.Main.content._children) do
+      if c.packChoices then pv3 = c end
+    end
+    check(pv3 and pv3:IsVisible(), "reloaded pack shows")
+    local run3 = w3.ns.UI.Main.run
+    local hand3 = packHand(pv3)
+    local c1, c2 = hand3[1].card, hand3[2].card
+    c1.enh, c2.enh = nil, nil
+    check(w3.ns.Deck.find(run3, c1.id) == c1, "reloaded pack hand shares the deck's card tables")
+    click(pv3.packChoices[1].frame, "reloaded Fury choice")
+    click(hand3[1], "reloaded card 1")
+    click(hand3[2], "reloaded card 2")
+    click(pv3.pick, "Pick in the reloaded world")
+    w3.stub.advance(2)
+    eq(w3.ns.Deck.find(run3, c1.id).enh, "MULT", "reloaded pick changed the deck card 1")
+    eq(w3.ns.Deck.find(run3, c2.id).enh, "MULT", "reloaded pick changed the deck card 2")
+    check(run3.shop.openPack == nil, "reloaded pack closed")
+    -- Back in the original world, clear the open pack.
+    click(pv.skip, "Skip the original pack")
+    stub.advance(1)
+    r.consumables = {}
+  end
+  step("4c last pick animates, faces reset, reload pick hits the deck")
+
   -- 5. Shop.
   local run = Main.run
   run.gold = 100
