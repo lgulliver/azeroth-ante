@@ -411,47 +411,25 @@ T.test("red_seal_retriggers_held_gold", function()
   T.eq(run.lastPayout.total, 13)
 end)
 
-local function withConsumables(fn)
-  local old = ns.Consumables
-  ns.Consumables = {
-    add = function(run, item)
-      T.ok(#run.consumables < run.maxConsumables, "called add without room")
-      run.consumables[#run.consumables + 1] = item
-      return true
-    end,
-    random = function(run, kind)
-      T.eq(kind, "scroll")
-      T.ok(#run.consumables < run.maxConsumables, "rolled without room")
-      return { kind = "scroll", id = "FORTUNE" }
-    end,
-  }
-  local ok, err = pcall(fn)
-  ns.Consumables = old
-  if not ok then error(err, 0) end
-end
-
 T.test("blue_seal_creates_tome", function()
-  withConsumables(function()
-    local run = playing()
-    run.lastHandId = "PAIR"
-    run.hand[1].seal, run.hand[2].seal, run.hand[3].seal = "BLUE", "BLUE", "BLUE"
-    run.consumables = { { kind = "scroll", id = "FORTUNE" } }
-    ns.Run.winBlind(run)
-    T.eq(run.consumables, { { kind = "scroll", id = "FORTUNE" }, { kind = "tome", id = "PAIR" } })
-  end)
+  local run = playing()
+  run.lastHandId = "PAIR"
+  run.hand[1].seal, run.hand[2].seal, run.hand[3].seal = "BLUE", "BLUE", "BLUE"
+  run.consumables = { { kind = "scroll", id = "FORTUNE" } }
+  ns.Run.winBlind(run)
+  T.eq(run.consumables, { { kind = "scroll", id = "FORTUNE" }, { kind = "tome", id = "PAIR" } })
 end)
 
 T.test("purple_seal_discard_creates_scroll", function()
-  withConsumables(function()
-    local run = playing()
-    run.hand[1].seal, run.hand[2].seal, run.hand[3].seal = "PURPLE", "PURPLE", "PURPLE"
-    local id = run.hand[1].id
-    ns.Run.discard(run, { 1, 2, 3 })
-    T.eq(run.consumables, { { kind = "scroll", id = "FORTUNE" }, { kind = "scroll", id = "FORTUNE" } })
-    T.eq(#run.hand, 8)
-    T.eq(#run.deck, 52)
-    T.eq(ns.Deck.find(run, id).seal, "PURPLE")
-  end)
+  local run = playing()
+  run.hand[1].seal, run.hand[2].seal, run.hand[3].seal = "PURPLE", "PURPLE", "PURPLE"
+  local id = run.hand[1].id
+  ns.Run.discard(run, { 1, 2, 3 })
+  T.eq(#run.consumables, 2) -- Two slots, three Purple seals.
+  for _, item in ipairs(run.consumables) do T.eq(item.kind, "scroll") end
+  T.eq(#run.hand, 8)
+  T.eq(#run.deck, 52)
+  T.eq(ns.Deck.find(run, id).seal, "PURPLE")
 end)
 
 T.test("seals_work_without_consumables_module", function()
@@ -517,16 +495,14 @@ T.test("negative_trinkets_add_slots", function()
 end)
 
 T.test("winning_play_uses_final_held_cards", function()
-  withConsumables(function()
-    local run = playing()
-    run.target = 1
-    run.hand[1].enh = "GOLD" -- Played cards do not pay held effects.
-    run.hand[2].enh, run.hand[2].seal = "GOLD", "BLUE"
-    run.pile[#run.pile].enh, run.pile[#run.pile].seal = "GOLD", "BLUE"
-    local pileCount = #run.pile
-    ns.Run.play(run, { 1 })
-    T.eq(run.lastPayout.held, 3)
-    T.eq(run.consumables, { { kind = "tome", id = "HIGH_CARD" } })
-    T.eq(#run.pile, pileCount)
-  end)
+  local run = playing()
+  run.target = 1
+  run.hand[1].enh = "GOLD" -- Played cards do not pay held effects.
+  run.hand[2].enh, run.hand[2].seal = "GOLD", "BLUE"
+  run.pile[#run.pile].enh, run.pile[#run.pile].seal = "GOLD", "BLUE"
+  local pileCount = #run.pile
+  ns.Run.play(run, { 1 })
+  T.eq(run.lastPayout.held, 3)
+  T.eq(run.consumables, { { kind = "tome", id = "HIGH_CARD" } })
+  T.eq(#run.pile, pileCount)
 end)
