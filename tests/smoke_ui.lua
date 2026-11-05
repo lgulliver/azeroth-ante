@@ -1122,12 +1122,21 @@ local function run(w)
   check(visible("tiles"), "abandon returns to the new-run screen")
   step("9c abandon run")
 
+  local SMOKE_SEED = tonumber(os.getenv("SMOKE_SEED")) or 424242
   -- 10. The balance bot plays a scripted run through the UI: it decides, we click.
   do
-    local PackView, DeckView = ns.UI.PackView, ns.UI.DeckView -- the world was swapped at step 6
+    -- The world was swapped at step 6, so re-fetch everything from the live ns.
+    local Main, HandView, Tally = ns.UI.Main, ns.UI.HandView, ns.UI.Tally
+    local PackView, DeckView = ns.UI.PackView, ns.UI.DeckView
     local bot = dofile("tools/sim/bot.lua")(ns)
     local started = os.clock()
-    local used = { consumables = 0, picks = 0, packs = 0, deck = 0, saves = 0 }
+    local used = { consumables = 0, picks = 0, packs = 0, deck = 0, checked = 0 }
+    -- Real saves, counted through a wrapper (Screens saves via ns.Save.store).
+    local storeCalls, realStore = 0, ns.Save.store
+    ns.Save.store = function(...)
+      storeCalls = storeCalls + 1
+      return realStore(...)
+    end
     local played = {}
 
     local function busy()
@@ -1143,7 +1152,7 @@ local function run(w)
       stub.advance(extra or 0.5) -- dealing is not "busy", so deals pass a longer wait
       check(not busy(), what .. ": stuck busy")
       check(env.AzerothAnteDB.run ~= nil and deepEq(env.AzerothAnteDB.run, Main.run), what .. ": save is out of date")
-      used.saves = used.saves + 1
+      used.checked = used.checked + 1
     end
 
     local function widgetOf(parent, card)
@@ -1160,11 +1169,12 @@ local function run(w)
     end
 
     -- Uses every consumable the bot wants to use: select, open the slot, click Use.
-    local function useConsumables(cards, what)
+    local function useConsumables(inPlay, what)
       local slot = 1
       while slot <= #Main.run.consumables do
         local r = Main.run
         local item = r.consumables[slot]
+        local cards = inPlay and r.hand or nil -- re-read: the hand changes between uses
         local idx = bot.usePlan(r, slot, cards)
         local done = false
         if idx then
@@ -1211,6 +1221,8 @@ local function run(w)
 
     local function shopPhase(first)
       local r = Main.run
+      -- Deliberate test bypass: seed the first shop's offers (and gold) so a pack,
+      -- a Scroll and a trinket are always there to click, whatever the RNG dealt.
       if first then -- make sure the first shop has something of everything to click
         r.gold = 100
         r.shop.cards = {
@@ -1270,11 +1282,19 @@ local function run(w)
       settle("next blind")
     end
 
+    local beaten = 0
+    local function beatenSoFar() return beaten end
     local function playBlind()
       local r = Main.run
       click(panel("preview").start, "Start Blind")
       settle("start blind", 3)
       eq(Main.run.phase, "play", "phase after Start Blind")
+      if beatenSoFar() == 0 then
+        -- Deliberate test bypass: the first blind must be winnable whatever the deal,
+        -- so the later steps (shop, packs, consumables) are always reached.
+        Main.run.target = 100
+        ns.UI.OnRunChanged()
+      end
       if used.deck == 0 then -- the deck view, opened and closed by clicks
         click(Main.sidebar.deckButton, "Deck button")
         stub.advance(0.3)
@@ -1283,7 +1303,7 @@ local function run(w)
         check(not DeckView.IsShown(), "deck view closes")
         used.deck = used.deck + 1
       end
-      useConsumables(Main.run.hand, "blind")
+      useConsumables(true, "blind")
       while Main.run.phase == "play" do
         r = Main.run
         HandView.ClearSelection()
@@ -1309,9 +1329,11 @@ local function run(w)
       end
     end
 
-    click(panel("tiles").tiles[2], "deck tile 2") -- a deck the bot gets through six blinds with
+    -- Pin the seed so the whole run is reproducible.
+    local realNew = ns.Run.new
+    ns.Run.new = function(_, deckId) return realNew(SMOKE_SEED, deckId) end
+    click(panel("tiles").tiles[1], "deck tile 1")
     stub.advance(1)
-    local beaten = 0
     while beaten < 6 and Main.run.phase ~= "lost" and Main.run.phase ~= "won" do
       playBlind()
       if Main.run.phase == "shop" then
@@ -1323,11 +1345,13 @@ local function run(w)
     check(used.consumables >= 1, "a consumable was used through the UI")
     check(used.packs >= 1 and used.picks >= 1, "a pack was opened and picked from")
     check(used.deck >= 1, "the deck view was used")
-    check(used.saves > 10, "the run saved after actions")
+    check(used.checked > 10 and storeCalls >= used.checked, "the run saved after every checked action")
+    ns.Save.store = realStore
+    ns.Run.new = realNew
     local elapsed = os.clock() - started
     check(elapsed < 60, "bot-driven run took " .. elapsed .. "s")
-    print(("    bot run: %d blinds beaten, ended %s, %d consumables, %d packs, %d picks, %d saves, %.1fs"):format(
-      beaten, Main.run.phase, used.consumables, used.packs, used.picks, used.saves, elapsed))
+    print(("    bot run: %d blinds beaten, ended %s, %d consumables, %d packs, %d picks, %d actions checked, %d saves, %.1fs"):format(
+      beaten, Main.run.phase, used.consumables, used.packs, used.picks, used.checked, storeCalls, elapsed))
   end
   step("10 bot drives a full run through the UI")
 
