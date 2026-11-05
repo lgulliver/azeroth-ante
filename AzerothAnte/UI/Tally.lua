@@ -3,6 +3,7 @@ local _, ns = ...
 local Theme = ns.UI.Theme
 local Tween = ns.UI.Tween
 local HandView = ns.UI.HandView
+local Sidebar = ns.UI.Sidebar
 local Tally = {}
 
 local STEP = 0.28            -- seconds between events
@@ -10,6 +11,7 @@ local COUNT_TIME = 0.5       -- score count-up
 local HOLD = 0.3             -- beat after the total lands
 local FLOAT_RISE, FLOAT_TIME = 30, 0.6
 local FAST = 4
+local SLIDE, SLIDE_TIME = 160, 0.25
 local WATCHDOG = 15          -- real seconds; force-finish a stuck tally
 local GREY = { 0.7, 0.7, 0.7 }
 local SHAKE = { 4, -4, 4, -4, 4, 0 }
@@ -105,6 +107,7 @@ end
 
 local function fire(e)
   local s = state
+  if not s or HandView.run ~= s.run then return end
   if e.kind == "base" then
     local hand = ns.Hands.def[e.handId]
     showRun(e, hand and hand.name)
@@ -125,15 +128,15 @@ local function fire(e)
     if e.index and s.widgets[e.index] then s.widgets[e.index]:Pop() end
     local lift = 0
     if e.chips and e.chips ~= 0 then
-      floatText(slot, (e.chips > 0 and "+" or "") .. e.chips, Theme.chips, lift)
+      floatText(slot, (e.chips > 0 and "+" or "") .. Sidebar.round2(e.chips), Theme.chips, lift)
       lift = lift + 16
     end
     if e.mult and e.mult ~= 0 then
-      floatText(slot, (e.mult > 0 and "+" or "") .. e.mult, Theme.mult, lift)
+      floatText(slot, (e.mult > 0 and "+" or "") .. Sidebar.round2(e.mult), Theme.mult, lift)
       lift = lift + 16
     end
     if e.xmult and e.xmult ~= 1 then
-      floatText(slot, "\195\151" .. e.xmult, Theme.mult, lift)
+      floatText(slot, "\195\151" .. Sidebar.round2(e.xmult), Theme.mult, lift)
     end
     showRun(e)
   elseif e.kind == "total" then
@@ -149,23 +152,54 @@ local function stop()
   if overlay then overlay:Hide() end
 end
 
-local function finish()
+-- Ends the tally exactly once and calls done().
+local function complete(s)
+  if s.completed then return end
+  s.completed = true
+  if state == s then state = nil end
+  stop()
+  s.done()
+end
+
+-- Normal end slides the played cards away, then completes. `instant` (hide,
+-- watchdog, superseded) completes at once.
+local function finish(instant)
   local s = state
   if not s then return end
-  state = nil
+  if s.sliding then
+    if instant then complete(s) end
+    return
+  end
   stop()
   if HandView.run == s.run then
-    ns.UI.Sidebar.SetScore(s.run.score)
-    ns.UI.Sidebar.SetChipsMult(s.result.chips, s.result.mult)
+    pcall(Sidebar.SetScore, s.run.score)
+    pcall(Sidebar.SetChipsMult, s.result.chips, s.result.mult)
   end
-  s.done()
+  local ws = s.widgets
+  if instant or #ws == 0 then return complete(s) end
+  s.sliding = true
+  local pending = #ws
+  local function slid()
+    pending = pending - 1
+    if pending == 0 then complete(s) end
+  end
+  for k, w in ipairs(ws) do
+    Tween.To(w, { x = (w.lx or 0) + SLIDE, y = w.ly or 0, alpha = 0 }, SLIDE_TIME, slid, (k - 1) * 0.02, slid)
+  end
+end
+
+-- The run was replaced mid-tally: drop everything without calling done.
+local function abandon()
+  state = nil
+  stop()
 end
 
 local function onUpdate(_, dt)
   local s = state
   if not s then return stop() end
+  if HandView.run ~= s.run then return abandon() end
   s.real = s.real + dt
-  if s.real >= WATCHDOG then return finish() end
+  if s.real >= WATCHDOG then return finish(true) end
   dt = dt * s.speed
   s.clock = s.clock + dt
 
@@ -207,38 +241,43 @@ local function hookHide()
   if hooked then return end
   hooked = true
   main().frame:HookScript("OnHide", function()
-    if state then finish() end
+    if state then finish(true) end
   end)
 end
 
 -- HandView.OnPlayed hook. Calls done() exactly once.
 function Tally.Play(result, playedWidgets, done)
-  if state then finish() end -- never leave an earlier tally's done() uncalled
+  if state then finish(true) end -- never leave an earlier tally's done() uncalled
   local run = HandView.run
   local m = main()
-  if not run or not m or not m.frame or not result or not result.events then
+  if not run or not m or not m.frame or not m.frame:IsShown() or not result or not result.events then
     return done()
   end
   hookHide()
+  local overlayBtn = getOverlay() -- build before state exists
 
-  local steps, at = {}, 0
+  local list = {}
   for _, e in ipairs(result.events) do
-    if not (e.kind == "trinket" and isNoop(e)) then
-      steps[#steps + 1] = { at = at, event = e }
-      at = at + STEP
-    end
+    if not (e.kind == "trinket" and isNoop(e)) then list[#list + 1] = e end
+  end
+  -- Long tallies stay brisk (about 6s at most at 1x).
+  local step = math.max(0.12, math.min(STEP, 6 / math.max(1, #list)))
+  local steps, at = {}, 0
+  for i, e in ipairs(list) do
+    steps[i] = { at = at, event = e }
+    at = at + step
   end
   -- The total step starts the count-up; the last step is `total`.
   local from = (run.score or 0) - (result.total or 0)
   state = {
     run = run, result = result, widgets = playedWidgets or {}, done = done,
     steps = steps, next = 1, clock = 0, real = 0, speed = 1,
-    from = from, endAt = (at - STEP) + COUNT_TIME + HOLD,
+    from = from, endAt = (at - step) + COUNT_TIME + HOLD,
   }
   if #steps == 0 then state.endAt = HOLD end
 
   ns.UI.Sidebar.SetScore(from)
-  getOverlay():Show()
+  overlayBtn:Show()
   driver:SetScript("OnUpdate", onUpdate)
 end
 

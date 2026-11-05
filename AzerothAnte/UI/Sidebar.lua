@@ -109,6 +109,12 @@ function Sidebar.Update(run, chips, mult)
   frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8 - Blind " .. tostring(run.blind or 1) .. " / 3")
 end
 
+local function round2(n)
+  n = tonumber(n) or 0
+  return math.floor(n * 100 + 0.5) / 100
+end
+Sidebar.round2 = round2
+
 -- Fine-grained setters for the score tally (no run needed).
 function Sidebar.SetScore(n)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
@@ -118,8 +124,8 @@ end
 function Sidebar.SetChipsMult(chips, mult, handName)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
   if not frame or not frame.chipsBox then return end
-  frame.chipsBox.text:SetText(tostring(chips or 0))
-  frame.multBox.text:SetText(tostring(mult or 0))
+  frame.chipsBox.text:SetText(tostring(round2(chips)))
+  frame.multBox.text:SetText(tostring(round2(mult)))
   if handName then frame.handName:SetText(handName) end
 end
 
