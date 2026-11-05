@@ -19,17 +19,17 @@ Bosses.def = {
   VANCLEEF = {
     id = "VANCLEEF", name = "Edwin VanCleef", targetMult = 2,
     desc = "Spades are debuffed.",
-    debuff = function(card) return card.suit == "S" end,
+    debuff = function(card) return ns.Cards.hasSuit(card, "S") end,
   },
   ARUGAL = {
     id = "ARUGAL", name = "Archmage Arugal", targetMult = 2,
     desc = "Hearts are debuffed.",
-    debuff = function(card) return card.suit == "H" end,
+    debuff = function(card) return ns.Cards.hasSuit(card, "H") end,
   },
   VAELASTRASZ = {
     id = "VAELASTRASZ", name = "Vaelastrasz the Corrupt", targetMult = 2,
     desc = "Diamonds are debuffed.",
-    debuff = function(card) return card.suit == "D" end,
+    debuff = function(card) return ns.Cards.hasSuit(card, "D") end,
   },
   MUTANUS = {
     id = "MUTANUS", name = "Mutanus the Devourer", targetMult = 2,

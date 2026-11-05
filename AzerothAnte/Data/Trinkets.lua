@@ -37,7 +37,7 @@ Trinkets.def = {
     desc = "Each scoring Spade gives +3 mult.",
     icon = "Interface\\Icons\\INV_Stone_SharpeningStone_01",
     onCard = function(_, card)
-      if card.suit == "S" then return { mult = 3 } end
+      if ns.Cards.hasSuit(card, "S") then return { mult = 3 } end
     end,
   },
   HEALTHSTONE = {
@@ -45,7 +45,7 @@ Trinkets.def = {
     desc = "Each scoring Heart gives +3 mult.",
     icon = "Interface\\Icons\\INV_Stone_04",
     onCard = function(_, card)
-      if card.suit == "H" then return { mult = 3 } end
+      if ns.Cards.hasSuit(card, "H") then return { mult = 3 } end
     end,
   },
   OGRE_CUDGEL = {
@@ -53,7 +53,7 @@ Trinkets.def = {
     desc = "Each scoring Club gives +3 mult.",
     icon = "Interface\\Icons\\INV_Mace_01",
     onCard = function(_, card)
-      if card.suit == "C" then return { mult = 3 } end
+      if ns.Cards.hasSuit(card, "C") then return { mult = 3 } end
     end,
   },
   JEWELERS_KIT = {
@@ -61,7 +61,7 @@ Trinkets.def = {
     desc = "Each scoring Diamond gives +3 mult.",
     icon = "Interface\\Icons\\INV_Misc_Gem_01",
     onCard = function(_, card)
-      if card.suit == "D" then return { mult = 3 } end
+      if ns.Cards.hasSuit(card, "D") then return { mult = 3 } end
     end,
   },
   HEARTHSTONE = {
@@ -142,7 +142,7 @@ Trinkets.def = {
     id = "GOBLIN_BANK", name = "Goblin Bank", rarity = "uncommon", cost = 6,
     desc = "+1 mult for every 5 gold you hold.",
     icon = "Interface\\Icons\\INV_Misc_Coin_01",
-    onHand = function(ctx) return { mult = math.floor(ctx.gold / 5) } end,
+    onHand = function(ctx) return { mult = math.floor(((ctx.goldRef and ctx.goldRef.gold) or ctx.gold) / 5) } end,
   },
   AVENGING_WRATH = {
     id = "AVENGING_WRATH", name = "Avenging Wrath", rarity = "rare", cost = 8,
