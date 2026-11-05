@@ -316,11 +316,13 @@ function Screens.ItemInfo(item)
     end
   else
     local def = ns.Consumables.def({ kind = kind, id = item.id })
-    local hand = def.handId and ns.Hands.def[def.handId]
+    local run = main() and main().run
+    local held = { kind = kind, id = item.id }
     info.def = def
     info.name = def.name
     info.icon = def.icon or TOME_ICON
-    info.desc = def.desc or (hand and ("Raises " .. hand.name .. " by one level when used.") or "")
+    info.desc = ns.Consumables.describe(run, held)
+    if kind == "tome" then info.level = ns.Consumables.affects(run, held) end
     info.color = Theme.parchment
     info.sub = KIND_NAMES[kind]
   end
@@ -335,6 +337,7 @@ function Screens.ShowItemTip(owner, info, hint)
   GameTooltip:AddLine(info.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
   GameTooltip:AddLine(info.sub or "", info.color[1], info.color[2], info.color[3])
   GameTooltip:AddLine(info.desc, 1, 1, 1, true)
+  if info.level then GameTooltip:AddLine(info.level, Theme.gold[1], Theme.gold[2], Theme.gold[3]) end
   if info.edName then
     GameTooltip:AddLine(info.edName, Theme.gold[1], Theme.gold[2], Theme.gold[3])
     GameTooltip:AddLine(info.edDesc, 1, 1, 1, true)
@@ -810,7 +813,9 @@ function Screens.Show(name, run)
       hideAll()
       ns.UI.TrinketRow.SetSellMode(false)
       m.buttons:Show()
+      m.handArea:Show()
       current = "play"
+      ns.UI.EditionFX.Wake() -- the hand's shimmer resumes
     end
     return
   end
@@ -828,6 +833,9 @@ function Screens.Show(name, run)
   end
   hideAll()
   m.buttons:Hide()
+  -- The stale play hand sits under the panel: hidden, it neither shimmers nor takes clicks.
+  m.handArea:Hide()
+  ns.UI.EditionFX.Wake()
   p:SetAlpha(0)
   p:Show()
   Tween.To(p, { alpha = 1 }, FADE)

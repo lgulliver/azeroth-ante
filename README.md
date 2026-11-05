@@ -27,8 +27,9 @@ In each client, run:
 ```
 
 Set `## Interface` in `AzerothAnte/AzerothAnte.toc` to the returned number.
-The shipped value is `120000`. If Retail and Forever return different numbers,
-list both, separated by commas: `## Interface: 120000, 110207` (example only).
+The shipped line is `## Interface: 120100, 120105, 16001`. If your client returns a
+number that isn't listed, add it to that comma-separated list (or replace the
+list with your number).
 
 If `## Interface` doesn't match your client, enable "Load out of date AddOns"
 on the character-select AddOns screen until you set the right number.
@@ -39,12 +40,14 @@ on the character-select AddOns screen until you set the right number.
 2. Select one to five cards to play a poker hand; stronger hands score more.
 3. Score chips × multiplier, and discard unwanted cards within your limits.
 4. Spend gold in the shop on trinkets, consumables and packs to improve future hands.
-5. Beat three blinds per stage across eight stages; running out of hands loses the run.
+5. Beat three blinds per stage across eight stages. You lose when you run out of
+   hands, or when your hand and deck are both empty with the blind still unbeaten.
 
 **Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.
 
 - Scrolls change cards. Select the cards first; the popover shows what will be affected.
-- Tomes level up a poker hand.
+- Tomes level up a poker hand. Hand levels stay visible: the sidebar shows e.g.
+  "Pair Lv 3" for your selection, and a Tome's tooltip shows "Pair: Lv 2 -> 3".
 - Relics are powerful one-offs with a cost, such as adding cards or creating a trinket.
 
 **Card types** come from Scrolls and packs, and show on the card and in its tooltip.
@@ -54,7 +57,7 @@ on the character-select AddOns screen until you set the right number.
 - Seals (Gold, Red, Blue, Purple) trigger when a card is played, held or discarded.
 
 **Packs** are bought in the shop. Opening one shows a choice; pick from it, or Skip.
-Arcana packs also show a hand to aim Scrolls at. A pack left open survives `/reload`.
+Arcana and Spectral packs also show a hand to aim Scrolls at. A pack left open survives `/reload`.
 
 **Deck view**: the Deck button in the sidebar lists every card you own, with its
 types, grouped by suit. Hover a card for details.

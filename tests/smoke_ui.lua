@@ -389,6 +389,8 @@ local function run(w)
   local modBefore = runC.handSizeMod
   click(crow.slots[1], "whispers slot")
   click(popover().use, "Use Relic of Whispers")
+  stub.advance(0.1)
+  check(stub.findText("Hand size -1"), "Whispers floats the hand size change")
   stub.advance(3)
   eq(runC.handSizeMod, modBefore - 1, "Whispers lowers the hand size")
   for _, c in ipairs(runC.hand) do
@@ -396,6 +398,86 @@ local function run(w)
   end
   eq(#handWidgets(), #runC.hand, "hand widgets match the hand after Whispers")
   runC.handSizeMod = modBefore
+
+  -- Tome: the level floats over the sidebar, the used slot pulses, the preview shows the level.
+  local pairLvl = runC.handLevels.PAIR
+  giveSlot(runC, "tome", "PAIR")
+  crow.slots[1]._scripts.OnEnter(crow.slots[1])
+  local sawLevelLine = false
+  for _, line in ipairs(stub.tooltip._lines) do
+    if line == "Pair: Lv " .. pairLvl .. " -> " .. (pairLvl + 1) then sawLevelLine = true end
+  end
+  check(sawLevelLine, "Tome tooltip shows the level change")
+  crow.slots[1]._scripts.OnLeave(crow.slots[1])
+  click(crow.slots[1], "tome slot")
+  check(popover().affects:GetText() == "Pair: Lv " .. pairLvl .. " -> " .. (pairLvl + 1), "Tome popover shows the level change")
+  click(popover().use, "Use Tome of Pair")
+  stub.advance(0.05)
+  check(crow.slots[1].holder:GetScale() > 1, "the used consumable slot pulses")
+  stub.advance(0.1)
+  check(stub.findText("Pair Lv " .. (pairLvl + 1)), "the Tome's level floats over the sidebar")
+  stub.advance(3)
+  eq(runC.handLevels.PAIR, pairLvl + 1, "Tome levelled Pair")
+  runC.hand[1].rank, runC.hand[2].rank = 9, 9
+  HandView.Update(runC, false)
+  stub.advance(1)
+  selectCard(1)
+  selectCard(2)
+  eq(Main.sidebar.handName:GetText(), "Pair Lv " .. (pairLvl + 1), "the selection preview shows the hand level")
+  HandView.ClearSelection()
+  runC.handLevels.PAIR = pairLvl
+
+  -- Chance: a hit pulses the trinket slot, a miss floats Nope! over the used slot.
+  local function forceChance(hit)
+    for i = 1, 500 do
+      local seed = i * 10007919
+      local probe = { s = seed }
+      if (ns.RNG.next(probe) < 0.25) == hit then
+        runC.rng.s = seed
+        return
+      end
+    end
+    error("no seed found")
+  end
+  runC.trinkets = { { id = ns.Trinkets.order[1] } }
+  Main.Render(runC)
+  giveSlot(runC, "scroll", "CHANCE")
+  forceChance(false)
+  click(crow.slots[1], "chance slot (miss)")
+  click(popover().use, "Use Scroll of Chance (miss)")
+  stub.advance(0.1)
+  check(stub.findText("Nope!"), "a Chance miss floats Nope!")
+  stub.advance(3)
+  eq(runC.trinkets[1].ed, nil, "a Chance miss changes nothing")
+  giveSlot(runC, "scroll", "CHANCE")
+  forceChance(true)
+  click(crow.slots[1], "chance slot (hit)")
+  click(popover().use, "Use Scroll of Chance (hit)")
+  stub.advance(0.15)
+  check(Main.trinketRow.slots[1].holder:GetScale() > 1.05, "the changed trinket slot pulses")
+  stub.advance(3)
+  check(runC.trinkets[1].ed ~= nil, "a Chance hit gave the trinket an edition")
+  runC.trinkets = {}
+  Main.Render(runC)
+
+  -- A Purple-sealed discard pops its new Scroll into the slot.
+  runC.consumables = {}
+  HandView.ClearSelection()
+  runC.discardsLeft = math.max(runC.discardsLeft, 1)
+  local purple = runC.hand[1]
+  purple.seal = "PURPLE"
+  HandView.Update(runC, false)
+  stub.advance(1)
+  selectCard(1)
+  click(Main.buttons.discard, "Discard a Purple-sealed card")
+  stub.advance(0.05)
+  eq(#runC.consumables, 1, "the Purple seal made a Scroll")
+  check(crow.slots[1].holder:GetAlpha() < 1 or crow.slots[1].holder:GetScale() ~= 1, "the new Scroll pops into its slot")
+  stub.advance(3)
+  check(crow.slots[1].holder:GetAlpha() == 1 and crow.slots[1].holder:GetScale() == 1, "the popped Scroll ends fully visible")
+  purple.seal = nil
+  runC.consumables = {}
+  Main.Render(runC)
 
   -- A widget released mid-flip (cancelled tween) never leaves the board locked or the card squashed.
   giveSlot(runC, "scroll", "FURY")
@@ -550,6 +632,30 @@ local function run(w)
   end
   step("3b tally: glass shatter, red retrigger, held steel")
 
+  -- 3c. A very long tally runs to its last event: the watchdog never cuts it short.
+  do
+    local r = Main.run
+    local events = {}
+    for i = 1, 130 do
+      events[i] = { kind = "base", handId = "PAIR", runChips = i, runMult = 1 }
+    end
+    local fired, realSet = 0, ns.UI.Sidebar.SetChipsMult
+    ns.UI.Sidebar.SetChipsMult = function(chips, mult, name)
+      if name then fired = fired + 1 end -- only the tally's own steps pass a hand name
+      return realSet(chips, mult, name)
+    end
+    local doneCalled = false
+    Tally.Play({ events = events, total = 0, chips = 1, mult = 1 }, {}, function() doneCalled = true end)
+    for _ = 1, 400 do
+      stub.advance(0.1)
+      if doneCalled then break end
+    end
+    ns.UI.Sidebar.SetChipsMult = realSet
+    check(doneCalled and not Tally.IsBusy(), "the long tally completed")
+    eq(fired, 130, "every one of the 130 events fired")
+  end
+  step("3c long tally is not cut short by the watchdog")
+
   -- 4. Force a win.
   Main.run.target = 1
   selectCard(1)
@@ -557,6 +663,21 @@ local function run(w)
   stub.advance(10)
   eq(Main.run.phase, "shop", "phase after winning")
   check(visible("offerCards"), "shop screen not visible")
+  -- The stale play hand sits hidden under the shop: it must not keep the shimmer driver running.
+  do
+    local r = Main.run
+    local keep = r.trinkets
+    r.trinkets = {}
+    r.shop.cards = { { type = "scroll", id = "FURY", cost = 3 }, { type = "scroll", id = "GREED", cost = 3 } }
+    r.shop.packs = {}
+    for _, c in ipairs(r.hand) do c.ed = "FOIL" end
+    Main.Render(r)
+    stub.advance(1)
+    check(not Main.handArea:IsShown(), "the play hand is hidden on the shop screen")
+    check(not ns.UI.EditionFX.IsRunning(), "EditionFX driver idles on the shop screen")
+    for _, c in ipairs(r.deck) do c.ed = nil end
+    r.trinkets = keep
+  end
   step("4 winning hand opens the shop")
 
   -- 4b. Shop v2: item cards, packs and the pack screen.
@@ -1054,6 +1175,53 @@ local function run(w)
   check(visible("tiles"), "newrun screen after New Run")
   check(env.AzerothAnteDB.run == nil, "save cleared by New Run")
   step("8 lose path and New Run")
+
+  -- 8b. A hand and deck that run out lose the blind at once, with the board unlocked.
+  do
+    local function newBlind()
+      click(panel("tiles").tiles[1], "deck tile 1 (8b)")
+      stub.advance(1)
+      click(panel("preview").start, "Start Blind (8b)")
+      stub.advance(3)
+      eq(Main.run.phase, "play", "phase after Start Blind (8b)")
+      local r = Main.run
+      r.target = 10 ^ 9
+      r.pile = {}
+      r.hand = { r.hand[1], r.hand[2] }
+      r.deck = { r.hand[1], r.hand[2] }
+      HandView.Update(r, false)
+      stub.advance(1)
+      return r
+    end
+    -- Discarding the last cards.
+    local r = newBlind()
+    selectCard(1)
+    selectCard(2)
+    click(Main.buttons.discard, "Discard the last two cards")
+    stub.advance(5)
+    eq(r.phase, "lost", "an empty hand and deck lose the blind (discard)")
+    check(visible("head") and panel("head").head:GetText() == "Defeated", "the defeat screen shows")
+    check(not HandView.IsBusy() and not Tally.IsBusy(), "nothing stays busy after the discard loss")
+    click(panel("head").new, "New Run (8b discard)")
+    stub.advance(1)
+    -- Sacrificing the last cards.
+    r = newBlind()
+    r.consumables = {}
+    ns.Consumables.add(r, { kind = "scroll", id = "SACRIFICE" })
+    Main.Render(r)
+    selectCard(1)
+    selectCard(2)
+    click(Main.consumableRow.slots[1], "Sacrifice slot")
+    click(panel("use").use, "Use Scroll of Sacrifice")
+    stub.advance(5)
+    eq(r.phase, "lost", "an empty hand and deck lose the blind (consumable)")
+    check(visible("head") and panel("head").head:GetText() == "Defeated", "the defeat screen shows (consumable)")
+    check(not HandView.IsBusy(), "nothing stays busy after the consumable loss")
+    click(panel("head").new, "New Run (8b consumable)")
+    stub.advance(1)
+    check(visible("tiles"), "newrun screen after the 8b losses")
+  end
+  step("8b empty hand and deck lose the blind without sticking")
 
   -- 9. Hide mid-tally.
   click(panel("tiles").tiles[2], "deck tile 2")
