@@ -77,16 +77,24 @@ end
 -- Per-card animations. Each calls done exactly once, even if cancelled.
 
 -- Scale X 1 -> 0 -> 1 with the face swap at zero width (SetCard re-skins).
+-- The face clips its children while it narrows, so plates, suits, seal and
+-- ranks are cut off with the art instead of sitting full size on a sliver; at
+-- width 1 nothing shows, and the swap happens there.
 local function flip(w, delay, done)
   local half = FLIP_TIME / 2
   local face = w.face
+  local function finishFlip()
+    face:SetClipsChildren(false)
+    done()
+  end
+  face:SetClipsChildren(true)
   Tween.To(face, { width = 1 }, half, function()
     if w.card then
       w.cardKey = nil -- force the re-skin even when only a seal/edition changed
       w:SetCard(w.card)
     end
-    Tween.To(face, { width = ns.UI.CardWidget.WIDTH }, half, done, 0, done)
-  end, delay, done)
+    Tween.To(face, { width = ns.UI.CardWidget.WIDTH }, half, finishFlip, 0, finishFlip)
+  end, delay, finishFlip)
 end
 
 local function shatter(w, delay, done)

@@ -313,10 +313,21 @@ local function run(w)
   local fa, fb = runC.hand[furyIdx[1]], runC.hand[furyIdx[2]]
   click(crow.slots[1], "consumable slot 1")
   check(popover() and popover():IsVisible(), "popover opens on slot click")
+  local wa0, wb0 = widgetFor(fa), widgetFor(fb)
+  eq(wa0.art:GetTexture(), MEDIA .. "Face_Plain", "card starts with the plain face")
   click(popover().use, "popover Use (2 cards selected)")
   check(HandView.IsBusy(), "input locks during the use animation")
   check(not Main.buttons.play:IsEnabled(), "Play disabled while a consumable resolves")
+  -- Midpoint of the flip: the first card is at zero width, clipped, and already swapped;
+  -- the second (staggered) has not changed yet, so nothing ever changes in place.
+  stub.advance(0.13)
+  check(wa0.face:DoesClipChildren(), "a flipping card clips its contents")
+  check(wa0.face:GetWidth() < ns.UI.CardWidget.WIDTH / 2, "flipping card is narrowed at the midpoint")
+  eq(wa0.art:GetTexture(), MEDIA .. "Face_MULT", "face swaps at the midpoint of the flip")
+  eq(wb0.art:GetTexture(), MEDIA .. "Face_Plain", "staggered card has not swapped early")
+  check(wb0.face:DoesClipChildren(), "staggered card already clips while narrowing")
   stub.advance(3)
+  check(not wa0.face:DoesClipChildren() and not wb0.face:DoesClipChildren(), "clipping ends with the flip")
   check(not HandView.IsBusy(), "unlocked after the use animation")
   eq(fa.enh, "MULT", "first selected card became Mult")
   eq(fb.enh, "MULT", "second selected card became Mult")
@@ -353,12 +364,96 @@ local function run(w)
   -- Destroy, add and create outcomes.
   giveSlot(runC, "relic", "COURT")
   local handBefore = #runC.hand
+  local before = {}
+  for _, c in ipairs(runC.hand) do before[c] = widgetFor(c) end
   click(crow.slots[1], "relic slot")
   click(popover().use, "Use relic of the Court")
+  local doomed, doomedW
+  for c, w in pairs(before) do
+    local alive = false
+    for _, h in ipairs(runC.hand) do if h == c then alive = true end end
+    if not alive then doomed, doomedW = c, w end
+  end
+  check(doomedW ~= nil, "Court destroyed a card in hand")
+  stub.advance(0.15)
+  check(doomedW.face:GetAlpha() < 1 and doomedW.face:GetAlpha() > 0, "destroyed card fades mid-shatter")
+  check(not doomedW.released, "destroyed card is still shown while it shatters")
   stub.advance(3)
+  check(widgetFor(doomed) == nil and doomedW.card ~= doomed, "destroyed card's widget is released after the shatter")
+  check(doomedW.face:GetAlpha() == 1 and doomedW.face:GetScale() == 1, "released widget is reset for reuse")
   eq(#runC.hand, handBefore + 2, "Court destroys 1 and adds 3 cards")
   eq(#handWidgets(), handBefore + 2, "hand re-lays out with the added cards")
   check(not HandView.IsBusy(), "unlocked after destroy and add")
+  -- Whispers: every card flips to one rank, the hand size drops, and the hand relays out.
+  giveSlot(runC, "relic", "WHISPERS")
+  local modBefore = runC.handSizeMod
+  click(crow.slots[1], "whispers slot")
+  click(popover().use, "Use Relic of Whispers")
+  stub.advance(3)
+  eq(runC.handSizeMod, modBefore - 1, "Whispers lowers the hand size")
+  for _, c in ipairs(runC.hand) do
+    eq(widgetFor(c).rankTL:GetText(), ns.Cards.label(c), "every card shows its new rank")
+  end
+  eq(#handWidgets(), #runC.hand, "hand widgets match the hand after Whispers")
+  runC.handSizeMod = modBefore
+
+  -- A widget released mid-flip (cancelled tween) never leaves the board locked or the card squashed.
+  giveSlot(runC, "scroll", "FURY")
+  HandView.ClearSelection()
+  selectCard(3)
+  local cancelled = widgetFor(runC.hand[HandView.Selected()[1]])
+  click(crow.slots[1], "fury slot (cancel test)")
+  click(popover().use, "Use Fury (cancel test)")
+  stub.advance(0.05)
+  check(cancelled.face:DoesClipChildren(), "flip is under way")
+  ns.UI.CardWidget.Release(cancelled)
+  stub.advance(3)
+  check(not HandView.IsBusy(), "a cancelled flip still unlocks the hand")
+  eq(cancelled.face:GetWidth(), ns.UI.CardWidget.WIDTH, "cancelled flip restores the width")
+  check(not cancelled.face:DoesClipChildren(), "cancelled flip restores clipping")
+
+  -- An error during Use unlocks the board and reaches the error handler.
+  giveSlot(runC, "scroll", "FURY")
+  selectCard(1)
+  click(crow.slots[1], "fury slot (error test)")
+  local realUse, caught = ns.Consumables.use, nil
+  ns.Consumables.use = function() error("boom") end
+  local realHandler = env.geterrorhandler
+  env.geterrorhandler = function() return function(err) caught = err end end
+  click(popover().use, "Use Fury (forced error)")
+  ns.Consumables.use = realUse
+  env.geterrorhandler = realHandler
+  check(caught and tostring(caught):find("boom", 1, true), "a use error reaches the error handler")
+  check(not HandView.IsBusy(), "the hand is not left locked after a failed use")
+  eq(#runC.consumables, 1, "a failed use keeps the consumable")
+  stub.advance(1)
+  HandView.ClearSelection()
+
+  -- Popover closes from outside clicks, the action buttons and a phase change; hand clicks still work.
+  click(crow.slots[1], "fury slot (outside-click test)")
+  check(popover():IsVisible(), "popover open for the outside-click test")
+  local catcherF
+  for _, c in ipairs(Main.content._children) do
+    if c._scripts.OnClick and c.RegisterForClicks and not c.use and c:IsShown() and c ~= crow.slots[1] and c._points[1]
+      and c._points[1][2] == Main.content and c._level < popover():GetFrameLevel() and c._level > 500 then catcherF = c end
+  end
+  check(catcherF, "click catcher is shown under the popover")
+  eq(catcherF._points[2][2], Main.handArea, "catcher stops above the hand area while playing")
+  selectCard(4)
+  check(popover():IsVisible(), "selecting a hand card keeps the popover open")
+  catcherF:Click()
+  check(not popover():IsShown() and not catcherF:IsShown(), "outside click closes the popover")
+  click(crow.slots[1], "fury slot (button-close test)")
+  click(Main.buttons.sortRank, "Sort Rank closes the popover")
+  check(not popover():IsShown(), "Sort closes the popover")
+  click(crow.slots[1], "fury slot (hide test)")
+  Main.Hide()
+  check(not popover():IsShown(), "hiding the window closes the popover")
+  open()
+  runC.consumables = {}
+  Main.Render(runC)
+  HandView.ClearSelection()
+
   giveSlot(runC, "scroll", "STARS")
   click(crow.slots[1], "stars slot")
   click(popover().use, "Use Scroll of the Stars")
@@ -367,6 +462,18 @@ local function run(w)
   check(crow.slots[1].holder:GetAlpha() == 1 and crow.slots[2].holder:GetAlpha() == 1, "created consumables end fully visible")
   eq(crow.slots[2].art:GetTexture(), MEDIA .. "Consumable_Tome", "tome slot frame texture")
   runC.consumables = {}
+  Main.Render(runC)
+  -- Eight trinkets and five consumables never overlap.
+  runC.maxTrinkets, runC.maxConsumables = 8, 5
+  runC.trinkets = {}
+  for i = 1, 8 do runC.trinkets[i] = { id = ns.Trinkets.order[i] } end
+  Main.Render(runC)
+  local tslots = Main.trinketRow.slots
+  check(tslots[8]:IsShown() and crow.slots[5]:IsShown(), "all 13 slots are shown")
+  check(tslots[8]._points[1][4] + 44 <= Main.trinketRow:GetWidth() + 1e-6, "trinket slots fit their row")
+  check(Main.trinketRow:GetWidth() + Main.consumableRow:GetWidth() + 10 <= Main.rowsWidth + 1e-6, "trinket and consumable rows do not overlap")
+  check(tslots[2]._points[1][4] - tslots[1]._points[1][4] >= 44, "trinket slots never overlap each other")
+  runC.maxTrinkets, runC.maxConsumables, runC.trinkets = 5, 2, {}
   Main.Render(runC)
   step("2d consumable slots, popover, use animations")
 
@@ -410,7 +517,7 @@ local function run(w)
   Main.Render(run)
   check(Main.trinketRow.slots[1].holder.fx and Main.trinketRow.slots[1].holder.fx.active, "trinket edition FX attached")
   check(FX.IsRunning(), "EditionFX driver runs for a trinket edition")
-  check(#Main.trinketRow.slots == 5, "five trinket slots without a Negative trinket")
+  check(not (Main.trinketRow.slots[6] and Main.trinketRow.slots[6]:IsShown()), "five trinket slots without a Negative trinket")
   run.trinkets[1].ed = "NEGATIVE"
   Main.Render(run)
   check(Main.trinketRow.slots[6] and Main.trinketRow.slots[6]:IsShown(), "a Negative trinket adds a sixth slot")
@@ -453,14 +560,18 @@ local function run(w)
   check(bpop:IsVisible(), "popover visible over the blind screen")
   check(bpop:GetFrameLevel() > panel("preview"):GetFrameLevel(), "popover sits above the screen panel")
   click(bpop.use, "Use Greed")
+  stub.advance(0.1)
+  check(stub.findText("+10g"), "gold floats over the sidebar")
   stub.advance(2)
+  check(not stub.findText("+10g"), "the gold float fades away")
   eq(run.gold, 20, "Greed doubled the gold")
   eq(#run.consumables, 0, "Greed consumed")
   eq(Main.sidebar.gold:GetText(), "Gold: 20", "sidebar shows the doubled gold")
   ns.Consumables.add(run, { kind = "scroll", id = "FURY" })
   Main.Render(run)
   click(brow.slots[1], "slot for a targeted scroll")
-  check(not bpop.use:IsEnabled() and bpop.use.reason ~= nil, "targeted consumable cannot be used without a hand")
+  check(not bpop.use:IsEnabled(), "targeted consumable cannot be used without a hand")
+  eq(bpop.use.reason, "Use while playing a hand", "reason says to use it while playing")
   eq(bpop.sell:GetText(), "Sell (1g)", "sell button shows its price")
   click(bpop.sell, "Sell scroll")
   stub.advance(1)

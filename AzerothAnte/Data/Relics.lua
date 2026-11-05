@@ -288,10 +288,32 @@ Relics.order = {
   "FLAME", "REBIRTH", "RECURRENCE", "HEXES", "INSIGHT", "SPIRITS", "MIRRORS", "LEGENDS", "COSMOS",
 }
 
+local AFFECTS = {
+  COURT = "Destroys 1 random card in hand; adds 3 enhanced face cards",
+  ACES = "Destroys 1 random card in hand; adds 2 enhanced Aces",
+  NUMBERS = "Destroys 1 random card in hand; adds 4 enhanced numbered cards",
+  GOLD = "1 selected card gains a Gold seal",
+  RADIANCE = "1 selected card gains Foil, Holo or Polychrome",
+  LICH = "Creates a rare trinket - sets gold to $0",
+  UNITY = "All cards in hand -> one random suit",
+  WHISPERS = "All cards in hand -> one rank; -1 hand size",
+  VOID = "1 random trinket -> Negative; -1 hand size",
+  FLAME = "Destroys 5 random cards in hand; gives $20",
+  REBIRTH = "Copies 1 random trinket, destroys the other trinkets",
+  RECURRENCE = "1 selected card gains a Red seal",
+  HEXES = "1 random trinket -> Polychrome; destroys the other trinkets",
+  INSIGHT = "1 selected card gains a Blue seal",
+  SPIRITS = "1 selected card gains a Purple seal",
+  MIRRORS = "Adds 2 copies of 1 selected card to the deck",
+  LEGENDS = "Creates the rarest trinket available",
+  COSMOS = "Levels up every hand type",
+}
+
 Relics.def = def
 for i, id in ipairs(Relics.order) do
   local d = def[id]
   d.id = id
+  d.affects = AFFECTS[id]
   d.icon = ICON .. ((i - 1) % 6 + 1)
   d.untargeted = d.untargeted or false
   d.creates = false

@@ -91,7 +91,10 @@ function Main.Create()
   local close = CreateFrame("Button", nil, content, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -2)
   close:SetScript("OnClick", function() frame:Hide() end)
-  frame:SetScript("OnHide", function() GameTooltip:Hide() end)
+  frame:SetScript("OnHide", function()
+    GameTooltip:Hide()
+    ns.UI.ConsumableRow.Close()
+  end)
 
   -- Layout A, in design units.
   local m = Theme.margin
@@ -107,7 +110,8 @@ function Main.Create()
   sbBg:SetColorTexture(0, 0, 0, 0.35)
   ns.UI.Sidebar.Build(sidebar)
 
-  local consumableW = 190
+  local consumableW = 1
+  Main.rowsWidth = rightW
   local trinketRow = region(content, "trinketRow", "TOPLEFT", rightX, top, rightW - consumableW - m, 48)
   ns.UI.TrinketRow.Build(trinketRow)
   local consumableRow = region(content, "consumableRow", "TOPRIGHT", -m, top, consumableW, ns.UI.ConsumableRow.HEIGHT)
@@ -179,8 +183,8 @@ function Main.Render(run, force)
     if (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy()) then return end
   end
   ns.UI.Sidebar.Update(run, 0, 0)
+  ns.UI.ConsumableRow.Update(run) -- first: it sets the width the trinket row may use
   ns.UI.TrinketRow.Update(run)
-  ns.UI.ConsumableRow.Update(run)
   local Screens = ns.UI.Screens
   if not Screens then return end
   Screens.Track(run)
