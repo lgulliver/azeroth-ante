@@ -21,12 +21,15 @@ end
 
 function TrinketRow.Build(frame)
   frame.slots = {}
+  frame:SetScript("OnHide", function() GameTooltip:Hide() end)
   for i = 1, SLOTS do
     local slot = CreateFrame("Frame", nil, frame)
     slot:SetSize(SLOT_SIZE, SLOT_SIZE)
     slot:SetPoint("LEFT", frame, "LEFT", (i - 1) * (SLOT_SIZE + SLOT_GAP), 0)
     slot:EnableMouse(true)
-    slot.icon = slot:CreateTexture(nil, "ARTWORK")
+    slot.holder = CreateFrame("Frame", nil, slot)
+    slot.holder:SetAllPoints()
+    slot.icon = slot.holder:CreateTexture(nil, "ARTWORK")
     slot.icon:SetAllPoints()
     slot.icon:SetTexture(EMPTY_ICON)
     slot.icon:SetAlpha(0.4)
@@ -62,7 +65,8 @@ function TrinketRow.Pulse(index)
   if not slot then return end
   local DURATION = 0.3
   local t = 0
-  slot:SetScript("OnUpdate", function(self, elapsed)
+  local holder = slot.holder
+  holder:SetScript("OnUpdate", function(self, elapsed)
     t = t + elapsed
     if t >= DURATION then
       self:SetScale(1)

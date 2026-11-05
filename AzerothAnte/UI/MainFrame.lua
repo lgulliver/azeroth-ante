@@ -8,9 +8,9 @@ local DEFAULT_POINT = "CENTER"
 
 local function saveWindow(frame)
   if not AzerothAnteDB then return end
-  local point, _, _, x, y = frame:GetPoint(1)
+  local point, _, relativePoint, x, y = frame:GetPoint(1)
   AzerothAnteDB.window = {
-    point = point, x = x, y = y, width = frame:GetWidth(), height = frame:GetHeight(),
+    point = point, relativePoint = relativePoint, x = x, y = y, width = frame:GetWidth(), height = frame:GetHeight(),
   }
 end
 
@@ -19,7 +19,8 @@ local function restoreWindow(frame)
   frame:ClearAllPoints()
   if saved and saved.width and saved.height then
     frame:SetSize(math.max(720, saved.width), math.max(450, saved.height))
-    frame:SetPoint(saved.point or DEFAULT_POINT, UIParent, saved.point or DEFAULT_POINT, saved.x or 0, saved.y or 0)
+    local point = saved.point or DEFAULT_POINT
+    frame:SetPoint(point, UIParent, saved.relativePoint or point, saved.x or 0, saved.y or 0)
   else
     frame:SetSize(W, H)
     frame:SetPoint(DEFAULT_POINT)
@@ -89,6 +90,8 @@ function Main.Create()
 
   local close = CreateFrame("Button", nil, content, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -2)
+  close:SetScript("OnClick", function() frame:Hide() end)
+  frame:SetScript("OnHide", function() GameTooltip:Hide() end)
 
   -- Layout A, in design units.
   local m = Theme.margin
