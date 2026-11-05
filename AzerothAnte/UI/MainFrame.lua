@@ -1,0 +1,174 @@
+local _, ns = ...
+
+local Theme = ns.UI.Theme
+local Main = {}
+
+local W, H = Theme.width, Theme.height
+local DEFAULT_POINT = "CENTER"
+
+local function saveWindow(frame)
+  if not AzerothAnteDB then return end
+  local point, _, _, x, y = frame:GetPoint(1)
+  AzerothAnteDB.window = {
+    point = point, x = x, y = y, width = frame:GetWidth(), height = frame:GetHeight(),
+  }
+end
+
+local function restoreWindow(frame)
+  local saved = AzerothAnteDB and AzerothAnteDB.window
+  frame:ClearAllPoints()
+  if saved and saved.width and saved.height then
+    frame:SetSize(math.max(720, saved.width), math.max(450, saved.height))
+    frame:SetPoint(saved.point or DEFAULT_POINT, UIParent, saved.point or DEFAULT_POINT, saved.x or 0, saved.y or 0)
+  else
+    frame:SetSize(W, H)
+    frame:SetPoint(DEFAULT_POINT)
+  end
+end
+
+local function region(parent, name, point, x, y, w, h)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(w, h)
+  f:SetPoint(point, parent, point, x, y)
+  Main[name] = f
+  return f
+end
+
+local function makeButton(parent, label, x, w)
+  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  b:SetSize(w, 26)
+  b:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, Theme.margin)
+  b:SetText(label)
+  b:SetScript("OnClick", function() end) -- wired in Task 11
+  return b
+end
+
+function Main.Create()
+  if Main.frame then return Main.frame end
+
+  local frame = CreateFrame("Frame", "AzerothAnteFrame", UIParent, "BackdropTemplate")
+  Main.frame = frame
+  frame:SetBackdrop(Theme.backdrop)
+  frame:SetBackdropColor(Theme.bg[1], Theme.bg[2], Theme.bg[3], Theme.bg[4])
+  frame:SetFrameStrata("MEDIUM")
+  frame:SetClampedToScreen(true)
+  frame:SetMovable(true)
+  frame:SetResizable(true)
+  frame:SetResizeBounds(720, 450)
+  restoreWindow(frame)
+
+  -- Fixed-size design canvas, scaled and centred inside the outer frame.
+  local content = CreateFrame("Frame", nil, frame)
+  content:SetSize(W, H)
+  content:SetPoint("CENTER")
+  Main.content = content
+  frame:SetScript("OnSizeChanged", function(self, w, h)
+    content:SetScale(math.min(w / W, h / H))
+    content:ClearAllPoints()
+    content:SetPoint("CENTER")
+  end)
+  content:SetScale(math.min(frame:GetWidth() / W, frame:GetHeight() / H))
+
+  -- Title area (drag handle) and close button.
+  local title = CreateFrame("Frame", nil, content)
+  title:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+  title:SetPoint("TOPRIGHT", content, "TOPRIGHT", -30, 0)
+  title:SetHeight(Theme.titleHeight)
+  title:EnableMouse(true)
+  title:RegisterForDrag("LeftButton")
+  title:SetScript("OnDragStart", function() frame:StartMoving() end)
+  title:SetScript("OnDragStop", function()
+    frame:StopMovingOrSizing()
+    saveWindow(frame)
+  end)
+  local titleText = title:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
+  titleText:SetPoint("LEFT", title, "LEFT", Theme.margin + 6, -2)
+  titleText:SetText("Azeroth Ante")
+  Theme.setColor(titleText, Theme.gold)
+  Main.title = title
+
+  local close = CreateFrame("Button", nil, content, "UIPanelCloseButton")
+  close:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -2)
+
+  -- Layout A, in design units.
+  local m = Theme.margin
+  local top = -Theme.titleHeight - m
+  local sideW = math.floor(W * Theme.sidebarFraction)
+  local rightX = sideW + 2 * m
+  local rightW = W - rightX - m
+  local bodyH = H - Theme.titleHeight - 2 * m
+
+  local sidebar = region(content, "sidebar", "TOPLEFT", m, top, sideW, bodyH)
+  local sbBg = sidebar:CreateTexture(nil, "BACKGROUND")
+  sbBg:SetAllPoints()
+  sbBg:SetColorTexture(0, 0, 0, 0.35)
+  ns.UI.Sidebar.Build(sidebar)
+
+  local trinketRow = region(content, "trinketRow", "TOPLEFT", rightX, top, rightW, 48)
+  ns.UI.TrinketRow.Build(trinketRow)
+
+  local handH, btnH = 170, 26
+  local playH = bodyH - 48 - handH - btnH - 3 * m
+  region(content, "playArea", "TOPLEFT", rightX, top - 48 - m, rightW, playH)
+  region(content, "handArea", "TOPLEFT", rightX, top - 48 - m - playH - m, rightW, handH)
+
+  local buttons = region(content, "buttons", "BOTTOMLEFT", rightX, m, rightW, btnH)
+  buttons.play = makeButton(buttons, "Play", 0, 110)
+  buttons.discard = makeButton(buttons, "Discard", 120, 110)
+  buttons.sortRank = makeButton(buttons, "Sort Rank", 240, 110)
+  buttons.sortSuit = makeButton(buttons, "Sort Suit", 360, 110)
+  for _, b in pairs({ buttons.play, buttons.discard, buttons.sortRank, buttons.sortSuit }) do
+    b:ClearAllPoints()
+  end
+  buttons.play:SetPoint("LEFT", buttons, "LEFT", 0, 0)
+  buttons.discard:SetPoint("LEFT", buttons.play, "RIGHT", 10, 0)
+  buttons.sortRank:SetPoint("LEFT", buttons.discard, "RIGHT", 10, 0)
+  buttons.sortSuit:SetPoint("LEFT", buttons.sortRank, "RIGHT", 10, 0)
+
+  -- Resize grip (outer frame, outside the scaled canvas).
+  local grip = CreateFrame("Button", nil, frame)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -4, 4)
+  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function()
+    frame:StopMovingOrSizing()
+    saveWindow(frame)
+  end)
+  Main.grip = grip
+
+  tinsert(UISpecialFrames, "AzerothAnteFrame")
+  frame:Hide()
+  return frame
+end
+
+function Main.Show()
+  Main.Create()
+  Main.frame:Show()
+  Main.Render(Main.run)
+end
+
+function Main.Hide()
+  if Main.frame then Main.frame:Hide() end
+end
+
+function Main.Toggle()
+  Main.Create()
+  if Main.frame:IsShown() then Main.Hide() else Main.Show() end
+end
+
+-- Updates every view from run state; run and run.phase may be nil (empty view).
+function Main.Render(run)
+  if not Main.frame then return end
+  ns.UI.Sidebar.Update(run, 0, 0)
+  ns.UI.TrinketRow.Update(run)
+end
+
+function Main.SetRun(run)
+  Main.run = run
+  Main.Render(run)
+end
+
+ns.UI.Main = Main

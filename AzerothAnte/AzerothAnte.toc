@@ -16,3 +16,7 @@ Core\Shop.lua
 Core\Run.lua
 Core\Save.lua
 Core\QueueState.lua
+UI\Theme.lua
+UI\MainFrame.lua
+UI\Sidebar.lua
+UI\TrinketRow.lua
