@@ -30,6 +30,7 @@ local function refreshSell()
     local slot = frame.slots[i]
     if sellMode and slot.def then
       slot.sell:SetText("Sell (" .. math.floor(slot.def.cost / 2) .. "g)")
+      slot.sell.trinketId = slot.def.id -- identity captured at render time
       slot.sell:Show()
     else
       slot.sell:Hide()
@@ -37,7 +38,7 @@ local function refreshSell()
   end
 end
 
--- onSellFn(slotIndex) is called when a sell button is clicked.
+-- onSellFn(slotIndex, trinketId) is called when a sell button is clicked.
 function TrinketRow.SetSellMode(enabled, onSellFn)
   sellMode = enabled and true or false
   onSell = enabled and onSellFn or nil
@@ -63,7 +64,7 @@ function TrinketRow.Build(frame)
     sell:SetSize(SELL_W, SELL_H)
     sell:SetPoint("TOP", slot, "BOTTOM", 0, -1)
     sell:SetScript("OnClick", function()
-      if onSell then onSell(i) end
+      if onSell then onSell(i, sell.trinketId) end
     end)
     sell:Hide()
     slot.sell = sell

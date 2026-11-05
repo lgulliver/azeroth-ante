@@ -86,6 +86,7 @@ function Sidebar.Update(run, chips, mult)
     frame.chipsBox.text:SetText("0")
     frame.multBox.text:SetText("0")
     frame.handName:SetText("")
+    frame.targetLabel:SetText("Score at least")
     return
   end
 
@@ -98,8 +99,16 @@ function Sidebar.Update(run, chips, mult)
     frame.blindName:SetText(BLIND_NAMES[run.blind] or "")
     frame.bossRule:SetText("")
   end
-  frame.target:SetText(tostring(run.target or 0))
-  frame.score:SetText(tostring(run.score or 0))
+  -- Run.nextBlind leaves the old target/score in place, so the blind screen
+  -- shows the upcoming blind's target and a zero score. The shop screen shows
+  -- the just-finished blind's values, labelled as such.
+  local target, score = run.target, run.score
+  if run.phase == "blind" then
+    target, score = ns.Run.target(run.stage, run.blind, bossId), 0
+  end
+  frame.targetLabel:SetText(run.phase == "shop" and "Cleared blind, target was" or "Score at least")
+  frame.target:SetText(tostring(target or 0))
+  frame.score:SetText(tostring(score or 0))
   frame.chipsBox.text:SetText(tostring(chips or 0))
   frame.multBox.text:SetText(tostring(mult or 0))
   frame.handName:SetText("")

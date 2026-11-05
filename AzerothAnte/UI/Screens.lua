@@ -19,6 +19,8 @@ local panels = {}              -- name -> panel frame
 local current                  -- name of the visible screen ("play" = none)
 local pausedFrame
 local errorToken = 0
+local lastSell = 0
+local SELL_COOLDOWN = 0.3
 
 local function main()
   return ns.UI.Main
@@ -60,6 +62,23 @@ local function button(parent, label, w, h, onClick)
     onClick()
   end)
   return b
+end
+
+-- Disabled buttons still show why they are disabled (b.reason) on hover.
+local function reasonTip(b)
+  b:SetMotionScriptsWhileDisabled(true)
+  b:SetScript("OnEnter", function(self)
+    if self:IsEnabled() or not self.reason then return end
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(self.reason, 1, 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+local function setReason(b, reason)
+  b.reason = reason
+  if not reason and GameTooltip:GetOwner() == b then GameTooltip:Hide() end
 end
 
 local function box(parent, w, h)
@@ -236,9 +255,16 @@ local function shopAction(fn, ...)
   persist()
 end
 
-local function onSell(slot)
+local function onSell(slot, id)
   local run = main().run
   if blocked() or not run or run.phase ~= "shop" then return end
+  -- A sell shifts the next trinket's button under the cursor: ignore the
+  -- follow-up click, and ignore clicks whose trinket is no longer in that slot.
+  local now = GetTime()
+  if now - lastSell < SELL_COOLDOWN then return end
+  local owned = run.trinkets[slot]
+  if not owned or owned.id ~= id then return end
+  lastSell = now
   ns.Shop.sell(run, slot)
   main().Render(run)
   persist()
@@ -270,6 +296,7 @@ local function makeCard(p, x, onBuy)
   c.cost = text(c, Theme.fonts.text, "BOTTOM", 0, 40, CARD_W - 12, "CENTER")
   c.buy = button(c, "Buy", 100, 24, onBuy)
   c.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 10)
+  reasonTip(c.buy)
   c.sold = text(c, Theme.fonts.title, "CENTER", 0, 0, CARD_W - 12, "CENTER")
   c.sold:SetText("Sold")
   Theme.setColor(c.sold, GREY)
@@ -295,6 +322,7 @@ local function setCard(c, item)
   Theme.setColor(c.cost, item.affordable and Theme.gold or RED)
   c.buy:SetText(item.blockedText or "Buy")
   if item.ok then c.buy:Enable() else c.buy:Disable() end
+  setReason(c.buy, (not item.ok) and item.reason or nil)
 end
 
 local function buildShop()
@@ -330,13 +358,10 @@ local function buildShop()
 
   p.reroll = button(p, "Reroll", 150, 28, function() shopAction(ns.Shop.reroll) end)
   p.reroll:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 208, 20)
+  reasonTip(p.reroll)
   p.next = button(p, "Next Blind", 150, 28, nextBlind)
   p.next:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -20, 20)
   return p
-end
-
-local function rarityLabel(def)
-  return def.rarity:sub(1, 1):upper() .. def.rarity:sub(2)
 end
 
 local function refreshShop(p, run)
@@ -365,6 +390,7 @@ local function refreshShop(p, run)
         color = Theme.rarity[def.rarity] or Theme.rarity.common,
         affordable = afford, ok = afford and not full,
         blockedText = full and "Slots full" or nil,
+        reason = afford and BUY_ERRORS.slots or BUY_ERRORS.gold,
       })
     else
       setCard(p.offerCards[i], false)
@@ -379,13 +405,16 @@ local function refreshShop(p, run)
       icon = TOME_ICON, name = ns.Shop.tomeName(tome.handId),
       desc = "Raises " .. ns.Hands.def[tome.handId].name .. " to level " .. (lvl + 1) .. ".",
       cost = tome.cost, color = Theme.rarity.uncommon, affordable = afford, ok = afford,
+      reason = BUY_ERRORS.gold,
     })
   else
     setCard(p.tomeCard, false)
   end
 
   p.reroll:SetText("Reroll (" .. shop.rerollCost .. "g)")
-  if run.gold >= shop.rerollCost then p.reroll:Enable() else p.reroll:Disable() end
+  local canReroll = run.gold >= shop.rerollCost
+  if canReroll then p.reroll:Enable() else p.reroll:Disable() end
+  setReason(p.reroll, (not canReroll) and BUY_ERRORS.gold or nil)
 end
 
 ---------------------------------------------------------------------------
@@ -466,6 +495,7 @@ end
 ---------------------------------------------------------------------------
 -- Dispatch
 
+-- Runs from Main.Render because every hand ends in a Render (post-tally or discard), so no result is missed.
 -- Tracks the best single-hand score on the run itself (UI-only field, saved with it).
 function Screens.Track(run)
   local r = run and run.lastResult
@@ -512,6 +542,11 @@ function Screens.Show(name, run)
   ns.UI.TrinketRow.SetSellMode(name == "shop", onSell)
   if current == name then return end
   current = name
+  if panels.shop then
+    errorToken = errorToken + 1 -- cancels any pending hide timer
+    panels.shop.err:SetText("")
+    panels.shop.err:Hide()
+  end
   hideAll()
   m.buttons:Hide()
   p:SetAlpha(0)
