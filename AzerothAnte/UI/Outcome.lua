@@ -25,9 +25,11 @@ Outcome.AddResolver(function(id)
   return ns.UI.HandView.WidgetForCard(id)
 end)
 
+-- Newest resolver first: the pack view's hand holds the same card tables as the
+-- (hidden) play hand, and while a pack is open its widgets are the visible ones.
 local function widgetFor(id)
-  for _, fn in ipairs(resolvers) do
-    local w = fn(id)
+  for i = #resolvers, 1, -1 do
+    local w = resolvers[i](id)
     if w then return w end
   end
 end

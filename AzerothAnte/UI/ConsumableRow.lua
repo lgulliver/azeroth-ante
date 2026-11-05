@@ -19,6 +19,7 @@ ConsumableRow.HEIGHT = SLOT_H
 local row, popover
 local openSlot                                -- slot index the popover belongs to, or nil
 local USE_IN_PLAY = "Use while playing a hand"
+local USE_IN_SHOP = "Use in a hand, or open an Arcana or Spectral pack"
 local openPhase, catcher, globalMouse
 local openItem                                -- the item that slot held when it opened
 
@@ -37,8 +38,24 @@ local function fontPath()
 end
 
 local function busy()
-  local HandView, Tally = ns.UI.HandView, ns.UI.Tally
-  return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy()) or false
+  local HandView, Tally, PackView = ns.UI.HandView, ns.UI.Tally, ns.UI.PackView
+  return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy())
+    or (PackView and PackView.IsBusy()) or false
+end
+
+-- Whether a pack with a drawn hand is the thing being aimed at (it has its own selection).
+local function packHandOpen(run)
+  return run and run.phase ~= "play" and ns.UI.PackView ~= nil
+    and ns.Consumables.targetCards(run) ~= nil
+end
+
+local function selection(run)
+  if packHandOpen(run) then return ns.UI.PackView.Selected() end
+  return ns.UI.HandView.Selected()
+end
+
+local function clearSelection(run)
+  if packHandOpen(run) then ns.UI.PackView.ClearSelection() else ns.UI.HandView.ClearSelection() end
 end
 
 local function shortName(def)
@@ -65,7 +82,7 @@ local function affectsText(run, item, def)
   end
   local text = def.affects or ""
   if def.select then
-    local n = #ns.UI.HandView.Selected()
+    local n = #selection(run)
     text = text .. " (" .. n .. " selected)"
   end
   return text
@@ -194,8 +211,10 @@ function ConsumableRow.Refresh()
   if busy() then
     ok, reason = false, "Resolving..."
   else
-    ok, reason = ns.Consumables.canUse(run, openSlot, ns.UI.HandView.Selected())
-    if reason == ns.Consumables.REASON_NO_HAND then reason = USE_IN_PLAY end
+    ok, reason = ns.Consumables.canUse(run, openSlot, selection(run))
+    if reason == ns.Consumables.REASON_NO_HAND then
+      reason = run.phase == "shop" and USE_IN_SHOP or USE_IN_PLAY
+    end
   end
   setButton(popover.use, ok, reason)
   setButton(popover.sell, not busy(), "Resolving...")
@@ -263,6 +282,8 @@ function ConsumableRow.LayoutCatcher(run)
   catcher:SetPoint("TOPLEFT", m.content, "TOPLEFT", 0, 0)
   if run and run.phase == "play" then
     catcher:SetPoint("BOTTOMRIGHT", m.handArea, "TOPRIGHT", Theme.margin, 0)
+  elseif packHandOpen(run) and ns.UI.PackView.HandFrame() then
+    catcher:SetPoint("BOTTOMRIGHT", ns.UI.PackView.HandFrame(), "TOPRIGHT", Theme.margin, 0)
   else
     catcher:SetPoint("BOTTOMRIGHT", m.content, "BOTTOMRIGHT", 0, 0)
   end
@@ -327,7 +348,7 @@ function ConsumableRow.Use(slot)
   local run = m and m.run
   local HandView = ns.UI.HandView
   if not run or not slot or busy() then return false end
-  local idx = HandView.Selected()
+  local idx = selection(run)
   if not ns.Consumables.canUse(run, slot, idx) then return false end
   local token = HandView.Lock()
   if not token then return false end
@@ -340,7 +361,7 @@ function ConsumableRow.Use(slot)
     local outcome = ns.Consumables.use(run, slot, idx)
     if not outcome then error("consumable use refused", 0) end
     ConsumableRow.Close()
-    HandView.ClearSelection() -- order and length may change; the cards animate unselected
+    clearSelection(run)       -- order and length may change; the cards animate unselected
     persist()
     m.Render(run, true)       -- gold, trinkets, slots and screens update now; effects play over them
     ns.UI.Outcome.Play(outcome, finish)
@@ -366,6 +387,7 @@ function ConsumableRow.Build(frame)
     local slot = row.slots[openSlot]
     if MouseIsOver(popover) or (slot and MouseIsOver(slot)) then return end
     if run and run.phase == "play" and MouseIsOver(main().handArea) then return end -- keep selecting cards
+    if packHandOpen(run) and ns.UI.PackView.HandFrame() and MouseIsOver(ns.UI.PackView.HandFrame()) then return end
     ConsumableRow.Close()
   end)
   frame:SetScript("OnHide", function()
