@@ -223,10 +223,36 @@ Scrolls.order = {
   "EARTH", "GEMS", "GROVE", "LIGHT", "SUMMONING", "BLADES",
 }
 
+local AFFECTS = {
+  ECHOES = "Creates a copy of the last Scroll or Tome used",
+  FORTUNE = "Up to 2 selected cards -> Lucky",
+  STARS = "Creates up to 2 random Tomes (needs free slots)",
+  FURY = "Up to 2 selected cards -> Mult",
+  KNOWLEDGE = "Creates up to 2 random Scrolls (needs free slots)",
+  BLESSING = "Up to 2 selected cards -> Bonus",
+  WILDGROWTH = "1 selected card -> Wild",
+  THORIUM = "1 selected card -> Steel",
+  CRYSTAL = "1 selected card -> Glass",
+  GREED = "Gives gold: doubles it (max +$20)",
+  CHANCE = "1 random trinket may gain an edition (1 in 4)",
+  STRENGTH = "Up to 2 selected cards: rank +1",
+  SACRIFICE = "Destroys up to 2 selected cards",
+  UNDEATH = "Left selected card becomes a copy of the right",
+  THRIFT = "Gives gold (trinket sell value, max $50)",
+  FEL = "1 selected card -> Gold",
+  EARTH = "1 selected card -> Stone",
+  GEMS = "Up to 3 selected cards -> Diamonds",
+  GROVE = "Up to 3 selected cards -> Clubs",
+  LIGHT = "Up to 3 selected cards -> Hearts",
+  SUMMONING = "Creates a random trinket (needs a free slot)",
+  BLADES = "Up to 3 selected cards -> Spades",
+}
+
 Scrolls.def = def
 for i, id in ipairs(Scrolls.order) do
   local d = def[id]
   d.id = id
+  d.affects = AFFECTS[id]
   d.icon = ICON .. ((i - 1) % 8 + 1)
   d.untargeted = d.untargeted or false
   d.creates = d.creates or false

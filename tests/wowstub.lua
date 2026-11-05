@@ -130,6 +130,9 @@ function M.install(env)
   function methods.GetHeight(self) return self._h end
   function methods.GetSize(self) return self._w, self._h end
 
+  function methods.SetClipsChildren(self, on) self._clips = on and true or false end
+  function methods.DoesClipChildren(self) return self._clips == true end
+
   function methods.SetScale(self, s) self._scale = s end
   function methods.GetScale(self) return self._scale end
   function methods.SetAlpha(self, a) self._alpha = a end

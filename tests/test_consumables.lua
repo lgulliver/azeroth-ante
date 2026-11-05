@@ -214,3 +214,12 @@ T.test("add_card_goes_to_hand_or_pack", function()
   T.eq(run.shop.openPack.hand, { card2 })
   T.eq(#run.hand, count + 1)
 end)
+
+T.test("every_scroll_and_relic_has_an_affects_line", function()
+  for _, set in ipairs({ { ns.Scrolls, "scroll" }, { ns.Relics, "relic" } }) do
+    for _, id in ipairs(set[1].order) do
+      local a = set[1].def[id].affects
+      T.ok(type(a) == "string" and #a > 0 and #a <= 70, set[2] .. " " .. id .. " needs a short affects line")
+    end
+  end
+end)

@@ -356,9 +356,15 @@ local function afterAll(count, fn)
   end
 end
 
+local function closeRow()
+  local row = ns.UI.ConsumableRow
+  if row then row.Close() end
+end
+
 local function doPlay()
   local run = HandView.run
   if busy or not run then return end
+  closeRow()
   local sel = HandView.Selected()
   if not ns.Run.canPlay(run, sel) then return end
 
@@ -415,6 +421,7 @@ end
 local function doDiscard()
   local run = HandView.run
   if busy or not run then return end
+  closeRow()
   local sel = HandView.Selected()
   if not ns.Run.canDiscard(run, sel) then return end
 
@@ -448,6 +455,7 @@ end
 local function doSort(mode)
   local run = HandView.run
   if busy or not run then return end
+  closeRow()
   ns.Run.sortHand(run, mode)
   HandView.Update(run, false)
   HandView.AfterAction()

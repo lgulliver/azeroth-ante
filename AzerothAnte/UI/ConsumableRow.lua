@@ -9,7 +9,7 @@ local KIND_NAMES = { scroll = "Scroll", tome = "Tome", relic = "Relic" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local EMPTY_COLOR = { 0.12, 0.1, 0.08, 0.7 }
 local MAX_SLOTS = 5
-local SLOT_W, SLOT_H, SLOT_GAP = 44, 62, 8   -- 5:7, like a card
+local SLOT_W, SLOT_H, SLOT_GAP = 44, 62, 6   -- 5:7, like a card
 local ICON_SIZE = 26
 local POP_W, POP_H = 150, 124
 local POPOVER_LEVEL = 700                    -- above the shop and blind panels (600)
@@ -18,6 +18,8 @@ ConsumableRow.HEIGHT = SLOT_H
 
 local row, popover
 local openSlot                                -- slot index the popover belongs to, or nil
+local NO_HAND, USE_IN_PLAY = "Select cards in a hand", "Use while playing a hand"
+local openPhase, catcher
 local openItem                                -- the item that slot held when it opened
 
 local function main()
@@ -54,26 +56,19 @@ local function sellValue(item)
   return math.floor(ns.Consumables.COST[item.kind] / 2)
 end
 
--- One line saying exactly what the consumable will touch, so it is never a guess.
+-- One line saying exactly what the consumable touches (explicit `affects` on
+-- every Scroll and Relic def); targeted ones also show the live selection count.
 local function affectsText(run, item, def)
-  local sel = ns.UI.HandView.Selected()
-  if def.select then
-    if not ns.Consumables.targetCards(run) then return "Needs a hand: use it during a blind." end
-    local range = def.select.min == def.select.max and tostring(def.select.min)
-      or (def.select.min .. "-" .. def.select.max)
-    local n = #sel
-    local ok = n >= def.select.min and n <= def.select.max
-    return "Affects: " .. n .. " selected card" .. (n == 1 and "" or "s") .. (ok and "" or (" (needs " .. range .. ")"))
-  end
-  local desc = (description(def, item)):lower()
   if item.kind == "tome" then
-    return "Affects: " .. (ns.Hands.def[def.handId] and ns.Hands.def[def.handId].name or "a hand") .. " level only"
+    local hand = ns.Hands.def[def.handId]
+    return "Levels up " .. (hand and hand.name or "a hand")
   end
-  if desc:find("in hand", 1, true) then return "Affects: your hand, not your selection" end
-  if desc:find("trinket", 1, true) then return "Affects: your trinkets, not your cards" end
-  if desc:find("create", 1, true) then return "Affects: your consumable slots only" end
-  if desc:find("gold", 1, true) then return "Affects: your gold only" end
-  return "Affects: nothing in your hand"
+  local text = def.affects or ""
+  if def.select then
+    local n = #ns.UI.HandView.Selected()
+    text = text .. " (" .. n .. " selected)"
+  end
+  return text
 end
 
 ---------------------------------------------------------------------------
@@ -171,11 +166,18 @@ end
 ---------------------------------------------------------------------------
 -- Popover
 
+-- Keeps a hovered button's tooltip truthful when it flips between states.
 local function setButton(b, ok, reason)
   if ok then b:Enable() else b:Disable() end
   b.reason = (not ok) and reason or nil
-  if not ok and GameTooltip:GetOwner() == b then
-    GameTooltip:SetText(reason or "", 1, 1, 1, 1, true)
+  if GameTooltip:GetOwner() == b then
+    if ok then
+      GameTooltip:Hide()
+    else
+      GameTooltip:SetOwner(b, "ANCHOR_LEFT")
+      GameTooltip:SetText(reason or "", 1, 1, 1, 1, true)
+      GameTooltip:Show()
+    end
   end
 end
 
@@ -185,7 +187,7 @@ function ConsumableRow.Refresh()
   if not popover or not popover:IsShown() or not openSlot then return end
   local run = main() and main().run
   local item = run and run.consumables[openSlot]
-  if not item or item ~= openItem then return ConsumableRow.Close() end
+  if not item or item ~= openItem or run.phase ~= openPhase then return ConsumableRow.Close() end
   local def = ns.Consumables.def(item)
   popover.affects:SetText(affectsText(run, item, def))
   local ok, reason
@@ -193,13 +195,15 @@ function ConsumableRow.Refresh()
     ok, reason = false, "Resolving..."
   else
     ok, reason = ns.Consumables.canUse(run, openSlot, ns.UI.HandView.Selected())
+    if reason == NO_HAND then reason = USE_IN_PLAY end
   end
   setButton(popover.use, ok, reason)
   setButton(popover.sell, not busy(), "Resolving...")
 end
 
 function ConsumableRow.Close()
-  openSlot, openItem = nil, nil
+  openSlot, openItem, openPhase = nil, nil, nil
+  if catcher then catcher:Hide() end
   if popover then popover:Hide() end
   if row then
     for i = 1, #row.slots do row.slots[i].glow:Hide() end
@@ -211,7 +215,9 @@ function ConsumableRow.Open(i)
   local item = run and run.consumables[i]
   local def = item and ns.Consumables.def(item)
   if not def then return end
-  openSlot, openItem = i, item
+  openSlot, openItem, openPhase = i, item, run.phase
+  ConsumableRow.LayoutCatcher(run)
+  catcher:Show()
   for k = 1, #row.slots do row.slots[k].glow:SetShown(k == i) end
   popover.title:SetText(def.name)
   popover.sell:SetText("Sell (" .. sellValue(item) .. "g)")
@@ -238,7 +244,26 @@ local function onSell()
   persist()
 end
 
+-- Transparent click-catcher under the popover: a click anywhere else closes it.
+-- While playing a hand it stops above the hand area, so cards stay clickable
+-- (selecting is how you aim a targeted consumable).
+function ConsumableRow.LayoutCatcher(run)
+  local m = main()
+  catcher:ClearAllPoints()
+  catcher:SetPoint("TOPLEFT", m.content, "TOPLEFT", 0, 0)
+  if run and run.phase == "play" then
+    catcher:SetPoint("BOTTOMRIGHT", m.handArea, "TOPRIGHT", Theme.margin, 0)
+  else
+    catcher:SetPoint("BOTTOMRIGHT", m.content, "BOTTOMRIGHT", 0, 0)
+  end
+end
+
 local function buildPopover()
+  catcher = CreateFrame("Button", nil, main().content)
+  catcher:SetFrameLevel(main().content:GetFrameLevel() + POPOVER_LEVEL - 1)
+  catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  catcher:SetScript("OnClick", function() ConsumableRow.Close() end)
+  catcher:Hide()
   local p = CreateFrame("Frame", nil, main().content, "BackdropTemplate")
   p:SetSize(POP_W, POP_H)
   p:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", 0, -4)
@@ -285,6 +310,8 @@ end
 -- Use flow
 
 -- Lock, apply, animate, re-render, unlock, persist. Returns true if it ran.
+-- Everything after the lock is protected: an error unlocks the board and is
+-- forwarded to the error handler, so the hand can never stay locked.
 function ConsumableRow.Use(slot)
   local m = main()
   local run = m and m.run
@@ -294,20 +321,26 @@ function ConsumableRow.Use(slot)
   if not ns.Consumables.canUse(run, slot, idx) then return false end
   local token = HandView.Lock()
   if not token then return false end
-  local outcome = ns.Consumables.use(run, slot, idx)
-  if not outcome then
-    HandView.Unlock(token)
+  local function finish()
+    HandView.Unlock(token)  -- relayout (deals added cards, applies hand size), unlock
+    if m.run == run then m.Render(run, true) end
+    persist()
+  end
+  local ok, result = pcall(function()
+    local outcome = ns.Consumables.use(run, slot, idx)
+    if not outcome then error("consumable use refused", 0) end
+    ConsumableRow.Close()
+    HandView.ClearSelection() -- order and length may change; the cards animate unselected
+    persist()
+    m.Render(run, true)       -- gold, trinkets, slots and screens update now; effects play over them
+    ns.UI.Outcome.Play(outcome, finish)
+  end)
+  if not ok then
+    ConsumableRow.Close()
+    pcall(finish)
+    geterrorhandler()(result)
     return false
   end
-  ConsumableRow.Close()
-  HandView.ClearSelection() -- order and length may change; the cards animate unselected
-  persist()
-  m.Render(run, true)       -- gold, trinkets, slots and screens update now; effects play over them
-  ns.UI.Outcome.Play(outcome, function()
-    HandView.Unlock(token)  -- relayout (deals added cards, applies hand size), unlock
-    m.Render(run, true)
-    persist()
-  end)
   return true
 end
 
@@ -328,6 +361,12 @@ function ConsumableRow.Update(run)
   if not row or not row.slots then return end
   local count = math.min(MAX_SLOTS, run and run.maxConsumables or 0)
   local pitch = SLOT_W + SLOT_GAP
+  -- The row takes only the width it needs; the trinket row gets the rest, so
+  -- 8 trinkets and 5 consumables never overlap.
+  local used = count > 0 and (count * SLOT_W + (count - 1) * SLOT_GAP) or 0
+  row:SetWidth(math.max(used, 1))
+  local m = main()
+  if m.trinketRow and m.rowsWidth then m.trinketRow:SetWidth(m.rowsWidth - used - Theme.margin) end
   for i = 1, #row.slots do
     local slot = row.slots[i]
     local shown = i <= count
