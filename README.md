@@ -44,6 +44,7 @@ From the repository root, with LuaJIT and Python 3 installed:
 
 ```sh
 luajit tests/run.lua
+luajit tests/smoke_ui.lua   # headless UI run against a WoW API stub (catches Lua errors only)
 luajit tests/syntax.lua
 python3 tests/test_media.py
 ```
