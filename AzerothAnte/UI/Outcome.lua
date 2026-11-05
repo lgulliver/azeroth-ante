@@ -25,8 +25,9 @@ Outcome.AddResolver(function(id)
   return ns.UI.HandView.WidgetForCard(id)
 end)
 
--- Newest resolver first: the pack view's hand holds the same card tables as the
--- (hidden) play hand, and while a pack is open its widgets are the visible ones.
+-- Newest resolver first. The pack hand holds the same card tables as the stale,
+-- hidden play hand, so while a pack is shown its widgets must win. A resolver
+-- returns nil when it does not apply (PackView returns nil when it is not shown).
 local function widgetFor(id)
   for i = #resolvers, 1, -1 do
     local w = resolvers[i](id)

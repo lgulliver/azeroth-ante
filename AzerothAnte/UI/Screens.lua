@@ -412,8 +412,7 @@ end
 function Screens.PackInfo(pack)
   local t = PACK_TYPES[pack.type]
   local size = ns.Packs.SIZES[pack.size]
-  local show = size.show
-  if pack.type == "SPECTRAL" or pack.type == "BUFFOON" then show = show - 1 end
+  local show = ns.Packs.showCount(pack.type, pack.size)
   return {
     label = SIZE_NAMES[pack.size] .. t.name .. " Pack", tint = t.tint, show = show, picks = size.pick,
     sizeText = pack.size == "normal" and "" or pack.size:upper(),

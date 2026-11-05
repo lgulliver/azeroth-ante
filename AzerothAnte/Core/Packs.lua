@@ -46,6 +46,13 @@ local function standardCard(run)
   return card
 end
 
+-- How many choices a pack shows (Spectral and Buffoon packs show one fewer).
+function Packs.showCount(packType, size)
+  local show = Packs.SIZES[size].show
+  if packType == "SPECTRAL" or packType == "BUFFOON" then show = show - 1 end
+  return show
+end
+
 function Packs.open(run, i)
   local shop = run.shop
   if shop and shop.openPack then return false, "pack" end
@@ -53,8 +60,7 @@ function Packs.open(run, i)
   if not offer then return false, "gone" end
   if run.gold < offer.cost then return false, "gold" end
   local size = Packs.SIZES[offer.size]
-  local show = size.show
-  if offer.type == "SPECTRAL" or offer.type == "BUFFOON" then show = show - 1 end
+  local show = Packs.showCount(offer.type, offer.size)
   local pack = { type = offer.type, size = offer.size, choices = {}, picksLeft = size.pick }
   local taken = {}
   local kind = KINDS[offer.type]
