@@ -61,6 +61,7 @@ function Main.Create()
   local content = CreateFrame("Frame", nil, frame)
   content:SetSize(W, H)
   content:SetPoint("CENTER")
+  content:SetClipsChildren(true) -- discards and slide-aways never draw outside the window
   Main.content = content
   frame:SetScript("OnSizeChanged", function(self, w, h)
     content:SetScale(math.min(w / W, h / H))

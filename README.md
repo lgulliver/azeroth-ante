@@ -30,6 +30,9 @@ Set `## Interface` in `AzerothAnte/AzerothAnte.toc` to the returned number.
 The shipped value is `120000`. If Retail and Forever return different numbers,
 list both, separated by commas: `## Interface: 120000, 110207` (example only).
 
+If `## Interface` doesn't match your client, enable "Load out of date AddOns"
+on the character-select AddOns screen until you set the right number.
+
 ## How to play
 
 1. Choose a deck, then start a blind and reach its target score.
@@ -63,7 +66,13 @@ Run these checks in Retail and Forever:
 - [ ] A queue pop shows the overlay and plays the sound.
 - [ ] Accepting hides the window.
 - [ ] Entering combat hides the window.
-- [ ] No trinket icon shows as a question mark.
+- [ ] No trinket icon is blank or a question mark (check Avenging Wrath, Multi-Shot, Whetstone and Hunter's Mark especially).
+- [ ] `/reload` in the shop resumes on the shop screen.
+- [ ] `/reload` on the blind screen resumes on the blind screen.
+- [ ] A queue pop during combat plays the sound only; the window opens after combat.
+- [ ] A PvP queue (battleground) opens the window, and the pop shows the overlay.
+- [ ] One full run to the win or lose screen.
+- [ ] Abandon Run asks for a second click (and reverts after 3 seconds), then returns to the deck screen.
 
 ## Art
 

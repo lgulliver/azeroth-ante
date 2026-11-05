@@ -17,8 +17,14 @@ T.test("join_twice_shows_once", function()
 end)
 
 T.test("queue_left_resets", function()
-  local qs = { queued = true, paused = true }
+  local qs = { queued = true, paused = false }
   T.eq(QS.handle(qs, "QUEUE_LEFT"), nil)
+  T.eq(qs, { queued = false, paused = false })
+end)
+
+T.test("queue_left_while_paused_resumes", function()
+  local qs = { queued = true, paused = true }
+  T.eq(QS.handle(qs, "QUEUE_LEFT"), "resume")
   T.eq(qs, { queued = false, paused = false })
 end)
 

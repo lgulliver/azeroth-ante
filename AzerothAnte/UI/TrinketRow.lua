@@ -7,7 +7,7 @@ local SLOTS = 5
 local SLOT_SIZE = 44
 local SLOT_GAP = 8
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
-local SELL_W, SELL_H = 52, 18
+local SELL_W, SELL_H = 48, 18 -- slots sit on a 52 pitch: 4px between sell buttons
 
 local sellMode, onSell = false, nil
 
@@ -22,14 +22,15 @@ local function showTooltip(slot)
   GameTooltip:Show()
 end
 
--- Shows a "Sell (Ng)" button under each owned trinket while sell mode is on.
+-- Shows an "Ng" sell button under each owned trinket while sell mode is on.
 local function refreshSell()
   local frame = ns.UI.Main and ns.UI.Main.trinketRow
   if not frame or not frame.slots then return end
   for i = 1, SLOTS do
     local slot = frame.slots[i]
     if sellMode and slot.def then
-      slot.sell:SetText("Sell (" .. math.floor(slot.def.cost / 2) .. "g)")
+      slot.sell.price = math.floor(slot.def.cost / 2)
+      slot.sell:SetText(slot.sell.price .. "g")
       slot.sell.trinketId = slot.def.id -- identity captured at render time
       slot.sell:Show()
     else
@@ -66,6 +67,12 @@ function TrinketRow.Build(frame)
     sell:SetScript("OnClick", function()
       if onSell then onSell(i, sell.trinketId) end
     end)
+    sell:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      GameTooltip:SetText("Sell for " .. (self.price or 0) .. "g", 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    sell:SetScript("OnLeave", function() GameTooltip:Hide() end)
     sell:Hide()
     slot.sell = sell
     slot:SetScript("OnEnter", showTooltip)

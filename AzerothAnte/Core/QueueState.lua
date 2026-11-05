@@ -12,8 +12,9 @@ function QueueState.handle(qs, ev)
     qs.queued = true
     return "show"
   elseif ev == "QUEUE_LEFT" then
+    local wasPaused = qs.paused
     qs.queued, qs.paused = false, false
-    return nil
+    return wasPaused and "resume" or nil
   elseif ev == "PROPOSAL" then
     qs.paused = true
     return "pause"
