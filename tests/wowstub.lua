@@ -82,6 +82,7 @@ function M.install(env)
     if shown then self:Show() else self:Hide() end
   end
   function methods.IsShown(self) return self._shown end
+  function methods.IsMouseOver(self) return stub.over[self] == true end
   function methods.IsVisible(self)
     local o = self
     while o do
@@ -263,7 +264,7 @@ function M.install(env)
   })
   -- The cursor: stub.over[frame] = true while the mouse is over that frame.
   stub.over = {}
-  rawset(env, "MouseIsOver", function(f) return stub.over[f] == true end)
+  -- No global MouseIsOver: the live client lacks it (frame:IsMouseOver() exists everywhere).
   rawset(env, "InCombatLockdown", function() return stub.combat end)
   rawset(env, "LE_LFG_CATEGORY_LFD", 1)
   rawset(env, "LE_LFG_CATEGORY_RF", 2)
