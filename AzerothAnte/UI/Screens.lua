@@ -11,7 +11,7 @@ local PANEL_LEVEL, PAUSE_LEVEL = 600, 900
 local RED = { 1, 0.25, 0.2 }
 local GREY = { 0.6, 0.6, 0.6 }
 local BLIND_NAMES = { "Small Blind", "Big Blind" }
-local BUY_ERRORS = { gold = "Not enough gold", slots = "Trinket slots full", gone = "Sold out" }
+local BUY_ERRORS = { gold = "Not enough gold", slots = "Slots full", gone = "Sold out", pack = "Finish the open pack first" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local FLAT = "Interface\\Buttons\\WHITE8x8"
 
@@ -305,7 +305,7 @@ local function onSell(slot, id)
   local owned = run.trinkets[slot]
   if not owned or owned.id ~= id then return end
   lastSell = now
-  ns.Shop.sell(run, slot)
+  ns.Shop.sellTrinket(run, slot)
   main().Render(run)
   persist()
 end
@@ -388,9 +388,8 @@ local function buildShop()
   local x = 208
   p.offerCards = {}
   for i = 1, 2 do
-    p.offerCards[i] = makeCard(p, x + (i - 1) * (CARD_W + 8), function() shopAction(ns.Shop.buyTrinket, i) end)
+    p.offerCards[i] = makeCard(p, x + (i - 1) * (CARD_W + 8), function() shopAction(ns.Shop.buy, i) end)
   end
-  p.tomeCard = makeCard(p, x + 2 * (CARD_W + 8), function() shopAction(ns.Shop.buyTome) end)
 
   p.err = text(p, Theme.fonts.text, "BOTTOM", 0, 64, 560, "CENTER")
   Theme.setColor(p.err, RED)
@@ -419,43 +418,39 @@ local function refreshShop(p, run)
     row.value:SetText("+" .. (lines[key][2] or 0) .. "g")
   end
 
-  local shop = run.shop or { offers = {}, tome = false, rerollCost = 0 }
-  local full = #run.trinkets >= run.maxTrinkets
+  local shop = run.shop or { cards = {}, rerollCost = 0 }
   for i = 1, 2 do
-    local offer = shop.offers[i]
+    local offer = shop.cards[i]
     if offer then
-      local def = ns.Trinkets.def[offer.id]
+      local trinket = offer.type == "trinket"
+      local def = trinket and ns.Trinkets.def[offer.id]
+        or ns.Consumables.def({ kind = offer.type, id = offer.id })
+      local full
+      if trinket then
+        local slots = ns.Run.trinketSlots(run) + (offer.ed == "NEGATIVE" and 1 or 0)
+        full = #run.trinkets >= slots
+      else
+        full = #run.consumables >= run.maxConsumables
+      end
       local afford = run.gold >= offer.cost
       setCard(p.offerCards[i], {
-        icon = def.icon, name = def.name, desc = def.desc, cost = offer.cost,
+        icon = def.icon or TOME_ICON, name = def.name,
+        desc = def.desc or ("Raises " .. ns.Hands.def[offer.id].name .. " by one level when used."),
+        cost = offer.cost,
         color = Theme.rarity[def.rarity] or Theme.rarity.common,
-        affordable = afford, ok = afford and not full,
+        affordable = afford, ok = afford and not full and not shop.openPack,
         blockedText = full and "Slots full" or nil,
-        reason = afford and BUY_ERRORS.slots or BUY_ERRORS.gold,
+        reason = shop.openPack and BUY_ERRORS.pack or (afford and BUY_ERRORS.slots or BUY_ERRORS.gold),
       })
     else
       setCard(p.offerCards[i], false)
     end
   end
 
-  local tome = shop.tome
-  if tome then
-    local afford = run.gold >= tome.cost
-    local lvl = run.handLevels[tome.handId] or 1
-    setCard(p.tomeCard, {
-      icon = TOME_ICON, name = ns.Shop.tomeName(tome.handId),
-      desc = "Raises " .. ns.Hands.def[tome.handId].name .. " to level " .. (lvl + 1) .. ".",
-      cost = tome.cost, color = Theme.rarity.uncommon, affordable = afford, ok = afford,
-      reason = BUY_ERRORS.gold,
-    })
-  else
-    setCard(p.tomeCard, false)
-  end
-
   p.reroll:SetText("Reroll (" .. shop.rerollCost .. "g)")
-  local canReroll = run.gold >= shop.rerollCost
+  local canReroll = run.gold >= shop.rerollCost and not shop.openPack
   if canReroll then p.reroll:Enable() else p.reroll:Disable() end
-  setReason(p.reroll, (not canReroll) and BUY_ERRORS.gold or nil)
+  setReason(p.reroll, shop.openPack and BUY_ERRORS.pack or ((not canReroll) and BUY_ERRORS.gold or nil))
 end
 
 ---------------------------------------------------------------------------

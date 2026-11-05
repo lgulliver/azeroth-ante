@@ -2,160 +2,118 @@ local ns, T = ...
 
 local function opened(gold)
   local run = ns.Run.new(11, "ADVENTURER")
-  run.gold = gold or 0
+  run.phase, run.gold = "shop", gold or 100
   ns.Shop.open(run)
   return run
 end
 
-T.test("open_two_distinct_unowned", function()
-  local run = ns.Run.new(11, "ADVENTURER")
-  run.trinkets = { { id = "BLOODLUST" }, { id = "FORTITUDE" } }
-  ns.Shop.open(run)
-  local shop = run.shop
-  T.eq(#shop.offers, 2)
-  T.ok(shop.offers[1].id ~= shop.offers[2].id, "offers must be distinct")
-  for _, offer in ipairs(shop.offers) do
-    T.ok(offer.id ~= "BLOODLUST" and offer.id ~= "FORTITUDE", "offered an owned trinket")
-    T.eq(offer.cost, ns.Trinkets.def[offer.id].cost)
-  end
-  T.ok(ns.Hands.def[shop.tome.handId] ~= nil, "tome hand missing")
-  T.eq(shop.tome.cost, 3)
-  T.eq(shop.rerollCost, 5)
-end)
-
-T.test("open_offers_fewer_when_ineligible", function()
-  local run = ns.Run.new(11, "ADVENTURER")
-  run.trinkets = {}
-  for i = 1, 19 do run.trinkets[i] = { id = ns.Trinkets.order[i] } end
-  run.maxTrinkets = 99
-  ns.Shop.open(run)
-  T.eq(#run.shop.offers, 1)
-  T.eq(run.shop.offers[1].id, ns.Trinkets.order[20])
-end)
-
-T.test("buy_insufficient_gold", function()
-  local run = opened(0)
-  local ok, err = ns.Shop.buyTrinket(run, 1)
-  T.eq(ok, false)
-  T.eq(err, "gold")
-  T.eq(run.trinkets, {})
-  T.eq(run.shop.offers[1] ~= false, true)
-end)
-
-T.test("buy_full_slots", function()
-  local run = ns.Run.new(11, "ADVENTURER")
-  run.trinkets = {}
-  for i = 1, 5 do run.trinkets[i] = { id = ns.Trinkets.order[i] } end
-  run.gold = 100
-  ns.Shop.open(run)
-  local ok, err = ns.Shop.buyTrinket(run, 1)
-  T.eq(ok, false)
-  T.eq(err, "slots")
-  T.eq(run.gold, 100)
-  T.eq(#run.trinkets, 5)
-end)
-
-T.test("buy_gone_slot", function()
-  local run = opened(100)
-  T.eq(ns.Shop.buyTrinket(run, 1), true)
-  local ok, err = ns.Shop.buyTrinket(run, 1)
-  T.eq(ok, false)
-  T.eq(err, "gone")
-end)
-
-T.test("buy_ok_deducts_and_adds", function()
-  local run = opened(20)
-  local offer = run.shop.offers[1]
-  T.eq(ns.Shop.buyTrinket(run, 1), true)
-  T.eq(run.gold, 20 - offer.cost)
-  T.eq(run.trinkets, { { id = offer.id } })
-  T.eq(run.shop.offers[1], false)
-  T.eq(run.shop.offers[2] ~= false, true)
-end)
-
-T.test("tome_levels_hand", function()
-  local run = opened(20)
-  local handId = run.shop.tome.handId
-  T.eq(run.handLevels[handId], 1)
-  T.eq(ns.Shop.buyTome(run), true)
-  T.eq(run.handLevels[handId], 2)
-  T.eq(run.shop.tome, false)
-  T.eq(run.gold, 17)
-  local ok, err = ns.Shop.buyTome(run)
-  T.eq(ok, false)
-  T.eq(err, "gone")
-end)
-
-T.test("tome_insufficient_gold", function()
-  local run = opened(2)
-  local ok, err = ns.Shop.buyTome(run)
-  T.eq(ok, false)
-  T.eq(err, "gold")
-  T.eq(run.gold, 2)
-  T.ok(run.shop.tome ~= false, "tome consumed without payment")
-end)
-
-T.test("sell_half_cost", function()
-  local run = ns.Run.new(11, "ADVENTURER")
-  run.trinkets = { { id = "AVENGING_WRATH" } }
-  run.gold = 0
-  T.eq(ns.Shop.sell(run, 1), 4)
-  T.eq(run.gold, 4)
-  T.eq(run.trinkets, {})
-end)
-
-T.test("reroll_cost_increments", function()
-  local run = opened(20)
-  T.eq(run.shop.rerollCost, 5)
-  T.eq(ns.Shop.reroll(run), true)
-  T.eq(run.shop.rerollCost, 6)
-  T.eq(run.gold, 15)
-  T.eq(ns.Shop.reroll(run), true)
-  T.eq(run.shop.rerollCost, 7)
-  T.eq(run.gold, 9)
-end)
-
-T.test("reroll_insufficient_gold", function()
-  local run = opened(4)
-  local ok, err = ns.Shop.reroll(run)
-  T.eq(ok, false)
-  T.eq(err, "gold")
+T.test("shop_two_cards_two_packs", function()
+  local run = opened()
+  T.eq(#run.shop.cards, 2)
+  T.eq(#run.shop.packs, 2)
   T.eq(run.shop.rerollCost, 5)
 end)
 
-T.test("reroll_keeps_tome", function()
-  local run = opened(20)
-  local tome = run.shop.tome
-  ns.Shop.reroll(run)
-  T.eq(run.shop.tome, tome)
-end)
-
-T.test("reroll_refills_bought_slots", function()
-  local run = opened(100)
-  T.eq(ns.Shop.buyTrinket(run, 1), true)
-  T.eq(run.shop.offers[1], false)
-  T.eq(ns.Shop.reroll(run), true)
-  T.ok(type(run.shop.offers[1]) == "table", "bought slot not refilled")
-  T.ok(type(run.shop.offers[2]) == "table", "second slot not refilled")
-end)
-
-T.test("tome_name", function()
-  T.eq(ns.Shop.tomeName("PAIR"), "Tome of Pair")
-  T.eq(ns.Shop.tomeName("FOUR_KIND"), "Tome of Four of a Kind")
-end)
-
-T.test("rarity_weights_roughly", function()
-  local run = ns.Run.new(12345, "ADVENTURER")
-  local counts, total = { common = 0, uncommon = 0, rare = 0 }, 0
-  for _ = 1, 2000 do
+T.test("card_type_weights", function()
+  local run, count = opened(), 0
+  for _ = 1, 3000 do
     ns.Shop.open(run)
-    for _, offer in ipairs(run.shop.offers) do
-      local rarity = ns.Trinkets.def[offer.id].rarity
-      counts[rarity] = counts[rarity] + 1
-      total = total + 1
+    local seen = {}
+    for _, item in ipairs(run.shop.cards) do
+      if item.type == "trinket" then
+        count = count + 1
+        T.ok(not seen[item.id], "duplicate trinket")
+        seen[item.id] = true
+      else
+        T.ok(item.type == "scroll" or item.type == "tome")
+        T.eq(item.cost, 3)
+        if item.type == "tome" then T.ok(not ns.Hands.def[item.id].secret) end
+      end
     end
   end
-  T.ok(total == 4000, "expected 4000 offers, got " .. total)
-  T.ok(counts.common / total > 0.55, "commons too rare: " .. counts.common / total)
-  T.ok(counts.rare / total < 0.12, "rares too common: " .. counts.rare / total)
+  T.ok(count / 6000 > 0.6 and count / 6000 < 0.8, "trinket weight: " .. count / 6000)
+end)
+
+T.test("edition_cost_added", function()
+  local run = opened()
+  local original = ns.CardTypes.rollEdition
+  ns.CardTypes.rollEdition = function() return "FOIL" end
+  ns.Shop.open(run)
+  ns.CardTypes.rollEdition = original
+  local found = false
+  for _, item in ipairs(run.shop.cards) do
+    if item.type == "trinket" then
+      found = true
+      T.eq(item.ed, "FOIL")
+      T.eq(item.cost, ns.Trinkets.def[item.id].cost + 2)
+    end
+  end
+  T.ok(found, "fixture needs a trinket")
+end)
+
+T.test("unowned_trinkets_only", function()
+  local run = opened()
+  for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = { id = id } end
+  for _ = 1, 50 do
+    ns.Shop.open(run)
+    for _, item in ipairs(run.shop.cards) do T.ok(not item or item.type ~= "trinket") end
+  end
+end)
+
+T.test("buy_checks_and_preserves_edition", function()
+  local run = opened(0)
+  run.shop.cards = { { type = "trinket", id = "BLOODLUST", ed = "FOIL", cost = 6 }, false }
+  local ok, err = ns.Shop.buy(run, 1)
+  T.eq({ ok, err }, { false, "gold" })
+  run.gold = 100
+  run.maxTrinkets = 0
+  ok, err = ns.Shop.buy(run, 1)
+  T.eq({ ok, err }, { false, "slots" })
+  run.trinkets = { { id = "FORTITUDE", ed = "NEGATIVE" } }
+  run.maxTrinkets = 1
+  T.eq(ns.Shop.buy(run, 1), true)
+  T.eq(run.trinkets[2], { id = "BLOODLUST", ed = "FOIL" })
+  T.eq(run.gold, 94)
+  T.eq(run.shop.cards[1], false)
+  ok, err = ns.Shop.buy(run, 1)
+  T.eq({ ok, err }, { false, "gone" })
+end)
+
+T.test("buy_consumables_needs_slot_and_does_not_apply", function()
+  local run = opened()
+  run.shop.cards = { { type = "tome", id = "PAIR", cost = 3 }, { type = "scroll", id = "BLESSING", cost = 3 } }
+  run.maxConsumables = 0
+  local ok, err = ns.Shop.buy(run, 1)
+  T.eq({ ok, err }, { false, "slots" })
+  T.eq(run.gold, 100)
+  run.maxConsumables = 2
+  T.eq(ns.Shop.buy(run, 1), true)
+  T.eq(ns.Shop.buy(run, 2), true)
+  T.eq(run.consumables, { { kind = "tome", id = "PAIR" }, { kind = "scroll", id = "BLESSING" } })
+  T.eq(run.handLevels.PAIR, 1)
+  T.eq(run.gold, 94)
+end)
+
+T.test("sell_includes_edition", function()
+  local run = opened(0)
+  run.trinkets = { { id = "AVENGING_WRATH", ed = "POLY" } }
+  T.eq(ns.Shop.sellTrinket(run, 1), 6)
+  T.eq(run.gold, 6)
+  T.eq(run.trinkets, {})
+  T.eq(ns.Shop.sellTrinket(run, 1), 0)
+end)
+
+T.test("reroll_cards_only", function()
+  local run = opened(20)
+  local packs = run.shop.packs
+  run.shop.cards = { false, false }
+  T.eq(ns.Shop.reroll(run), true)
+  T.ok(rawequal(run.shop.packs, packs))
+  T.ok(run.shop.cards[1] and run.shop.cards[2])
+  T.eq(run.gold, 15)
+  T.eq(run.shop.rerollCost, 6)
+  run.gold = 5
+  local ok, err = ns.Shop.reroll(run)
+  T.eq({ ok, err }, { false, "gold" })
+  T.eq(run.shop.rerollCost, 6)
 end)

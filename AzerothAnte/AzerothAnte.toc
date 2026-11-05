@@ -18,6 +18,7 @@ Data\Scrolls.lua
 Data\Relics.lua
 Core\Scoring.lua
 Core\Consumables.lua
+Core\Packs.lua
 Core\Shop.lua
 Core\Run.lua
 Core\Save.lua
