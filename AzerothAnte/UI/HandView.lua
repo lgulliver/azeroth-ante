@@ -318,11 +318,11 @@ local function doPlay()
     if myGen ~= gen or not busy then return end
     releaseHeld()
     busy = false
+    main().Render(run) -- after the tally and slide-away, before any refill deal
     if run.phase == "play" then
       HandView.Update(run, true)
     else
-      main().Render(run) -- screens arrive in Task 13
-      HandView.RefreshButtons()
+      HandView.RefreshButtons() -- screens arrive in Task 13
     end
     HandView.AfterAction()
   end
@@ -347,7 +347,9 @@ local function doPlay()
     Tween.To(w.body, { x = 0, y = 0 }, 0.1)
     Tween.To(w, { x = x, y = y, alpha = 1 }, PLAY_TIME, arrived, (k - 1) * PLAY_STAGGER)
   end
-  main().Render(run)
+  -- Show the pre-play score during the flight; the tally counts it up.
+  ns.UI.Sidebar.Update(run, 0, 0)
+  ns.UI.Sidebar.SetScore((run.score or 0) - (result.total or 0))
   HandView.RefreshButtons()
 end
 
