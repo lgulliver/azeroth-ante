@@ -53,11 +53,11 @@ T.test("new_run_shape", function()
 end)
 
 T.test("targets", function()
-  T.eq(ns.Run.BASE_TARGETS, { 300, 800, 2000, 5000, 11000, 20000, 35000, 50000 })
+  T.eq(ns.Run.BASE_TARGETS, { 300, 600, 1200, 2200, 3600, 5500, 8000, 11000 })
   T.eq(ns.Run.target(1, 1), 300)
   T.eq(ns.Run.target(1, 2), 450)
-  T.eq(ns.Run.target(2, 3, "HOGGER"), 1600)
-  T.eq(ns.Run.target(8, 3, "RAGNAROS"), 200000)
+  T.eq(ns.Run.target(2, 3, "HOGGER"), 1200)
+  T.eq(ns.Run.target(8, 3, "RAGNAROS"), 22000)
 end)
 
 T.test("start_blind_deals_8", function()
@@ -214,7 +214,7 @@ T.test("final_boss_win_is_won", function()
   local run = playing()
   run.stage, run.blind = 8, 3
   ns.Run.startBlind(run)
-  T.eq(run.target, 200000)
+  T.eq(run.target, 22000)
   run.target, run.handsLeft = 1, 1
   local oldOpen = ns.Shop.open
   ns.Shop.open = function() error("final win must not open shop") end

@@ -166,7 +166,7 @@ T.test("bosses_complete", function()
   T.ok(final, "missing final boss")
   T.ok(final.name and final.name ~= "", "final: no name")
   T.ok(final.desc and final.desc ~= "", "final: no desc")
-  T.eq(final.targetMult, 4)
+  T.eq(final.targetMult, 2)
 end)
 
 T.test("boss_debuffs", function()

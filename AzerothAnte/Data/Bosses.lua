@@ -52,7 +52,7 @@ Bosses.def = {
     hands = 1,
   },
   RAGNAROS = {
-    id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 4,
+    id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 2,
     desc = "The final boss of the run.",
   },
 }
