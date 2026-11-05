@@ -19,7 +19,7 @@ function Run.new(seed, deckId)
     handSize = 8, maxTrinkets = 5, trinkets = {}, handLevels = {},
     handsPlayedTotal = 0, bosses = {}, score = 0,
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
-    pile = {}, hand = {}, lastResult = nil, lastPayout = nil,
+    pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
   local pool = {}
@@ -42,6 +42,7 @@ function Run.startBlind(run)
   run.pile = ns.Cards.shuffledDeck(run.rng)
   run.hand = {}
   ns.Cards.draw(run.pile, run.hand, run.handSize)
+  ns.Cards.sort(run.hand, run.sortMode or "rank")
   run.handsLeft = boss and boss.hands or deck.hands
   run.discardsLeft = boss and boss.discards or deck.discards
   run.score = 0
@@ -88,6 +89,7 @@ local function removeAndRefill(run, idx)
   table.sort(descending, function(a, b) return a > b end)
   for _, index in ipairs(descending) do table.remove(run.hand, index) end
   ns.Cards.draw(run.pile, run.hand, run.handSize - #run.hand)
+  ns.Cards.sort(run.hand, run.sortMode or "rank")
 end
 
 function Run.play(run, idx)
@@ -153,6 +155,7 @@ function Run.nextBlind(run)
 end
 
 function Run.sortHand(run, mode)
+  run.sortMode = mode
   ns.Cards.sort(run.hand, mode)
 end
 
