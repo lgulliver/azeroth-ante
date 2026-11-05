@@ -113,6 +113,24 @@ function HandView.Selected()
   return idx
 end
 
+-- Shows the selected cards' hand name and its base chips x mult at the current
+-- level in the sidebar (0 x 0, no name, with nothing selected).
+local function updatePreview()
+  if busy then return end
+  local run = HandView.run
+  if not run or run.phase ~= "play" then return end
+  local sel = HandView.Selected()
+  if #sel < 1 or #sel > MAX_SELECT then
+    ns.UI.Sidebar.SetChipsMult(0, 0, "")
+    return
+  end
+  local cards = {}
+  for k, i in ipairs(sel) do cards[k] = run.hand[i] end
+  local handId = ns.HandEval.evaluate(cards)
+  local chips, mult = ns.Hands.base(handId, run.handLevels[handId] or 1)
+  ns.UI.Sidebar.SetChipsMult(chips, mult, ns.Hands.def[handId].name)
+end
+
 function HandView.RefreshButtons()
   local m = main()
   local buttons = m and m.buttons
@@ -136,6 +154,7 @@ function HandView.RefreshButtons()
   local sortWhy = busy and "Resolving the hand..." or "Nothing to sort."
   setButton(buttons.sortRank, sortOk, sortWhy)
   setButton(buttons.sortSuit, sortOk, sortWhy)
+  updatePreview()
 end
 
 function HandView.ClearSelection()

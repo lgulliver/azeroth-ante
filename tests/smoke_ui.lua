@@ -149,12 +149,16 @@ local function run(w)
   stub.advance(1)
   local discardsBefore = Main.run.discardsLeft
   selectCard(1)
+  check(Main.sidebar.handName:GetText() ~= "", "selection preview shows a hand name")
+  check(Main.sidebar.chipsBox.text:GetText() ~= "0", "selection preview shows chips")
   selectCard(2)
   click(Main.buttons.discard, "Discard")
   stub.advance(3)
   eq(Main.run.discardsLeft, discardsBefore - 1, "discard used")
   eq(#Main.run.hand, 8, "hand refilled after discard")
   check(not HandView.IsBusy(), "busy after discard")
+  eq(Main.sidebar.handName:GetText(), "", "preview clears after the discard")
+  eq(Main.sidebar.chipsBox.text:GetText(), "0", "preview chips clear after the discard")
   step("2b sort and discard")
 
   -- 3. Play a card.
@@ -201,6 +205,7 @@ local function run(w)
   stub.advance(1)
   local slot1 = Main.trinketRow.slots[1]
   check(slot1.sell:IsVisible(), "sell button visible in the shop")
+  check(slot1.sell:GetText():match("^%d+g$"), "sell button is labelled Ng")
   click(slot1.sell, "sell trinket")
   check(run.gold > gold, "selling refunds gold")
   eq(#run.trinkets, 0, "trinket sold")
@@ -323,6 +328,21 @@ local function run(w)
   eq(Main.run.phase, "shop", "phase after the winning hand")
   check(visible("offerCards"), "shop screen shows once the tally is done")
   step("9b queue event mid-tally does not re-render")
+
+  -- 9c. Abandon Run: two clicks, with a revert after 3s.
+  local abandon = panel("offerCards").abandon
+  eq(abandon:GetText(), "Abandon Run", "abandon label")
+  click(abandon, "Abandon Run")
+  eq(abandon:GetText(), "Click again to abandon", "abandon armed label")
+  check(Main.run ~= nil and env.AzerothAnteDB.run ~= nil, "first abandon click keeps the run")
+  stub.advance(3.5)
+  eq(abandon:GetText(), "Abandon Run", "abandon reverts after 3s")
+  click(abandon, "Abandon Run")
+  click(abandon, "Abandon Run (confirm)")
+  stub.advance(1)
+  check(env.AzerothAnteDB.run == nil, "abandon clears the save")
+  check(visible("tiles"), "abandon returns to the new-run screen")
+  step("9c abandon run")
 
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w }) do

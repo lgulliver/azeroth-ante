@@ -90,6 +90,45 @@ local function box(parent, w, h)
   return f
 end
 
+-- Clears the save and returns to the deck-selection screen.
+local function endRun()
+  if blocked() then return end
+  if AzerothAnteDB then ns.Save.clear(AzerothAnteDB) end
+  main().SetRun(nil) -- renders the deck-selection screen
+end
+
+-- Small two-click "Abandon Run" button: the first click arms it, and it
+-- reverts after ABANDON_ARM seconds. No popup.
+local ABANDON_ARM = 3
+local function addAbandon(p)
+  local armed, token = false, 0
+  local b
+  local function disarm()
+    armed = false
+    token = token + 1 -- cancels a pending revert
+    b:SetText("Abandon Run")
+  end
+  b = button(p, "Abandon Run", 150, 22, function()
+    if armed then
+      disarm()
+      endRun()
+      return
+    end
+    armed = true
+    token = token + 1
+    local mine = token
+    b:SetText("Click again to abandon")
+    C_Timer.After(ABANDON_ARM, function()
+      if token == mine and armed then disarm() end
+    end)
+  end)
+  b:SetWidth(170)
+  b:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 16, 20)
+  b:SetScript("OnHide", disarm)
+  p.abandon = b
+  return b
+end
+
 local function makePanel(name, withTitle)
   local m = main()
   local p = CreateFrame("Frame", nil, m.content, "BackdropTemplate")
@@ -207,6 +246,7 @@ local function buildBlind()
 
   p.start = button(p, "Start Blind", 160, 30, startBlind)
   p.start:SetPoint("BOTTOM", p, "BOTTOM", 0, 20)
+  addAbandon(p)
   return p
 end
 
@@ -361,6 +401,7 @@ local function buildShop()
   reasonTip(p.reroll)
   p.next = button(p, "Next Blind", 150, 28, nextBlind)
   p.next:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -20, 20)
+  addAbandon(p)
   return p
 end
 
@@ -420,11 +461,7 @@ end
 ---------------------------------------------------------------------------
 -- Won / lost
 
-local function newRunClicked()
-  if blocked() then return end
-  if AzerothAnteDB then ns.Save.clear(AzerothAnteDB) end
-  main().SetRun(nil) -- renders the deck-selection screen
-end
+local newRunClicked = endRun
 
 local function buildEnd()
   local p = makePanel("end", false)
