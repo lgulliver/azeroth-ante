@@ -424,6 +424,7 @@ function HandView.Build(m)
   deck:SetSize(DECK_W, DECK_H)
   deck:SetPoint("RIGHT", m.playArea, "RIGHT", -DECK_INSET, 0)
   deck:SetTexture("Interface\\AddOns\\AzerothAnte\\Media\\CardBack")
+  deck:SetTexCoord(0, 1, 0, Theme.cardV)
   HandView.deck = deck
 
   local buttons = m.buttons

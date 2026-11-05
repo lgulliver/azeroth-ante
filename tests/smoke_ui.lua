@@ -213,9 +213,30 @@ local function run(w)
   eq(m1.art:GetTexture(), MEDIA .. "Face_BONUS", "mini card face texture")
   check(m1.seal:IsShown(), "mini card shows its seal")
   check(not m2.rankTL:IsShown(), "mini Stone hides its rank")
-  for _, mw in ipairs(minis) do
-    if mw ~= m2 then check(m2._points[1][5] < mw._points[1][5], "Stone cards sit in their own row") end
-  end
+  local lowestY = 0
+  for _, mw in ipairs(minis) do lowestY = math.min(lowestY, mw._points[1][5]) end
+  eq(m2._points[1][5], lowestY, "Stone cards end the last suit row")
+  local rowsY = {}
+  for _, mw in ipairs(minis) do rowsY[mw._points[1][5]] = true end
+  local nRows = 0
+  for _ in pairs(rowsY) do nRows = nRows + 1 end
+  eq(nRows, 4, "Stone shares the last suit row (four rows)")
+  m1._scripts.OnEnter(m1)
+  stub.advance(0.6)
+  check(stub.tooltip:IsShown() and stub.tooltip:GetOwner() == m1, "mini card tooltip shows")
+  local lines = table.concat(stub.tooltip._lines, "|")
+  check(lines:find(" of ", 1, true), "mini tooltip names rank and suit")
+  check(lines:find("Bonus", 1, true) and lines:find("Foil", 1, true) and lines:find("Red Seal", 1, true), "mini tooltip lists the types")
+  m1._scripts.OnLeave(m1)
+  check(not stub.tooltip:IsShown(), "mini tooltip hides on leave")
+  check(m1.rankTL:GetText() ~= nil and not m1.rankBR:IsShown(), "mini shows one rank")
+  -- A locked (in-flight) card never shows a tooltip.
+  cw1._scripts.OnEnter(cw1)
+  cw1.locked = true
+  stub.advance(0.6)
+  check(not stub.tooltip:IsShown(), "locked card shows no tooltip")
+  cw1.locked = false
+  cw1._scripts.OnLeave(cw1)
   click(deckPanel.close, "deck view Close")
   check(not DeckView.IsShown(), "deck view closes")
   eq(#deckPanel._children > 0 and (function()

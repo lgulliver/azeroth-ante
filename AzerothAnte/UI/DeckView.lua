@@ -6,7 +6,7 @@ local DeckView = {}
 
 local LEVEL = 700            -- over the screen panels (600), under the queue pause overlay (900)
 local PAD = 10
-local GRID_TOP = 68          -- title, suit counts and type counts sit above the grid
+local GRID_TOP = 60          -- title, suit counts and type counts sit above the grid
 local MAX_SCALE = 0.45
 local GAP_X, GAP_Y = 4, 3
 local ENH_ORDER = { "BONUS", "MULT", "WILD", "GLASS", "STEEL", "STONE", "GOLD", "LUCKY" }
@@ -28,7 +28,8 @@ local function byRank(a, b)
   return (a.id or 0) < (b.id or 0)
 end
 
--- One row per suit (empty rows are dropped); Stone cards get a row of their own.
+-- One row per suit (empty rows are dropped); Stone cards go on the end of the
+-- last row (a row of their own would shrink every card).
 local function groupRows(deck)
   local bySuit, stone = {}, {}
   for _, card in ipairs(deck) do
@@ -43,8 +44,11 @@ local function groupRows(deck)
   for _, suit in ipairs(ns.Cards.SUITS) do
     if bySuit[suit] then rows[#rows + 1] = bySuit[suit] end
   end
-  if #stone > 0 then rows[#rows + 1] = stone end
   for _, row in ipairs(rows) do table.sort(row, byRank) end
+  table.sort(stone, byRank)
+  if #rows == 0 and #stone > 0 then rows[1] = {} end
+  local last = rows[#rows]
+  for _, card in ipairs(stone) do last[#last + 1] = card end
   return rows, bySuit, #stone
 end
 
@@ -119,12 +123,12 @@ local function create()
   p:EnableMouse(true) -- swallows clicks meant for what is underneath
 
   p.deckTitle = p:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
-  p.deckTitle:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -8)
+  p.deckTitle:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -6)
   Theme.setColor(p.deckTitle, Theme.gold)
   p.suitCounts = p:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
-  p.suitCounts:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -32)
+  p.suitCounts:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -27)
   p.typeCounts = p:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
-  p.typeCounts:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -46)
+  p.typeCounts:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -39)
   p.typeCounts:SetWidth(p:GetWidth() - 2 * PAD)
   p.typeCounts:SetJustifyH("LEFT")
   Theme.setColor(p.typeCounts, Theme.parchment)

@@ -21,6 +21,8 @@ local Theme = {
     big = "GameFontNormalHuge",
   },
   -- Fixed design size; all layout is in these units and scaled to the window.
+  -- Card textures are 128x256 with the card in the top 128x179 (5:7).
+  cardV = 179 / 256,
   width = 900,
   height = 560,
   sidebarFraction = 0.28,
