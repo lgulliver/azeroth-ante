@@ -65,7 +65,7 @@ end
 -- Row layout, centred; compresses the spacing (overlap) instead of overflowing.
 local function rowX(i, n, areaW)
   local step = CARD_W + GAP
-  if n * CARD_W + (n - 1) * GAP > areaW then step = (areaW - CARD_W) / (n - 1) end
+  if n > 1 and n * CARD_W + (n - 1) * GAP > areaW then step = (areaW - CARD_W) / (n - 1) end
   local total = CARD_W + (n - 1) * step
   return (areaW - total) / 2 + (i - 1) * step
 end
@@ -263,10 +263,12 @@ function HandView.Update(run, animate)
     elseif isNew then
       place(w, x, BASE_Y)
     else
+      w:SetCard(card) -- a scroll or pack may have changed its type
       moveTo(w, x, BASE_Y, MOVE_TIME)
     end
   end
   HandView.RefreshButtons()
+  ns.UI.EditionFX.Wake() -- a re-shown window restarts the shimmer
 end
 
 ---------------------------------------------------------------------------
@@ -324,6 +326,7 @@ local function doPlay()
   if not ns.Run.canPlay(run, sel) then return end
 
   busy = true
+  ns.UI.DeckView.Hide() -- it covers the play area the cards fly into
   local myGen = gen
   local widgets = detach(sel)
   local ok, result = pcall(ns.Run.play, run, sel)
@@ -379,6 +382,7 @@ local function doDiscard()
   if not ns.Run.canDiscard(run, sel) then return end
 
   busy = true
+  ns.UI.DeckView.Hide() -- it covers the play area the cards fly into
   local myGen = gen
   local widgets = detach(sel)
   local ok, err = pcall(ns.Run.discard, run, sel)

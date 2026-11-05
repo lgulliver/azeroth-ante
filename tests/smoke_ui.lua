@@ -161,6 +161,112 @@ local function run(w)
   eq(Main.sidebar.chipsBox.text:GetText(), "0", "preview chips clear after the discard")
   step("2b sort and discard")
 
+  -- 2c. Card type visuals, edition FX and the deck view.
+  local FX, DeckView = ns.UI.EditionFX, ns.UI.DeckView
+  local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
+  local run0 = Main.run
+  local function widgetFor(card, parent)
+    for _, c in ipairs((parent or Main.handArea)._children) do
+      if c.card == card and not c.released and c:IsShown() then return c end
+    end
+  end
+  local c1, c2 = run0.hand[1], run0.hand[2]
+  c1.enh, c1.ed, c1.seal = "BONUS", "FOIL", "RED"
+  c2.enh = "STONE"
+  HandView.Update(run0, false)
+  stub.advance(1)
+  local cw1, cw2 = widgetFor(c1), widgetFor(c2)
+  eq(cw1.art:GetTexture(), MEDIA .. "Face_BONUS", "Bonus card face texture")
+  check(cw1.seal:IsShown(), "seal visible on a sealed card")
+  eq(cw1.seal:GetTexture(), MEDIA .. "Seal_RED", "seal texture")
+  check(cw1.rankTL:IsShown() and cw1.suitBig:IsShown(), "normal card shows rank and suit")
+  eq(cw2.art:GetTexture(), MEDIA .. "Face_STONE", "Stone card face texture")
+  check(not cw2.rankTL:IsShown() and not cw2.rankBR:IsShown(), "Stone hides its rank")
+  check(not cw2.suitBig:IsShown() and not cw2.suitSmall:IsShown(), "Stone hides its suit")
+  check(not cw2.seal:IsShown(), "unsealed card hides the seal")
+  check(FX.IsRunning(), "EditionFX driver runs while an edition card is visible")
+
+  -- Tooltip after a short delay, and the lift is unaffected by it.
+  cw1._scripts.OnEnter(cw1)
+  stub.advance(0.1)
+  check(not stub.tooltip:IsShown(), "card tooltip waits for its delay")
+  stub.advance(0.5)
+  check(stub.tooltip:IsShown() and stub.tooltip:GetOwner() == cw1, "card tooltip shows after the delay")
+  cw1._scripts.OnLeave(cw1)
+  check(not stub.tooltip:IsShown(), "card tooltip hides on leave")
+  stub.advance(0.3)
+
+  -- Deck view over the play area.
+  local nDeck = #run0.deck
+  check(Main.sidebar.deckButton:GetText() == "Deck (" .. nDeck .. ")", "sidebar Deck button shows the count")
+  click(Main.sidebar.deckButton, "Deck button")
+  stub.advance(0.2)
+  check(visible("deckTitle"), "deck view visible")
+  eq(panel("deckTitle").deckTitle:GetText(), "Deck: " .. nDeck .. " cards", "deck view count text")
+  local deckPanel = panel("deckTitle")
+  local minis = {}
+  for _, c in ipairs(deckPanel._children) do
+    if c.card and not c.released and c:IsShown() then minis[#minis + 1] = c end
+  end
+  eq(#minis, nDeck, "deck view mini widgets")
+  local m1, m2 = widgetFor(c1, deckPanel), widgetFor(c2, deckPanel)
+  eq(m1.art:GetTexture(), MEDIA .. "Face_BONUS", "mini card face texture")
+  check(m1.seal:IsShown(), "mini card shows its seal")
+  check(not m2.rankTL:IsShown(), "mini Stone hides its rank")
+  for _, mw in ipairs(minis) do
+    if mw ~= m2 then check(m2._points[1][5] < mw._points[1][5], "Stone cards sit in their own row") end
+  end
+  click(deckPanel.close, "deck view Close")
+  check(not DeckView.IsShown(), "deck view closes")
+  eq(#deckPanel._children > 0 and (function()
+    local n = 0
+    for _, c in ipairs(deckPanel._children) do
+      if c.card and not c.released then n = n + 1 end
+    end
+    return n
+  end)(), 0, "deck view releases its minis")
+
+  -- Hiding the window stops the driver; showing it restarts it.
+  Main.Hide()
+  stub.advance(0.1)
+  check(not FX.IsRunning(), "EditionFX driver stops when the window is hidden")
+  open()
+  check(FX.IsRunning(), "EditionFX driver restarts when the window is shown")
+
+  -- Twelve cards fit the hand area; every edition animates without errors.
+  local added = {}
+  for i, ed in ipairs({ "FOIL", "HOLO", "POLY", "NEGATIVE" }) do
+    local c = ns.Deck.add(run0, { rank = 2 + i, suit = "D", ed = ed, seal = i == 2 and "PURPLE" or nil })
+    run0.hand[#run0.hand + 1] = c
+    added[i] = c
+  end
+  HandView.Update(run0, false)
+  stub.advance(3)
+  local wide = handWidgets()
+  eq(#wide, 12, "twelve hand widgets")
+  local areaW = Main.handArea:GetWidth()
+  for i, cw in ipairs(wide) do
+    local x = cw._points[1][4]
+    check(x >= 0 and x + ns.UI.CardWidget.WIDTH <= areaW + 1e-6, "hand card " .. i .. " inside the hand area")
+  end
+  local polyW = widgetFor(added[3])
+  eq(polyW.face.fx.ed, "POLY", "Polychrome attached")
+  check(widgetFor(added[4]).face.fx.tint:IsShown(), "Negative shows its tint")
+  for _, c in ipairs(added) do ns.Deck.destroy(run0, c.id) end
+  HandView.Update(run0, false)
+  stub.advance(1)
+  eq(#handWidgets(), 8, "hand back to eight")
+  check(not polyW.face.fx.active, "released widgets detach their edition FX")
+
+  c1.enh, c1.ed, c1.seal, c2.enh = nil, nil, nil, nil
+  HandView.Update(run0, false)
+  stub.advance(1)
+  eq(cw1.art:GetTexture(), MEDIA .. "Face_Plain", "plain card face texture")
+  check(not cw1.seal:IsShown(), "seal hides when removed")
+  check(cw2.rankTL:IsShown() and cw2.suitBig:IsShown(), "rank and suit return when no longer Stone")
+  check(not FX.IsRunning(), "EditionFX driver idles with no edition cards")
+  step("2c card visuals, tooltip, deck view, edition FX, 12-card hand")
+
   -- 3. Play a card.
   local scoreBefore = Main.run.score
   local handsBefore = Main.run.handsLeft
@@ -197,6 +303,11 @@ local function run(w)
   click(shop.offerCards[1].buy, "buy offer 1")
   check(run.gold < gold, "buying offer 1 spends gold")
   eq(#run.trinkets, 1, "trinket owned")
+  run.trinkets[1].ed = "HOLO"
+  Main.Render(run)
+  check(Main.trinketRow.slots[1].holder.fx and Main.trinketRow.slots[1].holder.fx.active, "trinket edition FX attached")
+  check(FX.IsRunning(), "EditionFX driver runs for a trinket edition")
+  stub.advance(1)
   gold = run.gold
   click(shop.offerCards[2].buy, "buy tome")
   check(run.gold < gold, "buying the tome spends gold")

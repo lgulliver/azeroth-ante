@@ -19,6 +19,11 @@ local function showTooltip(slot)
   GameTooltip:AddLine(def.desc or "", 1, 1, 1, true)
   local r = Theme.rarity[def.rarity] or Theme.rarity.common
   GameTooltip:AddLine(def.rarity and (def.rarity:sub(1, 1):upper() .. def.rarity:sub(2)) or "", r[1], r[2], r[3])
+  local ed = slot.trinket and ns.CardTypes.ed[slot.trinket.ed]
+  if ed then
+    GameTooltip:AddLine(ed.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
+    GameTooltip:AddLine(ed.desc, 1, 1, 1, true)
+  end
   GameTooltip:Show()
 end
 
@@ -98,6 +103,7 @@ function TrinketRow.Update(run)
       slot.icon:SetTexture(EMPTY_ICON)
       slot.icon:SetAlpha(0.4)
     end
+    ns.UI.EditionFX.Attach(slot.holder, def and entry.ed or nil)
   end
   refreshSell()
 end

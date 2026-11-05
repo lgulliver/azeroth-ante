@@ -29,6 +29,8 @@ UI\Sidebar.lua
 UI\TrinketRow.lua
 UI\Tween.lua
 UI\CardWidget.lua
+UI\EditionFX.lua
+UI\DeckView.lua
 UI\HandView.lua
 UI\Tally.lua
 UI\Screens.lua
