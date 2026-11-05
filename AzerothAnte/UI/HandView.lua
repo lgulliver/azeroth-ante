@@ -171,8 +171,9 @@ local function updatePreview()
   local cards = {}
   for k, i in ipairs(sel) do cards[k] = run.hand[i] end
   local handId = ns.HandEval.evaluate(cards)
-  local chips, mult = ns.Hands.base(handId, run.handLevels[handId] or 1)
-  ns.UI.Sidebar.SetChipsMult(chips, mult, ns.Hands.def[handId].name)
+  local level = run.handLevels[handId] or 1
+  local chips, mult = ns.Hands.base(handId, level)
+  ns.UI.Sidebar.SetChipsMult(chips, mult, ns.Hands.def[handId].name .. " Lv " .. level)
 end
 
 function HandView.RefreshButtons()
@@ -396,7 +397,16 @@ local function doPlay()
     if run.phase == "play" then
       HandView.Update(run, true)
     else
-      HandView.RefreshButtons() -- screens arrive in Task 13
+      HandView.RefreshButtons()
+      -- Blue seals made Tomes at round end: they pop into their slots.
+      local made = run.phase == "shop" and run.lastPayout and run.lastPayout.created
+      if made then
+        local items = {}
+        for i = math.max(1, #run.consumables - made + 1), #run.consumables do
+          items[#items + 1] = run.consumables[i]
+        end
+        ns.UI.Outcome.Play({ created = items })
+      end
     end
     HandView.AfterAction()
   end
@@ -438,10 +448,10 @@ local function doDiscard()
   ns.UI.DeckView.Hide() -- it covers the play area the cards fly into
   local myGen = gen
   local widgets = detach(sel)
-  local ok, err = pcall(ns.Run.discard, run, sel)
-  if not ok then
+  local ok, outcome = pcall(ns.Run.discard, run, sel)
+  if not ok or not outcome then
     restore(run, widgets)
-    geterrorhandler()(err)
+    if not ok then geterrorhandler()(outcome) end
     return
   end
 
@@ -449,6 +459,8 @@ local function doDiscard()
     if myGen ~= gen then return end
     releaseHeld()
     busy = false
+    -- An emptied deck loses the blind: the screen waits until the cards have left.
+    if run.phase ~= "play" then main().Render(run, true) end
     HandView.Update(run, true)
     HandView.AfterAction()
   end)
@@ -457,7 +469,13 @@ local function doDiscard()
     Tween.To(w, { x = w.lx + DISCARD_SLIDE, y = w.ly, alpha = 0 }, DISCARD_TIME, arrived,
       (k - 1) * 0.02)
   end
-  main().Render(run, true)
+  if run.phase == "play" then
+    main().Render(run, true)
+    -- Purple seals made Scrolls: they pop into their slots.
+    if #outcome.created > 0 then ns.UI.Outcome.Play({ created = outcome.created }) end
+  else
+    ns.UI.Sidebar.Update(run, 0, 0)
+  end
   HandView.RefreshButtons()
 end
 

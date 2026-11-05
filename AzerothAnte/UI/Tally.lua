@@ -13,7 +13,7 @@ local HOLD = 0.3             -- beat after the total lands
 local FLOAT_RISE, FLOAT_TIME = 30, 0.6
 local FAST = 4
 local SLIDE, SLIDE_TIME = 160, 0.25
-local WATCHDOG = 15          -- real seconds; force-finish a stuck tally
+local WATCHDOG = 15          -- real seconds (at least); force-finish a stuck tally. A tally lasting longer gets its length + 5s.
 local GREY = { 0.7, 0.7, 0.7 }
 local SHAKE = { 4, -4, 4, -4, 4, 0 }
 local STACK = 16             -- rise between floats stacked on one target
@@ -152,7 +152,8 @@ local function fire(e)
   local kind = e.kind
   if kind == "base" then
     local hand = ns.Hands.def[e.handId]
-    showRun(e, hand and hand.name)
+    local level = s.run.handLevels and s.run.handLevels[e.handId]
+    showRun(e, hand and (hand.name .. (level and (" Lv " .. level) or "")))
   elseif kind == "card" then
     local w = s.widgets[e.index]
     if w then w:Pop() end
@@ -277,7 +278,8 @@ local function onUpdate(_, dt)
   if not s then return stop() end
   if HandView.run ~= s.run then return abandon() end
   s.real = s.real + dt
-  if s.real >= WATCHDOG then return finish(true) end
+  -- Real time vs the tally's own length: a long tally (many events) is never cut short.
+  if s.real >= math.max(WATCHDOG, s.endAt + 5) then return finish(true) end
   dt = dt * s.speed
   s.clock = s.clock + dt
 

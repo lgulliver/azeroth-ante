@@ -63,12 +63,6 @@ local function shortName(def)
   return (name:gsub("^%a+ of the ", ""):gsub("^%a+ of ", ""))
 end
 
-local function description(def, item)
-  if def.desc then return def.desc end
-  local hand = def.handId and ns.Hands.def[def.handId]
-  return hand and ("Raises " .. hand.name .. " by one level when used.") or ""
-end
-
 local function sellValue(item)
   return math.floor(ns.Consumables.COST[item.kind] / 2)
 end
@@ -76,11 +70,8 @@ end
 -- One line saying exactly what the consumable touches (explicit `affects` on
 -- every Scroll and Relic def); targeted ones also show the live selection count.
 local function affectsText(run, item, def)
-  if item.kind == "tome" then
-    local hand = ns.Hands.def[def.handId]
-    return "Levels up " .. (hand and hand.name or "a hand")
-  end
-  local text = def.affects or ""
+  local text = ns.Consumables.affects(run, item)
+  if item.kind == "tome" then return text end
   if def.select then
     local n = #selection(run)
     text = text .. " (" .. n .. " selected)"
@@ -98,7 +89,11 @@ local function showTooltip(slot)
   GameTooltip:SetOwner(slot, "ANCHOR_BOTTOM")
   GameTooltip:AddLine(def.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
   GameTooltip:AddLine(KIND_NAMES[item.kind] or "", 0.7, 0.7, 0.7)
-  GameTooltip:AddLine(description(def, item), 1, 1, 1, true)
+  local run = main() and main().run
+  GameTooltip:AddLine(ns.Consumables.describe(run, item), 1, 1, 1, true)
+  if item.kind == "tome" then
+    GameTooltip:AddLine(ns.Consumables.affects(run, item), Theme.gold[1], Theme.gold[2], Theme.gold[3])
+  end
   GameTooltip:AddLine("Click to use or sell (" .. sellValue(item) .. "g)", 0.6, 0.9, 0.6)
   GameTooltip:Show()
 end
@@ -172,6 +167,12 @@ local function skin(slot, item)
 end
 
 -- The pop animation target for a freshly created consumable item.
+-- The holder of consumable slot `index` (pulse target), or nil.
+function ConsumableRow.SlotHolder(index)
+  local slot = row and row.slots and row.slots[index]
+  return slot and slot:IsShown() and slot.holder or nil
+end
+
 function ConsumableRow.HolderFor(item)
   if not row then return nil end
   for i = 1, #row.slots do
@@ -360,10 +361,19 @@ function ConsumableRow.Use(slot)
   local ok, result = pcall(function()
     local outcome = ns.Consumables.use(run, slot, idx)
     if not outcome then error("consumable use refused", 0) end
+    outcome.slot = slot
+    outcome.anchor = row.slots[slot]
     ConsumableRow.Close()
     clearSelection(run)       -- order and length may change; the cards animate unselected
     persist()
-    m.Render(run, true)       -- gold, trinkets, slots and screens update now; effects play over them
+    if run.phase == "lost" then
+      -- Nothing left to play: the effects play first, the finish shows the defeat.
+      ns.UI.Sidebar.Update(run, 0, 0)
+      ns.UI.ConsumableRow.Update(run)
+      ns.UI.TrinketRow.Update(run)
+    else
+      m.Render(run, true)     -- gold, trinkets, slots and screens update now; effects play over them
+    end
     ns.UI.Outcome.Play(outcome, finish)
   end)
   if not ok then

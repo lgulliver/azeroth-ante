@@ -172,6 +172,7 @@ local function describe(run, pack, c)
   end
   local info = Screens.ItemInfo(item)
   local lines = { info.desc }
+  if info.level then lines[#lines + 1] = GOLD_HEX .. info.level .. "|r" end
   if info.edName then lines[#lines + 1] = GOLD_HEX .. info.edName .. ": " .. info.edDesc .. "|r" end
   local def = info.def
   if def and def.select then
@@ -577,10 +578,8 @@ local function doPick()
     ns.UI.TrinketRow.Pulse(#run.trinkets)
   elseif pack.type == "STANDARD" then
     Outcome.Float(entry.frame, "Added to deck", Theme.gold)
-  elseif item.kind == "tome" then
-    local hand = ns.Hands.def[item.id]
-    Outcome.Float(entry.frame, hand.name .. " Lv " .. run.handLevels[item.id], Theme.gold)
   end
+  if outcome then outcome.anchor = entry.frame end
 
   local pending = 2
   local function part()
