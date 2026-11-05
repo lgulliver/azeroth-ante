@@ -103,6 +103,9 @@ local function shatter(w, delay, done)
   Tween.To(w.face, { scale = SHATTER_SCALE, alpha = 0 }, SHATTER_TIME, done, delay, done)
 end
 
+-- Shared with the tally, which shatters a destroyed Glass card in place.
+Outcome.Shatter = shatter
+
 local function pop(holder, delay, done)
   holder:SetAlpha(0)
   holder:SetScale(0.4)

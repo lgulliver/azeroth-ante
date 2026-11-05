@@ -8,6 +8,7 @@ local Tally = {}
 
 local STEP = 0.28            -- seconds between events
 local COUNT_TIME = 0.5       -- score count-up
+local SHATTER = 0.35      -- a destroyed card's last beat
 local HOLD = 0.3             -- beat after the total lands
 local FLOAT_RISE, FLOAT_TIME = 30, 0.6
 local FAST = 4
@@ -15,6 +16,11 @@ local SLIDE, SLIDE_TIME = 160, 0.25
 local WATCHDOG = 15          -- real seconds; force-finish a stuck tally
 local GREY = { 0.7, 0.7, 0.7 }
 local SHAKE = { 4, -4, 4, -4, 4, 0 }
+local STACK = 16             -- rise between floats stacked on one target
+local CREAM = { 1, 0.95, 0.75 }
+local ED_COLOR = {           -- Foil blue, Holo red, Poly purple
+  FOIL = Theme.chips, HOLO = Theme.mult, POLY = { 0.75, 0.4, 1 },
+}
 
 local driver = CreateFrame("Frame")
 local floatPool = {}
@@ -91,7 +97,9 @@ local function slotFrame(slot)
   return m and m.trinketRow and m.trinketRow.slots and m.trinketRow.slots[slot]
 end
 
+-- Trinkets with no effect and zero-chip cards (Stone) spend no beat.
 local function isNoop(e)
+  if e.kind ~= "trinket" and e.kind ~= "card" then return false end
   local xm = e.xmult
   return (not e.chips or e.chips == 0) and (not e.mult or e.mult == 0) and (not xm or xm == 1)
 end
@@ -105,24 +113,85 @@ local function showRun(e, handName)
   end
 end
 
+-- Floats on a target started close together stack upward instead of overlapping.
+local function stackedFloat(s, target, text, color)
+  if not target then return end
+  local rec = s.floats[target]
+  if rec and s.clock - rec.t < FLOAT_TIME * 0.8 then
+    rec.n = (rec.n + 1) % 4
+  else
+    rec = { n = 0 }
+    s.floats[target] = rec
+  end
+  rec.t = s.clock
+  floatText(target, text, color, rec.n * STACK)
+end
+
+-- Floats an effect's chips, mult and xmult deltas; `color` overrides the usual colours.
+local function floatDeltas(s, target, e, color)
+  if e.chips and e.chips ~= 0 then
+    stackedFloat(s, target, (e.chips > 0 and "+" or "") .. Sidebar.round2(e.chips), color or Theme.chips)
+  end
+  if e.mult and e.mult ~= 0 then
+    stackedFloat(s, target, (e.mult > 0 and "+" or "") .. Sidebar.round2(e.mult), color or Theme.mult)
+  end
+  if e.xmult and e.xmult ~= 1 then
+    stackedFloat(s, target, "\195\151" .. Sidebar.round2(e.xmult), color or Theme.mult)
+  end
+end
+
+-- The widget an event is about: a played card (index) or a held card (heldIndex).
+local function widgetFor(s, e)
+  if e.index then return s.widgets[e.index] end
+  if e.heldIndex then return s.held[e.heldIndex] end
+end
+
 local function fire(e)
   local s = state
   if not s or HandView.run ~= s.run then return end
-  if e.kind == "base" then
+  local kind = e.kind
+  if kind == "base" then
     local hand = ns.Hands.def[e.handId]
     showRun(e, hand and hand.name)
-  elseif e.kind == "card" then
+  elseif kind == "card" then
     local w = s.widgets[e.index]
     if w then w:Pop() end
-    floatText(w, "+" .. e.chips, Theme.chips)
+    stackedFloat(s, w, "+" .. e.chips, Theme.chips)
     showRun(e)
-  elseif e.kind == "debuff" then
+  elseif kind == "enh" then
     local w = s.widgets[e.index]
+    if w then w:Pop() end
+    floatDeltas(s, w, e)
+    showRun(e)
+  elseif kind == "edition" then
+    local color = ED_COLOR[e.ed] or Theme.chips
+    if e.slot then
+      ns.UI.TrinketRow.Pulse(e.slot)
+      floatDeltas(s, slotFrame(e.slot), e, color)
+    else
+      local w = s.widgets[e.index]
+      if w then w:Pop() end
+      floatDeltas(s, w, e, color)
+    end
+    showRun(e)
+  elseif kind == "seal" or kind == "money" then
+    local w = s.widgets[e.index]
+    if w then w:Pop() end
+    stackedFloat(s, w, "$" .. (e.gold or 0), Theme.gold)
+  elseif kind == "held" then
+    local w = s.held[e.heldIndex]
+    if w then w:Pop() end -- pulses in place; the card does not lift
+    floatDeltas(s, w, e)
+    showRun(e)
+  elseif kind == "retrigger" then
+    stackedFloat(s, widgetFor(s, e), "Again!", CREAM)
+  elseif kind == "debuff" then
+    local w = widgetFor(s, e)
     if w then
       shakeCard(w)
-      floatText(w, "X", GREY)
+      stackedFloat(s, w, "X", GREY)
     end
-  elseif e.kind == "trinket" then
+  elseif kind == "trinket" then
     local slot = slotFrame(e.slot)
     ns.UI.TrinketRow.Pulse(e.slot)
     if e.index and s.widgets[e.index] then s.widgets[e.index]:Pop() end
@@ -139,8 +208,14 @@ local function fire(e)
       floatText(slot, "\195\151" .. Sidebar.round2(e.xmult), Theme.mult, lift)
     end
     showRun(e)
-  elseif e.kind == "total" then
+  elseif kind == "total" then
     s.count = { from = s.from, to = s.run.score, t = 0 }
+  elseif kind == "destroy" then
+    local w = s.widgets[e.index]
+    if w and not s.destroyed[w] then
+      s.destroyed[w] = true -- it does not slide away afterwards
+      ns.UI.Outcome.Shatter(w, 0, function() end)
+    end
   end
 end
 
@@ -175,7 +250,10 @@ local function finish(instant)
     pcall(Sidebar.SetScore, s.run.score)
     pcall(Sidebar.SetChipsMult, s.result.chips, s.result.mult)
   end
-  local ws = s.widgets
+  local ws = {}
+  for _, w in ipairs(s.widgets) do
+    if not s.destroyed[w] then ws[#ws + 1] = w end
+  end
   if instant or #ws == 0 then return complete(s) end
   s.sliding = true
   local pending = #ws
@@ -258,13 +336,14 @@ function Tally.Play(result, playedWidgets, done)
 
   local list = {}
   for _, e in ipairs(result.events) do
-    if not (e.kind == "trinket" and isNoop(e)) then list[#list + 1] = e end
+    if not isNoop(e) then list[#list + 1] = e end
   end
   -- Long tallies stay brisk (about 6s at most at 1x).
   local step = math.max(0.12, math.min(STEP, 6 / math.max(1, #list)))
-  local steps, at = {}, 0
+  local steps, at, totalAt = {}, 0, 0
   for i, e in ipairs(list) do
     steps[i] = { at = at, event = e }
+    if e.kind == "total" then totalAt = at end
     at = at + step
   end
   -- The total step starts the count-up; the last step is `total`.
@@ -272,7 +351,9 @@ function Tally.Play(result, playedWidgets, done)
   state = {
     run = run, result = result, widgets = playedWidgets or {}, done = done,
     steps = steps, next = 1, clock = 0, real = 0, speed = 1,
-    from = from, endAt = (at - step) + COUNT_TIME + HOLD,
+    from = from, floats = {}, destroyed = {}, held = HandView.HeldWidgets(),
+    -- The count-up and any shatter after `total` both finish before the hold.
+    endAt = math.max(totalAt + COUNT_TIME, (at - step) + SHATTER) + HOLD,
   }
   if #steps == 0 then state.endAt = HOLD end
 

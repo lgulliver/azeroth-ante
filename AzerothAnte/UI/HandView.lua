@@ -72,6 +72,15 @@ function HandView.WidgetForCard(id)
   end
 end
 
+-- The hand widgets in run.hand order. During a play they are the held cards
+-- (the played ones are detached and the refill has not been laid out yet), so
+-- this is the order of ctx.held.
+function HandView.HeldWidgets()
+  local out = {}
+  for i, w in ipairs(list) do out[i] = w end
+  return out
+end
+
 local function main()
   return ns.UI.Main
 end
