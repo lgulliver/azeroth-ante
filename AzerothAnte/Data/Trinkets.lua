@@ -35,7 +35,7 @@ Trinkets.def = {
   WHETSTONE = {
     id = "WHETSTONE", name = "Whetstone", rarity = "common", cost = 5,
     desc = "Each scoring Spade gives +3 mult.",
-    icon = "Interface\\Icons\\INV_Stone_Sharpening_Dwarven",
+    icon = "Interface\\Icons\\INV_Stone_SharpeningStone_01",
     onCard = function(_, card)
       if card.suit == "S" then return { mult = 3 } end
     end,
@@ -111,7 +111,7 @@ Trinkets.def = {
   MULTI_SHOT = {
     id = "MULTI_SHOT", name = "Multi-Shot", rarity = "uncommon", cost = 6,
     desc = "+12 mult if the hand contains a Straight.",
-    icon = "Interface\\Icons\\Ability_Hunter_MultiShot",
+    icon = "Interface\\Icons\\Ability_UpgradeMoonGlaive",
     onHand = function(ctx)
       if ctx.contains.STRAIGHT then return { mult = 12 } end
     end,
@@ -147,7 +147,7 @@ Trinkets.def = {
   AVENGING_WRATH = {
     id = "AVENGING_WRATH", name = "Avenging Wrath", rarity = "rare", cost = 8,
     desc = "x2 mult.",
-    icon = "Interface\\Icons\\Spell_Holy_AvengingWrath",
+    icon = "Interface\\Icons\\Spell_Holy_AvenginWrath",
     onHand = function() return { xmult = 2 } end,
   },
   HUNTERS_MARK = {
