@@ -41,6 +41,61 @@ T.test("open_errors_do_not_charge", function()
   T.eq({ ok, err }, { false, "gone" })
 end)
 
+T.test("consumable_pack_choices_distinct_over_seeds", function()
+  for seed = 1, 300 do
+    for _, kind in ipairs({ "ARCANA", "CELESTIAL", "SPECTRAL" }) do
+      local run = offered(kind)
+      run.rng = ns.RNG.new(seed)
+      T.eq(ns.Packs.open(run, 1), true)
+      local seen = {}
+      for _, item in ipairs(run.shop.openPack.choices) do
+        T.ok(not seen[item.id], kind .. " duplicate at seed " .. seed)
+        seen[item.id] = true
+      end
+    end
+  end
+end)
+
+T.test("consumable_pack_duplicates_only_after_pool_exhausted", function()
+  local order = ns.Scrolls.order
+  ns.Scrolls.order = { "BLESSING", "FURY" }
+  local ok, err = pcall(function()
+    local run = offered("ARCANA")
+    T.eq(ns.Packs.open(run, 1), true)
+    local choices = run.shop.openPack.choices
+    T.eq(#choices, 5)
+    T.ok(choices[1].id ~= choices[2].id)
+    for _, item in ipairs(choices) do
+      T.ok(item.id == "BLESSING" or item.id == "FURY")
+    end
+  end)
+  ns.Scrolls.order = order
+  if not ok then error(err) end
+end)
+
+T.test("buffoon_exhausted_pool_has_no_false_choices", function()
+  for remaining = 0, 1 do
+    local run = offered("BUFFOON")
+    for i, id in ipairs(ns.Trinkets.order) do
+      if i > remaining then run.trinkets[#run.trinkets + 1] = { id = id } end
+    end
+    run.maxTrinkets = #run.trinkets + 1
+    T.eq(ns.Packs.open(run, 1), true)
+    local pack = run.shop.openPack
+    T.eq(#pack.choices, remaining)
+    T.eq(pack.picksLeft, remaining)
+    for _, item in pairs(pack.choices) do T.ok(type(item) == "table") end
+    if remaining == 1 then
+      T.eq(pack.choices[1].id, ns.Trinkets.order[1])
+      T.eq(ns.Packs.pick(run, 1), true)
+      T.eq(run.shop.openPack, nil)
+    else
+      ns.Packs.skip(run)
+      T.eq(run.shop.openPack, nil)
+    end
+  end
+end)
+
 T.test("pick_scroll_uses_on_pack_hand", function()
   local run = offered()
   ns.Packs.open(run, 1)

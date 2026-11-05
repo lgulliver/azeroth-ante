@@ -57,15 +57,30 @@ function Packs.open(run, i)
   if offer.type == "SPECTRAL" or offer.type == "BUFFOON" then show = show - 1 end
   local pack = { type = offer.type, size = offer.size, choices = {}, picksLeft = size.pick }
   local taken = {}
-  for c = 1, show do
-    if KINDS[offer.type] then
-      pack.choices[c] = ns.Consumables.random(run, KINDS[offer.type])
-    elseif offer.type == "BUFFOON" then
-      pack.choices[c] = ns.Shop.rollTrinket(run, taken)
-    else
-      pack.choices[c] = standardCard(run)
-    end
+  local kind = KINDS[offer.type]
+  local pool = {}
+  if kind then
+    local ids = kind == "tome" and ns.Hands.visible(run)
+      or (kind == "scroll" and ns.Scrolls.order or ns.Relics.order)
+    for c, id in ipairs(ids) do pool[c] = id end
   end
+  for c = 1, show do
+    local item
+    if kind then
+      if #pool > 0 then
+        local index = ns.RNG.int(run.rng, 1, #pool)
+        item = { kind = kind, id = table.remove(pool, index) }
+      else
+        item = ns.Consumables.random(run, kind)
+      end
+    elseif offer.type == "BUFFOON" then
+      item = ns.Shop.rollTrinket(run, taken)
+    else
+      item = standardCard(run)
+    end
+    if item then pack.choices[#pack.choices + 1] = item end
+  end
+  pack.picksLeft = math.min(pack.picksLeft, #pack.choices)
   if offer.type == "ARCANA" or offer.type == "SPECTRAL" then
     pack.hand = {}
     ns.Cards.draw(ns.Deck.shuffledPile(run), pack.hand, ns.Deck.handSize(run))

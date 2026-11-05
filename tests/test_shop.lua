@@ -56,7 +56,10 @@ T.test("unowned_trinkets_only", function()
   for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = { id = id } end
   for _ = 1, 50 do
     ns.Shop.open(run)
-    for _, item in ipairs(run.shop.cards) do T.ok(not item or item.type ~= "trinket") end
+    for i = 1, 2 do
+      local item = run.shop.cards[i]
+      T.ok(item and (item.type == "scroll" or item.type == "tome"), "empty fallback slot")
+    end
   end
 end)
 
@@ -101,6 +104,30 @@ T.test("sell_includes_edition", function()
   T.eq(run.gold, 6)
   T.eq(run.trinkets, {})
   T.eq(ns.Shop.sellTrinket(run, 1), 0)
+end)
+
+T.test("sell_value_includes_foil_surcharge", function()
+  local run = opened(0)
+  local trinket = { id = "BLOODLUST", ed = "FOIL" }
+  T.eq(ns.Shop.sellValue(trinket), 5) -- Bloodlust costs 8; Foil adds 2.
+  run.trinkets = { trinket }
+  T.eq(ns.Shop.sellTrinket(run, 1), 5)
+  T.eq(run.gold, 5)
+end)
+
+T.test("exhausted_shop_rerolls_both_consumable_types", function()
+  local run, seen = opened(1000), {}
+  for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = { id = id } end
+  for _ = 1, 100 do
+    T.eq(ns.Shop.reroll(run), true)
+    for i = 1, 2 do
+      local item = run.shop.cards[i]
+      T.ok(item and (item.type == "scroll" or item.type == "tome"), "empty reroll slot")
+      seen[item.type] = true
+    end
+    run.gold = 1000
+  end
+  T.ok(seen.scroll and seen.tome)
 end)
 
 T.test("reroll_cards_only", function()

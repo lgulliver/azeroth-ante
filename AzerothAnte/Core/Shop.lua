@@ -38,8 +38,14 @@ local function generateCards(run)
     local roll = ns.RNG.next(run.rng) * 28
     if roll < 20 then
       cards[i] = Shop.rollTrinket(run, taken)
-    else
-      local kind = roll < 24 and "scroll" or "tome"
+    end
+    if not cards[i] then
+      local kind
+      if roll < 20 then
+        kind = ns.RNG.next(run.rng) < 0.5 and "scroll" or "tome"
+      else
+        kind = roll < 24 and "scroll" or "tome"
+      end
       local item = ns.Consumables.random(run, kind)
       cards[i] = { type = kind, id = item.id, cost = ns.Consumables.COST[kind] }
     end
@@ -75,11 +81,15 @@ function Shop.buy(run, i)
   return true
 end
 
+function Shop.sellValue(trinket)
+  local cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
+  return math.floor(cost / 2)
+end
+
 function Shop.sellTrinket(run, slot)
   local trinket = run.trinkets[slot]
   if not trinket then return 0 end
-  local cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
-  local gained = math.floor(cost / 2)
+  local gained = Shop.sellValue(trinket)
   run.gold = run.gold + gained
   table.remove(run.trinkets, slot)
   return gained

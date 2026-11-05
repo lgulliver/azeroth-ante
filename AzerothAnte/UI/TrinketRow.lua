@@ -29,7 +29,7 @@ local function refreshSell()
   for i = 1, SLOTS do
     local slot = frame.slots[i]
     if sellMode and slot.def then
-      slot.sell.price = math.floor(slot.def.cost / 2)
+      slot.sell.price = ns.Shop.sellValue(slot.trinket)
       slot.sell:SetText(slot.sell.price .. "g")
       slot.sell.trinketId = slot.def.id -- identity captured at render time
       slot.sell:Show()
@@ -90,6 +90,7 @@ function TrinketRow.Update(run)
     local entry = trinkets[i]
     local def = entry and ns.Trinkets.def[entry.id]
     slot.def = def
+    slot.trinket = entry
     if def then
       slot.icon:SetTexture(def.icon)
       slot.icon:SetAlpha(1)
