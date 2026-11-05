@@ -120,10 +120,12 @@ local def = {
       return true
     end,
     use = function(_, _, api)
-      if ns.RNG.next(api.rng) >= 0.25 then return end
+      if ns.RNG.next(api.rng) >= 0.25 then return api.nope() end
       local pool = unedited(api.trinkets())
       if #pool == 0 then return end
-      ns.RNG.pick(api.rng, pool).ed = ns.CardTypes.rollAura(api.rng)
+      local chosen = ns.RNG.pick(api.rng, pool)
+      chosen.ed = ns.CardTypes.rollAura(api.rng)
+      api.touch(chosen)
     end,
   },
   STRENGTH = {
@@ -206,9 +208,11 @@ local def = {
       end
       if #ofRarity == 0 then ofRarity = pool end
       local trinkets = api.trinkets()
-      trinkets[#trinkets + 1] = {
+      local trinket = {
         id = ns.RNG.pick(api.rng, ofRarity), ed = ns.CardTypes.rollEdition(api.rng, true),
       }
+      trinkets[#trinkets + 1] = trinket
+      api.touch(trinket)
     end,
   },
   BLADES = {
