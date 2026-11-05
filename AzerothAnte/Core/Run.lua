@@ -167,13 +167,16 @@ function Run.winBlind(run)
       payout.trinkets = payout.trinkets + (def.onRoundEnd(run) or 0)
     end
   end
+  local boss = ns.Bosses.def[Run.bossId(run)]
   for _, card in ipairs(run.hand) do
-    if card.enh == "GOLD" then
-      payout.held = payout.held + ((card.seal == "RED") and 6 or 3)
-    end
-    if card.seal == "BLUE" and run.lastHandId and ns.Consumables
-      and #run.consumables < run.maxConsumables then
-      ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
+    if not (boss and boss.debuff and boss.debuff(card)) then
+      if card.enh == "GOLD" then
+        payout.held = payout.held + ((card.seal == "RED") and 6 or 3)
+      end
+      if card.seal == "BLUE" and run.lastHandId and ns.Consumables
+        and #run.consumables < run.maxConsumables then
+        ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
+      end
     end
   end
   payout.total = payout.reward + payout.hands + payout.interest + payout.trinkets + payout.held

@@ -20,6 +20,8 @@ function Save.load(db)
   if not db or db.version ~= Save.VERSION then return nil end
   local run = db.run
   if type(run) ~= "table" or type(run.phase) ~= "string" then return nil end
+  if type(run.deck) ~= "table" or type(run.hand) ~= "table"
+    or type(run.pile) ~= "table" then return nil end
   run = deepCopy(run)
   ns.Deck.relink(run)
   return run
