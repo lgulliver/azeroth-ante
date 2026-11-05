@@ -7,6 +7,9 @@ local SLOTS = 5
 local SLOT_SIZE = 44
 local SLOT_GAP = 8
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
+local SELL_W, SELL_H = 52, 18
+
+local sellMode, onSell = false, nil
 
 local function showTooltip(slot)
   local def = slot.def
@@ -17,6 +20,28 @@ local function showTooltip(slot)
   local r = Theme.rarity[def.rarity] or Theme.rarity.common
   GameTooltip:AddLine(def.rarity and (def.rarity:sub(1, 1):upper() .. def.rarity:sub(2)) or "", r[1], r[2], r[3])
   GameTooltip:Show()
+end
+
+-- Shows a "Sell (Ng)" button under each owned trinket while sell mode is on.
+local function refreshSell()
+  local frame = ns.UI.Main and ns.UI.Main.trinketRow
+  if not frame or not frame.slots then return end
+  for i = 1, SLOTS do
+    local slot = frame.slots[i]
+    if sellMode and slot.def then
+      slot.sell:SetText("Sell (" .. math.floor(slot.def.cost / 2) .. "g)")
+      slot.sell:Show()
+    else
+      slot.sell:Hide()
+    end
+  end
+end
+
+-- onSellFn(slotIndex) is called when a sell button is clicked.
+function TrinketRow.SetSellMode(enabled, onSellFn)
+  sellMode = enabled and true or false
+  onSell = enabled and onSellFn or nil
+  refreshSell()
 end
 
 function TrinketRow.Build(frame)
@@ -34,6 +59,14 @@ function TrinketRow.Build(frame)
     slot.icon:SetAllPoints()
     slot.icon:SetTexture(EMPTY_ICON)
     slot.icon:SetAlpha(0.4)
+    local sell = CreateFrame("Button", nil, slot, "UIPanelButtonTemplate")
+    sell:SetSize(SELL_W, SELL_H)
+    sell:SetPoint("TOP", slot, "BOTTOM", 0, -1)
+    sell:SetScript("OnClick", function()
+      if onSell then onSell(i) end
+    end)
+    sell:Hide()
+    slot.sell = sell
     slot:SetScript("OnEnter", showTooltip)
     slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
     frame.slots[i] = slot
@@ -57,6 +90,7 @@ function TrinketRow.Update(run)
       slot.icon:SetAlpha(0.4)
     end
   end
+  refreshSell()
 end
 
 -- Short scale pulse on slot `index` (1-5); driven by OnUpdate, no AnimationGroup.
