@@ -27,11 +27,13 @@ UI\Theme.lua
 UI\MainFrame.lua
 UI\Sidebar.lua
 UI\TrinketRow.lua
+UI\ConsumableRow.lua
 UI\Tween.lua
 UI\CardWidget.lua
 UI\EditionFX.lua
 UI\DeckView.lua
 UI\HandView.lua
+UI\Outcome.lua
 UI\Tally.lua
 UI\Screens.lua
 Queue.lua

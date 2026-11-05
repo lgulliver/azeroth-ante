@@ -39,6 +39,10 @@ local function apply(r, k)
     r.cs = lerp(r.s0, r.s1, k)
     f:SetScale(r.cs)
   end
+  if r.w1 then
+    r.cw = lerp(r.w0, r.w1, k)
+    f:SetWidth(r.cw)
+  end
 end
 
 local function remove(r)
@@ -79,8 +83,8 @@ local function onUpdate(_, dt)
   end
 end
 
--- Tweens the first anchor offset (x, y), alpha and/or scale of `frame`.
--- `to` = { x =, y =, alpha =, scale = }; any key may be omitted. A new tween on
+-- Tweens the first anchor offset (x, y), alpha, scale and/or width of `frame`.
+-- `to` = { x =, y =, alpha =, scale =, width = }; any key may be omitted. A new tween on
 -- a frame replaces its running one (continuing from the current values; the
 -- replaced tween's onDone is not called; its onCancel is). `delay` seconds
 -- before it starts. `onCancel` runs if this tween is replaced or cancelled.
@@ -89,7 +93,7 @@ function Tween.To(frame, to, duration, onDone, delay, onCancel)
   local r = { frame = frame, dur = duration or 0, onDone = onDone, onCancel = onCancel, t = -(delay or 0) }
   if old then
     r.point, r.rel, r.relPoint = old.point, old.rel, old.relPoint
-    r.cx, r.cy, r.ca, r.cs = old.cx, old.cy, old.ca, old.cs
+    r.cx, r.cy, r.ca, r.cs, r.cw = old.cx, old.cy, old.ca, old.cs, old.cw
     remove(old)
     safe(old.onCancel)
   end
@@ -110,6 +114,9 @@ function Tween.To(frame, to, duration, onDone, delay, onCancel)
   end
   if to.scale then
     r.s0, r.s1 = r.cs or frame:GetScale(), to.scale
+  end
+  if to.width then
+    r.w0, r.w1 = r.cw or frame:GetWidth(), to.width
   end
 
   if r.dur <= 0 and r.t >= 0 then

@@ -223,6 +223,8 @@ function Methods.Reset(w)
   w.body:ClearAllPoints()
   w.body:SetPoint("BOTTOM", w, "BOTTOM", 0, 0)
   w.face:SetScale(1)
+  w.face:SetWidth(WIDTH)
+  w.face:SetAlpha(1)
   w:SetAlpha(1)
   w:EnableMouse(true)
 end

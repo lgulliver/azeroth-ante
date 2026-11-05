@@ -3,7 +3,7 @@ local _, ns = ...
 local Theme = ns.UI.Theme
 local TrinketRow = {}
 
-local SLOTS = 5
+local MIN_SLOTS = 5 -- slots built up front; Run.trinketSlots grows it (Negative trinkets)
 local SLOT_SIZE = 44
 local SLOT_GAP = 8
 local EMPTY_ICON = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
@@ -31,9 +31,9 @@ end
 local function refreshSell()
   local frame = ns.UI.Main and ns.UI.Main.trinketRow
   if not frame or not frame.slots then return end
-  for i = 1, SLOTS do
+  for i = 1, #frame.slots do
     local slot = frame.slots[i]
-    if sellMode and slot.def then
+    if sellMode and slot.def and slot:IsShown() then
       slot.sell.price = ns.Shop.sellValue(slot.trinket)
       slot.sell:SetText(slot.sell.price .. "g")
       slot.sell.trinketId = slot.def.id -- identity captured at render time
@@ -51,47 +51,53 @@ function TrinketRow.SetSellMode(enabled, onSellFn)
   refreshSell()
 end
 
+local function makeSlot(frame, i)
+  local slot = CreateFrame("Frame", nil, frame)
+  slot:SetSize(SLOT_SIZE, SLOT_SIZE)
+  slot:SetPoint("LEFT", frame, "LEFT", (i - 1) * (SLOT_SIZE + SLOT_GAP), 0)
+  slot:EnableMouse(true)
+  slot.holder = CreateFrame("Frame", nil, slot)
+  slot.holder:SetSize(SLOT_SIZE, SLOT_SIZE)
+  slot.holder:SetPoint("CENTER", slot, "CENTER")
+  slot.icon = slot.holder:CreateTexture(nil, "ARTWORK")
+  slot.icon:SetAllPoints()
+  slot.icon:SetTexture(EMPTY_ICON)
+  slot.icon:SetAlpha(0.4)
+  local sell = CreateFrame("Button", nil, slot, "UIPanelButtonTemplate")
+  sell:SetSize(SELL_W, SELL_H)
+  sell:SetPoint("TOP", slot, "BOTTOM", 0, -1)
+  sell:SetScript("OnClick", function()
+    if onSell then onSell(i, sell.trinketId) end
+  end)
+  sell:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:SetText("Sell for " .. (self.price or 0) .. "g", 1, 1, 1)
+    GameTooltip:Show()
+  end)
+  sell:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  sell:Hide()
+  slot.sell = sell
+  slot:SetScript("OnEnter", showTooltip)
+  slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  frame.slots[i] = slot
+  return slot
+end
+
 function TrinketRow.Build(frame)
   frame.slots = {}
   frame:SetScript("OnHide", function() GameTooltip:Hide() end)
-  for i = 1, SLOTS do
-    local slot = CreateFrame("Frame", nil, frame)
-    slot:SetSize(SLOT_SIZE, SLOT_SIZE)
-    slot:SetPoint("LEFT", frame, "LEFT", (i - 1) * (SLOT_SIZE + SLOT_GAP), 0)
-    slot:EnableMouse(true)
-    slot.holder = CreateFrame("Frame", nil, slot)
-    slot.holder:SetSize(SLOT_SIZE, SLOT_SIZE)
-    slot.holder:SetPoint("CENTER", slot, "CENTER")
-    slot.icon = slot.holder:CreateTexture(nil, "ARTWORK")
-    slot.icon:SetAllPoints()
-    slot.icon:SetTexture(EMPTY_ICON)
-    slot.icon:SetAlpha(0.4)
-    local sell = CreateFrame("Button", nil, slot, "UIPanelButtonTemplate")
-    sell:SetSize(SELL_W, SELL_H)
-    sell:SetPoint("TOP", slot, "BOTTOM", 0, -1)
-    sell:SetScript("OnClick", function()
-      if onSell then onSell(i, sell.trinketId) end
-    end)
-    sell:SetScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-      GameTooltip:SetText("Sell for " .. (self.price or 0) .. "g", 1, 1, 1)
-      GameTooltip:Show()
-    end)
-    sell:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    sell:Hide()
-    slot.sell = sell
-    slot:SetScript("OnEnter", showTooltip)
-    slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    frame.slots[i] = slot
-  end
+  for i = 1, MIN_SLOTS do makeSlot(frame, i) end
 end
 
 function TrinketRow.Update(run)
   local frame = ns.UI.Main and ns.UI.Main.trinketRow
   if not frame or not frame.slots then return end
   local trinkets = run and run.trinkets or {}
-  for i = 1, SLOTS do
+  local count = run and ns.Run.trinketSlots(run) or MIN_SLOTS
+  for i = #frame.slots + 1, count do makeSlot(frame, i) end
+  for i = 1, #frame.slots do
     local slot = frame.slots[i]
+    slot:SetShown(i <= count)
     local entry = trinkets[i]
     local def = entry and ns.Trinkets.def[entry.id]
     slot.def = def

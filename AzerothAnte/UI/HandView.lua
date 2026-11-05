@@ -37,6 +37,41 @@ function HandView.IsBusy()
   return busy
 end
 
+-- Locks input for an action that animates outside the hand (a consumable use).
+-- Returns a token for Unlock, or nil when already busy.
+function HandView.Lock()
+  if busy or not HandView.run then return nil end
+  busy = true
+  HandView.RefreshButtons()
+  return gen
+end
+
+-- Ends a Lock: clears the selection (the hand's order or length may have
+-- changed), re-lays the hand (new cards deal in, hand size changes apply) and
+-- re-enables input. A stale token (the run changed meanwhile) does nothing.
+function HandView.Unlock(token)
+  local run = HandView.run
+  if token ~= gen or not busy or not run then return end
+  busy = false
+  for _, w in ipairs(list) do
+    if w.selected then w:SetSelected(false) end
+  end
+  if run.phase == "play" then
+    HandView.Update(run, true)
+  else
+    HandView.RefreshButtons()
+  end
+  HandView.AfterAction()
+end
+
+-- The hand widget showing the card with this id (also valid for a card that
+-- was just destroyed, until the next layout), or nil.
+function HandView.WidgetForCard(id)
+  for card, w in pairs(widgetOf) do
+    if card.id == id and not w.released then return w end
+  end
+end
+
 local function main()
   return ns.UI.Main
 end
@@ -155,6 +190,8 @@ function HandView.RefreshButtons()
   setButton(buttons.sortRank, sortOk, sortWhy)
   setButton(buttons.sortSuit, sortOk, sortWhy)
   updatePreview()
+  local row = ns.UI.ConsumableRow
+  if row then row.Refresh() end
 end
 
 function HandView.ClearSelection()

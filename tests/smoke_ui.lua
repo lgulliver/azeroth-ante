@@ -288,6 +288,88 @@ local function run(w)
   check(not FX.IsRunning(), "EditionFX driver idles with no edition cards")
   step("2c card visuals, tooltip, deck view, edition FX, 12-card hand")
 
+  -- 2d. Consumable slots and the Use flow in play.
+  local runC = Main.run
+  local crow = Main.consumableRow
+  local function popover() return panel("use") end
+  local function giveSlot(r, kind, id)
+    r.consumables = {}
+    ns.Consumables.add(r, { kind = kind, id = id })
+    Main.Render(r)
+  end
+  giveSlot(runC, "scroll", "FURY")
+  eq(#crow.slots, 5, "consumable row builds its slot frames")
+  check(crow.slots[1]:IsShown() and crow.slots[2]:IsShown() and not crow.slots[3]:IsShown(), "row shows maxConsumables slots")
+  eq(crow.slots[1].art:GetTexture(), MEDIA .. "Consumable_Scroll", "scroll slot frame texture")
+  eq(crow.slots[1].name:GetText(), "Fury", "slot shows a short name")
+  check(not crow.slots[2].art:IsShown(), "empty slot hides the frame art")
+  crow.slots[1]._scripts.OnEnter(crow.slots[1])
+  check(stub.tooltip:IsShown() and stub.tooltip:GetOwner() == crow.slots[1], "consumable slot tooltip")
+  crow.slots[1]._scripts.OnLeave(crow.slots[1])
+
+  selectCard(1)
+  selectCard(2)
+  local furyIdx = HandView.Selected()
+  local fa, fb = runC.hand[furyIdx[1]], runC.hand[furyIdx[2]]
+  click(crow.slots[1], "consumable slot 1")
+  check(popover() and popover():IsVisible(), "popover opens on slot click")
+  click(popover().use, "popover Use (2 cards selected)")
+  check(HandView.IsBusy(), "input locks during the use animation")
+  check(not Main.buttons.play:IsEnabled(), "Play disabled while a consumable resolves")
+  stub.advance(3)
+  check(not HandView.IsBusy(), "unlocked after the use animation")
+  eq(fa.enh, "MULT", "first selected card became Mult")
+  eq(fb.enh, "MULT", "second selected card became Mult")
+  eq(widgetFor(fa).art:GetTexture(), MEDIA .. "Face_MULT", "first widget shows the Mult face")
+  eq(widgetFor(fb).art:GetTexture(), MEDIA .. "Face_MULT", "second widget shows the Mult face")
+  eq(widgetFor(fa).face:GetWidth(), ns.UI.CardWidget.WIDTH, "flip restores the card width")
+  eq(#HandView.Selected(), 0, "selection clears after a use")
+  eq(#runC.consumables, 0, "used consumable leaves its slot")
+  check(not crow.slots[1].art:IsShown(), "used slot renders empty")
+  check(not popover():IsShown(), "popover closes after Use")
+  check(env.AzerothAnteDB.run ~= nil, "use persists the run")
+
+  -- Disabled Use shows its reason.
+  giveSlot(runC, "scroll", "FURY")
+  selectCard(1)
+  selectCard(2)
+  selectCard(3)
+  click(crow.slots[1], "consumable slot 1 (again)")
+  local use = popover().use
+  check(not use:IsEnabled(), "Use disabled with 3 cards selected for Fury")
+  eq(use.reason, "Select 1 to 2 cards", "disabled Use explains why")
+  use._scripts.OnEnter(use)
+  check(stub.tooltip:IsShown() and stub.tooltip:GetOwner() == use, "disabled Use shows its reason on hover")
+  use._scripts.OnLeave(use)
+  check(popover().affects:GetText():find("3 selected", 1, true), "popover states what it will affect")
+  HandView.ClearSelection() -- the selection-change refresh re-evaluates Use
+  check(not use:IsEnabled(), "Use disabled with nothing selected")
+  selectCard(1)
+  check(use:IsEnabled(), "Use enables when the selection becomes valid")
+  click(crow.slots[1], "consumable slot 1 (close)")
+  check(not popover():IsShown(), "second click closes the popover")
+  HandView.ClearSelection()
+
+  -- Destroy, add and create outcomes.
+  giveSlot(runC, "relic", "COURT")
+  local handBefore = #runC.hand
+  click(crow.slots[1], "relic slot")
+  click(popover().use, "Use relic of the Court")
+  stub.advance(3)
+  eq(#runC.hand, handBefore + 2, "Court destroys 1 and adds 3 cards")
+  eq(#handWidgets(), handBefore + 2, "hand re-lays out with the added cards")
+  check(not HandView.IsBusy(), "unlocked after destroy and add")
+  giveSlot(runC, "scroll", "STARS")
+  click(crow.slots[1], "stars slot")
+  click(popover().use, "Use Scroll of the Stars")
+  stub.advance(3)
+  eq(#runC.consumables, 2, "Stars created two Tomes")
+  check(crow.slots[1].holder:GetAlpha() == 1 and crow.slots[2].holder:GetAlpha() == 1, "created consumables end fully visible")
+  eq(crow.slots[2].art:GetTexture(), MEDIA .. "Consumable_Tome", "tome slot frame texture")
+  runC.consumables = {}
+  Main.Render(runC)
+  step("2d consumable slots, popover, use animations")
+
   -- 3. Play a card.
   local scoreBefore = Main.run.score
   local handsBefore = Main.run.handsLeft
@@ -328,6 +410,13 @@ local function run(w)
   Main.Render(run)
   check(Main.trinketRow.slots[1].holder.fx and Main.trinketRow.slots[1].holder.fx.active, "trinket edition FX attached")
   check(FX.IsRunning(), "EditionFX driver runs for a trinket edition")
+  check(#Main.trinketRow.slots == 5, "five trinket slots without a Negative trinket")
+  run.trinkets[1].ed = "NEGATIVE"
+  Main.Render(run)
+  check(Main.trinketRow.slots[6] and Main.trinketRow.slots[6]:IsShown(), "a Negative trinket adds a sixth slot")
+  run.trinkets[1].ed = "HOLO"
+  Main.Render(run)
+  check(not Main.trinketRow.slots[6]:IsShown(), "the extra slot goes when the edition does")
   stub.advance(1)
   gold = run.gold
   click(shop.offerCards[2].buy, "buy tome")
@@ -351,6 +440,34 @@ local function run(w)
   eq(run.phase, "blind", "phase after Next Blind")
   check(visible("preview"), "blind screen visible after shop")
   step("5 shop buy, tome, reroll, sell, next blind")
+
+  -- 5b. Consumables on the blind screen: untargeted use and sell.
+  run.gold = 10
+  run.consumables = {}
+  ns.Consumables.add(run, { kind = "scroll", id = "GREED" })
+  Main.Render(run)
+  stub.advance(1)
+  local brow = Main.consumableRow
+  local bpop = panel("use")
+  click(brow.slots[1], "consumable slot on the blind screen")
+  check(bpop:IsVisible(), "popover visible over the blind screen")
+  check(bpop:GetFrameLevel() > panel("preview"):GetFrameLevel(), "popover sits above the screen panel")
+  click(bpop.use, "Use Greed")
+  stub.advance(2)
+  eq(run.gold, 20, "Greed doubled the gold")
+  eq(#run.consumables, 0, "Greed consumed")
+  eq(Main.sidebar.gold:GetText(), "Gold: 20", "sidebar shows the doubled gold")
+  ns.Consumables.add(run, { kind = "scroll", id = "FURY" })
+  Main.Render(run)
+  click(brow.slots[1], "slot for a targeted scroll")
+  check(not bpop.use:IsEnabled() and bpop.use.reason ~= nil, "targeted consumable cannot be used without a hand")
+  eq(bpop.sell:GetText(), "Sell (1g)", "sell button shows its price")
+  click(bpop.sell, "Sell scroll")
+  stub.advance(1)
+  eq(run.gold, 21, "selling refunds half the cost")
+  eq(#run.consumables, 0, "sold consumable leaves its slot")
+  check(not bpop:IsShown(), "popover closes after Sell")
+  step("5b consumables on the blind screen, sell")
 
   -- 6. Persistence.
   local saved = env.AzerothAnteDB.run
