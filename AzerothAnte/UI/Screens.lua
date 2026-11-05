@@ -27,8 +27,9 @@ local function main()
 end
 
 local function blocked()
-  local HandView, Tally = ns.UI.HandView, ns.UI.Tally
-  return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy()) or false
+  local HandView, Tally, PackView = ns.UI.HandView, ns.UI.Tally, ns.UI.PackView
+  return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy())
+    or (PackView and PackView.IsBusy()) or false
 end
 
 local function persist()
@@ -272,12 +273,165 @@ local function refreshBlind(p, run)
 end
 
 ---------------------------------------------------------------------------
+-- Item faces and pack info (shared with the pack view)
+
+local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
+local FRAME_ART = { scroll = "Consumable_Scroll", tome = "Consumable_Tome", relic = "Consumable_Relic" }
+local KIND_NAMES = { trinket = "Trinket", scroll = "Scroll", tome = "Tome", relic = "Relic" }
+local TRINKET_FULL = "Trinket slots full - sell one first"
+local CONSUMABLE_FULL = "Consumable slots full"
+local GOLD_HEX = "|cffffd100"
+local PACK_TYPES = {
+  ARCANA = { name = "Arcana", contents = "Scrolls", tint = { 0.72, 0.52, 1 },
+    note = "Aim them at cards drawn from your deck" },
+  CELESTIAL = { name = "Celestial", contents = "Tomes", tint = { 0.45, 0.7, 1 },
+    note = "Each one levels up a hand" },
+  STANDARD = { name = "Standard", contents = "playing cards", tint = { 0.92, 0.84, 0.66 },
+    note = "Added to your deck" },
+  BUFFOON = { name = "Buffoon", contents = "Trinkets", tint = { 0.5, 1, 0.55 },
+    note = "Needs a free trinket slot" },
+  SPECTRAL = { name = "Spectral", contents = "Relics", tint = { 0.4, 1, 0.9 },
+    note = "Aim them at cards drawn from your deck" },
+}
+local SIZE_NAMES = { normal = "", jumbo = "Jumbo ", mega = "Mega " }
+
+-- Exposed so the pack view builds the same buttons and tooltips.
+Screens.Widgets = { text = text, button = button, reasonTip = reasonTip, setReason = setReason }
+
+-- Normalises a shop offer ({ type, id, ed }) or pack choice ({ kind, id } or a
+-- trinket offer) into what an item face and its tooltip show.
+function Screens.ItemInfo(item)
+  local kind = item.kind or item.type
+  local info = { kind = kind, ed = item.ed }
+  if kind == "trinket" then
+    local def = ns.Trinkets.def[item.id]
+    local rarity = def.rarity or "common"
+    info.name, info.desc, info.icon = def.name, def.desc or "", def.icon
+    info.color = Theme.rarity[rarity] or Theme.rarity.common
+    info.sub = rarity:sub(1, 1):upper() .. rarity:sub(2) .. " Trinket"
+    local ed = ns.CardTypes.ed[item.ed]
+    if ed then
+      info.edName = ed.name
+      info.edDesc = item.ed == "NEGATIVE" and "+1 trinket slot" or ed.desc
+    end
+  else
+    local def = ns.Consumables.def({ kind = kind, id = item.id })
+    local hand = def.handId and ns.Hands.def[def.handId]
+    info.def = def
+    info.name = def.name
+    info.icon = def.icon or TOME_ICON
+    info.desc = def.desc or (hand and ("Raises " .. hand.name .. " by one level when used.") or "")
+    info.color = Theme.parchment
+    info.sub = KIND_NAMES[kind]
+  end
+  return info
+end
+
+-- Name, kind and rarity, description, then the edition line (Negative says
+-- exactly "+1 trinket slot").
+function Screens.ShowItemTip(owner, info, hint)
+  if not info then return end
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  GameTooltip:AddLine(info.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
+  GameTooltip:AddLine(info.sub or "", info.color[1], info.color[2], info.color[3])
+  GameTooltip:AddLine(info.desc, 1, 1, 1, true)
+  if info.edName then
+    GameTooltip:AddLine(info.edName, Theme.gold[1], Theme.gold[2], Theme.gold[3])
+    GameTooltip:AddLine(info.edDesc, 1, 1, 1, true)
+  end
+  if hint then GameTooltip:AddLine(hint, 0.6, 0.9, 0.6) end
+  GameTooltip:Show()
+end
+
+-- A 5:7 card face for a trinket (icon on a dark card, with its edition FX) or a
+-- consumable (the kind's frame art, icon on top). withPlate adds the name.
+function Screens.NewFace(parent, w, h, withPlate)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(w, h)
+  f.border = f:CreateTexture(nil, "BACKGROUND")
+  f.border:SetPoint("TOPLEFT", f, "TOPLEFT", -2, 2)
+  f.border:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 2, -2)
+  f.border:Hide()
+  f.bg = f:CreateTexture(nil, "BORDER")
+  f.bg:SetAllPoints()
+  f.bg:SetColorTexture(0.16, 0.13, 0.1, 1)
+  f.art = f:CreateTexture(nil, "ARTWORK")
+  f.art:SetAllPoints()
+  f.art:SetTexCoord(0, 1, 0, Theme.cardV) -- 5:7 art in the top of the canvas
+  local size = math.floor(w * 0.5)
+  f.iconBox = CreateFrame("Frame", nil, f)
+  f.iconBox:SetSize(size, size)
+  f.iconBox:SetPoint("TOP", f, "TOP", 0, -math.floor(h * 0.14))
+  f.icon = f.iconBox:CreateTexture(nil, "ARTWORK")
+  f.icon:SetAllPoints()
+  if withPlate then
+    f.plate = f:CreateTexture(nil, "OVERLAY")
+    f.plate:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 3, 3)
+    f.plate:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -3, 3)
+    f.plate:SetHeight(28)
+    f.plate:SetColorTexture(0, 0, 0, 0.65)
+    f.name = f:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
+    f.name:SetPoint("BOTTOM", f, "BOTTOM", 0, 5)
+    f.name:SetWidth(w - 8)
+    f.name:SetHeight(24)
+    f.name:SetJustifyH("CENTER")
+    Theme.setColor(f.name, Theme.parchment)
+  end
+  return f
+end
+
+function Screens.SetFaceSelected(f, on)
+  if on then
+    f.border:SetColorTexture(Theme.gold[1], Theme.gold[2], Theme.gold[3], 1)
+    f.border:Show()
+  elseif f.baseBorder then
+    f.border:SetColorTexture(f.baseBorder[1], f.baseBorder[2], f.baseBorder[3], 1)
+    f.border:Show()
+  else
+    f.border:Hide()
+  end
+end
+
+function Screens.SkinFace(f, info)
+  f.info = info
+  local trinket = info.kind == "trinket"
+  f.icon:SetTexture(info.icon)
+  f.bg:SetShown(trinket)
+  f.art:SetShown(not trinket)
+  if not trinket then f.art:SetTexture(MEDIA .. FRAME_ART[info.kind]) end
+  f.baseBorder = trinket and info.color or nil
+  Screens.SetFaceSelected(f, false)
+  ns.UI.EditionFX.Attach(f.iconBox, trinket and info.ed or nil)
+  if f.name then
+    f.name:SetText(info.name)
+    f.plate:Show()
+  end
+end
+
+-- label, tint, contents and a one-line description for a pack offer or an open pack.
+function Screens.PackInfo(pack)
+  local t = PACK_TYPES[pack.type]
+  local size = ns.Packs.SIZES[pack.size]
+  local show = size.show
+  if pack.type == "SPECTRAL" or pack.type == "BUFFOON" then show = show - 1 end
+  return {
+    label = SIZE_NAMES[pack.size] .. t.name .. " Pack", tint = t.tint, show = show, picks = size.pick,
+    sizeText = pack.size == "normal" and "" or pack.size:upper(),
+    desc = ("Choose %d of %d %s\n%s"):format(size.pick, show, t.contents, t.note),
+  }
+end
+
+---------------------------------------------------------------------------
 -- Shop
 
-local function showError(p, code)
+local function slotsMessage(offerType)
+  return offerType == "trinket" and TRINKET_FULL or CONSUMABLE_FULL
+end
+
+local function showError(p, code, offerType)
   errorToken = errorToken + 1
   local mine = errorToken
-  p.err:SetText(BUY_ERRORS[code] or "Can't do that")
+  p.err:SetText(code == "slots" and slotsMessage(offerType) or BUY_ERRORS[code] or "Can't do that")
   p.err:Show()
   C_Timer.After(ERROR_TIME, function()
     if errorToken == mine then p.err:Hide() end
@@ -285,14 +439,20 @@ local function showError(p, code)
 end
 
 -- Runs a Shop action, reports a failure inline, then re-renders everything
--- (sidebar gold, trinket row, shop buttons) and persists.
-local function shopAction(fn, ...)
+-- (sidebar gold, trinket row, shop buttons) and persists. onOk(run) plays the
+-- success animation after the render; the gold change floats over the sidebar.
+local function shopAction(fn, onOk, offerType, ...)
   local run = main().run
   if blocked() or not run or run.phase ~= "shop" then return end
+  local before = run.gold
   local ok, why = fn(run, ...)
-  if ok == false then showError(panels.shop, why) end
-  main().Render(run)
+  if ok == false then showError(panels.shop, why, offerType) end
+  main().Render(run, true)
   persist()
+  if ok ~= false then
+    ns.UI.Outcome.FloatGold(run.gold - before)
+    if onOk then onOk(run) end
+  end
 end
 
 local function onSell(slot, id)
@@ -305,8 +465,9 @@ local function onSell(slot, id)
   local owned = run.trinkets[slot]
   if not owned or owned.id ~= id then return end
   lastSell = now
-  ns.Shop.sellTrinket(run, slot)
-  main().Render(run)
+  local gained = ns.Shop.sellTrinket(run, slot)
+  main().Render(run, true) -- a pack open on this screen re-checks its Pick button
+  ns.UI.Outcome.FloatGold(gained)
   persist()
 end
 
@@ -318,51 +479,68 @@ local function nextBlind()
   persist()
 end
 
-local CARD_W, CARD_H = 124, 190
+local COL_W, FACE_H, COL_H = 90, 126, 276 -- 5:7 face
+local COL_Y = -64
 
-local function makeCard(p, x, onBuy)
-  local c = box(p, CARD_W, CARD_H)
-  c:SetPoint("TOPLEFT", p, "TOPLEFT", x, -44)
-  c.icon = c:CreateTexture(nil, "ARTWORK")
-  c.icon:SetSize(36, 36)
-  c.icon:SetPoint("TOP", c, "TOP", 0, -8)
-  c.name = text(c, Theme.fonts.text, "TOP", 0, -50, CARD_W - 12, "CENTER")
-  c.name:SetHeight(30)
+-- Fades a column in (new offers after a reroll).
+local function fadeIn(c, delay)
+  c:SetAlpha(0)
+  Tween.To(c, { alpha = 1 }, 0.2, nil, delay or 0)
+end
+
+local function makeColumn(p, x, actionLabel, onClick)
+  local c = CreateFrame("Frame", nil, p)
+  c:SetSize(COL_W, COL_H)
+  c:SetPoint("TOPLEFT", p, "TOPLEFT", x, COL_Y)
+  c.name = text(c, Theme.fonts.small, "TOP", 0, -(FACE_H + 6), COL_W, "CENTER")
+  c.name:SetHeight(26)
   c.name:SetJustifyV("TOP")
-  c.desc = text(c, Theme.fonts.small, "TOP", 0, -82, CARD_W - 14, "CENTER")
-  c.desc:SetHeight(56)
+  c.desc = text(c, Theme.fonts.small, "TOP", 0, -(FACE_H + 34), COL_W, "CENTER")
+  c.desc:SetHeight(64)
   c.desc:SetJustifyV("TOP")
   Theme.setColor(c.desc, Theme.parchment)
-  c.cost = text(c, Theme.fonts.text, "BOTTOM", 0, 40, CARD_W - 12, "CENTER")
-  c.buy = button(c, "Buy", 100, 24, onBuy)
-  c.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 10)
+  c.cost = text(c, Theme.fonts.text, "BOTTOM", 0, 30, COL_W, "CENTER")
+  c.buy = button(c, actionLabel, COL_W - 6, 24, onClick)
+  c.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 0)
   reasonTip(c.buy)
-  c.sold = text(c, Theme.fonts.title, "CENTER", 0, 0, CARD_W - 12, "CENTER")
+  c.sold = text(c, Theme.fonts.title, "TOP", 0, -(FACE_H / 2 - 8), COL_W, "CENTER")
   c.sold:SetText("Sold")
   Theme.setColor(c.sold, GREY)
   return c
 end
 
--- item: nil/false = sold; otherwise { icon, name, color, desc, cost, affordable, reason }
-local function setCard(c, item)
-  local live = item and true or false
-  c.icon:SetShown(live)
-  c.name:SetShown(live)
-  c.desc:SetShown(live)
-  c.cost:SetShown(live)
-  c.buy:SetShown(live)
-  c.sold:SetShown(not live)
-  c:SetAlpha(live and 1 or 0.5)
-  if not live then return end
-  c.icon:SetTexture(item.icon)
-  c.name:SetText(item.name)
-  Theme.setColor(c.name, item.color)
-  c.desc:SetText(item.desc)
-  c.cost:SetText(item.cost .. "g")
-  Theme.setColor(c.cost, item.affordable and Theme.gold or RED)
-  c.buy:SetText(item.blockedText or "Buy")
-  if item.ok then c.buy:Enable() else c.buy:Disable() end
-  setReason(c.buy, (not item.ok) and item.reason or nil)
+local function makeOfferColumn(p, x, onBuy)
+  local c = makeColumn(p, x, "Buy", onBuy)
+  c.face = Screens.NewFace(c, COL_W, FACE_H, false)
+  c.face:SetPoint("TOP", c, "TOP", 0, 0)
+  c.face:EnableMouse(true)
+  c.face:SetScript("OnEnter", function(self) Screens.ShowItemTip(self, self.info) end)
+  c.face:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  return c
+end
+
+local function makePackColumn(p, x, onOpen)
+  local c = makeColumn(p, x, "Open", onOpen)
+  local f = CreateFrame("Frame", nil, c)
+  f:SetSize(COL_W, FACE_H)
+  f:SetPoint("TOP", c, "TOP", 0, 0)
+  f:EnableMouse(true)
+  f.art = f:CreateTexture(nil, "ARTWORK")
+  f.art:SetAllPoints()
+  f.art:SetTexture(MEDIA .. "Pack")
+  f.art:SetTexCoord(0, 1, 0, Theme.cardV)
+  f.size = f:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
+  f.size:SetPoint("CENTER", f, "CENTER", 0, 0)
+  f:SetScript("OnEnter", function(self)
+    if not self.pack then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(self.pack.label, Theme.gold[1], Theme.gold[2], Theme.gold[3])
+    GameTooltip:AddLine(self.pack.desc, 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  c.face = f
+  return c
 end
 
 local function buildShop()
@@ -373,11 +551,11 @@ local function buildShop()
   hdr:SetText("Payout")
   Theme.setColor(hdr, Theme.gold)
   p.payout = {}
-  local rows = { "reward", "hands", "interest", "trinkets", "total" }
+  local rows = { "reward", "hands", "interest", "trinkets", "held", "total" }
   for i, key in ipairs(rows) do
     local y = -68 - (i - 1) * 22
     local label = text(p, key == "total" and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 16, y, 120)
-    local value = text(p, key == "total" and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 136, y, 60, "RIGHT")
+    local value = text(p, key == "total" and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 130, y, 56, "RIGHT")
     if key == "total" then
       Theme.setColor(label, Theme.gold)
       Theme.setColor(value, Theme.gold)
@@ -385,23 +563,73 @@ local function buildShop()
     p.payout[key] = { label = label, value = value }
   end
 
-  local x = 208
-  p.offerCards = {}
+  local cardsHdr = text(p, Theme.fonts.small, "TOPLEFT", 200, -46, 2 * COL_W + 8, "CENTER")
+  cardsHdr:SetText("Cards")
+  Theme.setColor(cardsHdr, Theme.gold)
+  local packsHdr = text(p, Theme.fonts.small, "TOPLEFT", 200 + 2 * COL_W + 8 + 24, -46, 2 * COL_W + 8, "CENTER")
+  packsHdr:SetText("Packs")
+  Theme.setColor(packsHdr, Theme.gold)
+
+  p.offerCards, p.packOffers = {}, {}
   for i = 1, 2 do
-    p.offerCards[i] = makeCard(p, x + (i - 1) * (CARD_W + 8), function() shopAction(ns.Shop.buy, i) end)
+    local item = i
+    p.offerCards[i] = makeOfferColumn(p, 200 + (i - 1) * (COL_W + 8), function()
+      local run = main().run
+      local offer = run and run.shop and run.shop.cards[item]
+      local offerType = offer and offer.type
+      shopAction(ns.Shop.buy, function(r)
+        if offerType == "trinket" then
+          ns.UI.TrinketRow.Pulse(#r.trinkets)
+        else
+          local held = r.consumables[#r.consumables]
+          if held then ns.UI.Outcome.Play({ created = { held } }) end
+        end
+      end, offerType, item)
+    end)
+    p.packOffers[i] = makePackColumn(p, 200 + 2 * COL_W + 8 + 24 + (i - 1) * (COL_W + 8), function()
+      shopAction(ns.Packs.open, nil, nil, item)
+    end)
   end
 
-  p.err = text(p, Theme.fonts.text, "BOTTOM", 0, 64, 560, "CENTER")
+  p.err = text(p, Theme.fonts.text, "BOTTOM", 0, 56, 560, "CENTER")
   Theme.setColor(p.err, RED)
   p.err:Hide()
 
-  p.reroll = button(p, "Reroll", 150, 28, function() shopAction(ns.Shop.reroll) end)
-  p.reroll:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 208, 20)
+  p.reroll = button(p, "Reroll", 150, 28, function()
+    shopAction(ns.Shop.reroll, function()
+      for i = 1, 2 do
+        fadeIn(p.offerCards[i], (i - 1) * 0.06)
+      end
+    end)
+  end)
+  p.reroll:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 200, 20)
   reasonTip(p.reroll)
   p.next = button(p, "Next Blind", 150, 28, nextBlind)
   p.next:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -20, 20)
   addAbandon(p)
   return p
+end
+
+local function setColumn(c, live)
+  c.face:SetShown(live)
+  c.name:SetShown(live)
+  c.desc:SetShown(live)
+  c.cost:SetShown(live)
+  c.buy:SetShown(live)
+  c.sold:SetShown(not live)
+  c:SetAlpha(live and 1 or 0.5)
+end
+
+-- Fills an offer column. spec = { name, color, desc, cost, affordable, ok, reason, blockedText }.
+local function fillColumn(c, spec)
+  c.name:SetText(spec.name)
+  Theme.setColor(c.name, spec.color)
+  c.desc:SetText(spec.desc)
+  c.cost:SetText(spec.cost .. "g")
+  Theme.setColor(c.cost, spec.affordable and Theme.gold or RED)
+  c.buy:SetText(spec.blockedText or spec.action)
+  if spec.ok then c.buy:Enable() else c.buy:Disable() end
+  setReason(c.buy, (not spec.ok) and spec.reason or nil)
 end
 
 local function refreshShop(p, run)
@@ -411,6 +639,7 @@ local function refreshShop(p, run)
     hands = { "Hands left (" .. (pay.hands or 0) .. " x 1g)", pay.hands },
     interest = { "Interest", pay.interest },
     trinkets = { "Trinkets", pay.trinkets },
+    held = { "Held Gold cards", pay.held },
     total = { "Total", pay.total },
   }
   for key, row in pairs(p.payout) do
@@ -418,39 +647,58 @@ local function refreshShop(p, run)
     row.value:SetText("+" .. (lines[key][2] or 0) .. "g")
   end
 
-  local shop = run.shop or { cards = {}, rerollCost = 0 }
+  local shop = run.shop or { cards = {}, packs = {}, rerollCost = 0 }
+  local blockedByPack = shop.openPack ~= nil
   for i = 1, 2 do
+    local c = p.offerCards[i]
     local offer = shop.cards[i]
+    setColumn(c, offer and true or false)
     if offer then
-      local trinket = offer.type == "trinket"
-      local def = trinket and ns.Trinkets.def[offer.id]
-        or ns.Consumables.def({ kind = offer.type, id = offer.id })
+      local info = Screens.ItemInfo(offer)
       local full
-      if trinket then
-        local slots = ns.Run.trinketSlots(run) + (offer.ed == "NEGATIVE" and 1 or 0)
-        full = #run.trinkets >= slots
+      if offer.type == "trinket" then
+        full = #run.trinkets >= ns.Run.trinketSlots(run) + (offer.ed == "NEGATIVE" and 1 or 0)
       else
         full = #run.consumables >= run.maxConsumables
       end
       local afford = run.gold >= offer.cost
-      setCard(p.offerCards[i], {
-        icon = def.icon or TOME_ICON, name = def.name,
-        desc = def.desc or ("Raises " .. ns.Hands.def[offer.id].name .. " by one level when used."),
-        cost = offer.cost,
-        color = Theme.rarity[def.rarity] or Theme.rarity.common,
-        affordable = afford, ok = afford and not full and not shop.openPack,
-        blockedText = full and "Slots full" or nil,
-        reason = shop.openPack and BUY_ERRORS.pack or (afford and BUY_ERRORS.slots or BUY_ERRORS.gold),
+      Screens.SkinFace(c.face, info)
+      local desc = info.desc
+      if info.edName then desc = desc .. "\n" .. GOLD_HEX .. info.edName .. ": " .. info.edDesc .. "|r" end
+      local reason
+      if blockedByPack then reason = BUY_ERRORS.pack
+      elseif not afford then reason = BUY_ERRORS.gold
+      else reason = slotsMessage(offer.type) end
+      fillColumn(c, {
+        name = info.name, color = info.color, desc = desc, cost = offer.cost, action = "Buy",
+        affordable = afford, ok = afford and not full and not blockedByPack,
+        blockedText = (full and afford) and "Slots full" or nil, reason = reason,
       })
-    else
-      setCard(p.offerCards[i], false)
+    end
+  end
+
+  for i = 1, 2 do
+    local c = p.packOffers[i]
+    local offer = shop.packs[i]
+    setColumn(c, offer and true or false)
+    if offer then
+      local info = Screens.PackInfo(offer)
+      local afford = run.gold >= offer.cost
+      c.face.pack = info
+      c.face.art:SetVertexColor(info.tint[1], info.tint[2], info.tint[3])
+      c.face.size:SetText(info.sizeText)
+      fillColumn(c, {
+        name = info.label, color = Theme.parchment, desc = info.desc, cost = offer.cost, action = "Open",
+        affordable = afford, ok = afford and not blockedByPack,
+        reason = blockedByPack and BUY_ERRORS.pack or BUY_ERRORS.gold,
+      })
     end
   end
 
   p.reroll:SetText("Reroll (" .. shop.rerollCost .. "g)")
-  local canReroll = run.gold >= shop.rerollCost and not shop.openPack
+  local canReroll = run.gold >= shop.rerollCost and not blockedByPack
   if canReroll then p.reroll:Enable() else p.reroll:Disable() end
-  setReason(p.reroll, shop.openPack and BUY_ERRORS.pack or ((not canReroll) and BUY_ERRORS.gold or nil))
+  setReason(p.reroll, blockedByPack and BUY_ERRORS.pack or ((not canReroll) and BUY_ERRORS.gold or nil))
 end
 
 ---------------------------------------------------------------------------

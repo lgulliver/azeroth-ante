@@ -36,5 +36,6 @@ UI\HandView.lua
 UI\Outcome.lua
 UI\Tally.lua
 UI\Screens.lua
+UI\PackView.lua
 Queue.lua
 AzerothAnte.lua

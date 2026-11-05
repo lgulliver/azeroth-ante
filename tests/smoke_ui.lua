@@ -559,6 +559,244 @@ local function run(w)
   check(visible("offerCards"), "shop screen not visible")
   step("4 winning hand opens the shop")
 
+  -- 4b. Shop v2: item cards, packs and the pack screen.
+  do
+    local r = Main.run
+    r.gold = 100
+    r.consumables = {}
+    r.shop.cards = {
+      { type = "scroll", id = "FURY", cost = 3 },
+      { type = "trinket", id = "BLOODLUST", ed = "NEGATIVE", cost = 13 },
+    }
+    r.shop.packs = { { type = "ARCANA", size = "mega", cost = 8 }, { type = "BUFFOON", size = "normal", cost = 4 } }
+    Main.Render(r)
+    stub.advance(1)
+    local sp = panel("offerCards")
+    eq(sp.packOffers[1].name:GetText(), "Mega Arcana Pack", "pack label")
+    check(sp.packOffers[1].desc:GetText():find("Choose 2 of 5 Scrolls", 1, true), "pack says what it holds")
+    eq(sp.packOffers[2].name:GetText(), "Buffoon Pack", "normal pack label")
+    check(sp.offerCards[2].desc:GetText():find("+1 trinket slot", 1, true), "Negative offer says +1 trinket slot")
+    local iconFx = sp.offerCards[2].face.iconBox.fx
+    check(iconFx and iconFx.active and iconFx.ed == "NEGATIVE", "offered trinket shows its edition FX")
+    check(sp.payout.held ~= nil and sp.payout.held.label:GetText():find("Gold"), "payout shows the held-gold row")
+    stub.advance(0.1)
+    sp.offerCards[2].face._scripts.OnEnter(sp.offerCards[2].face)
+    check(stub.tooltip:IsShown(), "offer tooltip shows")
+    local sawEdition = false
+    for _, line in ipairs(stub.tooltip._lines) do
+      if line == "+1 trinket slot" then sawEdition = true end
+    end
+    check(sawEdition, "offer tooltip has the Negative line")
+    sp.offerCards[2].face._scripts.OnLeave(sp.offerCards[2].face)
+
+    -- Buy a Scroll into a consumable slot; a full row disables Buy with a reason.
+    local gold0 = r.gold
+    click(sp.offerCards[1].buy, "buy Fury")
+    eq(r.gold, gold0 - 3, "Scroll cost spent")
+    eq(r.consumables[1].kind, "scroll", "scroll in a consumable slot")
+    eq(r.consumables[1].id, "FURY", "bought the offered scroll")
+    stub.advance(1)
+    r.shop.cards[1] = { type = "scroll", id = "GREED", cost = 3 }
+    r.maxConsumables = 1
+    Main.Render(r)
+    check(not sp.offerCards[1].buy:IsEnabled(), "Buy disabled with consumable slots full")
+    eq(sp.offerCards[1].buy.reason, "Consumable slots full", "disabled Buy says why")
+    eq(sp.offerCards[1].buy:GetText(), "Slots full", "disabled Buy label")
+    r.maxConsumables = 2
+    r.shop.cards[1] = false
+    Main.Render(r)
+
+    -- Open the Mega Arcana pack.
+    gold0 = r.gold
+    click(sp.packOffers[1].buy, "Open Mega Arcana")
+    stub.advance(1)
+    eq(r.gold, gold0 - 8, "pack cost spent")
+    local pack = r.shop.openPack
+    check(pack and pack.type == "ARCANA" and pack.hand and #pack.hand > 0, "Arcana pack drew a hand")
+    eq(pack.picksLeft, 2, "Mega gives 2 picks")
+    check(visible("packChoices"), "PackView shows while a pack is open")
+    local pv = panel("packChoices")
+    eq(pv.title:GetText(), "Mega Arcana Pack", "pack screen title")
+    eq(pv.picksLeft:GetText(), "Picks left: 2", "picks left shown")
+    check(not pv.pick:IsEnabled(), "Pick disabled with nothing selected")
+    eq(pv.pick.reason, "Select a choice first", "Pick says what to do first")
+    pack.choices[1] = { kind = "scroll", id = "FURY" }
+    pack.choices[2] = { kind = "scroll", id = "GREED" }
+    Main.Render(r)
+    ns.UI.OnRunChanged() -- the forced choices are saved like any other state
+    stub.advance(1)
+    local function packHand()
+      local out = {}
+      for _, c in ipairs(pv.hand._children) do
+        if c.card and not c.released and c:IsShown() then out[#out + 1] = c end
+      end
+      table.sort(out, function(a, b) return a._points[1][4] < b._points[1][4] end)
+      return out
+    end
+    eq(#packHand(), #pack.hand, "pack hand widgets")
+    check(not panel("preview") or not panel("preview"):IsVisible(), "blind screen not shown")
+
+    -- Reload mid-pack: a fresh world shows the same pack.
+    do
+      local db3 = deepCopy(env.AzerothAnteDB)
+      local w3 = newWorld(db3)
+      w3.env.SlashCmdList.AZEROTHANTE()
+      w3.stub.advance(1)
+      local pv3
+      for _, c in ipairs(w3.ns.UI.Main.content._children) do
+        if c.packChoices then pv3 = c end
+      end
+      check(pv3 and pv3:IsVisible(), "PackView shows after a reload mid-pack")
+      local p3 = w3.ns.UI.Main.run.shop.openPack
+      eq(p3.picksLeft, 2, "reloaded pack keeps its picks")
+      eq(p3.choices[1].id, "FURY", "reloaded pack keeps its choices")
+      eq(#p3.hand, #pack.hand, "reloaded pack keeps its hand")
+      check(pv3.packChoices[1] and pv3.packChoices[1].frame:IsVisible(), "reloaded choices are shown")
+    end
+
+    -- Aim the Scroll in the consumable slot at the pack hand (its own selection).
+    local wA, wB = packHand()[1], packHand()[2]
+    click(wA, "pack card A")
+    click(wB, "pack card B")
+    check(wA.selected and wB.selected, "pack cards select")
+    check(#HandView.Selected() == 0, "pack selection is separate from the hand's")
+    click(Main.consumableRow.slots[1], "Fury slot while a pack is open")
+    local pop = panel("use")
+    check(pop.affects:GetText():find("(2 selected)", 1, true), "Affects counts the pack selection")
+    check(pop.use:IsEnabled(), "Use enabled with 2 pack cards selected")
+    local cardA, cardB = wA.card, wB.card
+    click(pop.use, "Use Fury on the pack hand")
+    stub.advance(0.15)
+    check(wA.face:GetWidth() < 80, "the pack card flips (the pack widget is found by id)")
+    stub.advance(2)
+    eq(cardA.enh, "MULT", "Fury changed pack card A")
+    eq(cardB.enh, "MULT", "Fury changed pack card B")
+    eq(#r.consumables, 0, "the Scroll was used up")
+    check(not HandView.IsBusy(), "unlocked after the use")
+    eq(#ns.UI.PackView.Selected(), 0, "pack selection cleared after the use")
+    check(not panel("use"):IsShown(), "popover closed after the use")
+
+    -- Pick Fury from the pack: needs the choice AND 1-2 pack cards.
+    local entry1 = pv.packChoices[1]
+    click(entry1.frame, "Fury choice")
+    check(not pv.pick:IsEnabled(), "Pick disabled until cards are selected")
+    eq(pv.pick.reason, "Select 1 to 2 cards", "Pick says how many cards")
+    check(pv.detailTitle:GetText():find("Fury", 1, true), "detail names the selected choice")
+    local wC, wD = packHand()[3], packHand()[4]
+    wC.card.enh, wD.card.enh = nil, nil
+    click(wC, "pack card C")
+    click(wD, "pack card D")
+    check(pv.pick:IsEnabled(), "Pick enabled with a choice and 2 cards")
+    check(pv.status:GetText():find("Ready", 1, true), "status says ready")
+    local cardC, cardD = wC.card, wD.card
+    gold0 = r.gold
+    click(pv.pick, "Pick Fury")
+    stub.advance(2)
+    eq(cardC.enh, "MULT", "picked Fury changed card C")
+    eq(cardD.enh, "MULT", "picked Fury changed card D")
+    eq(pack.picksLeft, 1, "one pick left")
+    eq(pack.choices[1], false, "the taken choice is gone")
+    check(r.shop.openPack == pack and pv:IsVisible(), "pack stays open with a pick left")
+    eq(pv.picksLeft:GetText(), "Picks left: 1", "picks left updates")
+    check(env.AzerothAnteDB.run.shop.openPack.picksLeft == 1, "pick was saved")
+
+    -- Skip closes it and returns to the shop.
+    check(pv.skip:IsEnabled(), "Skip is available")
+    click(pv.skip, "Skip")
+    stub.advance(1)
+    eq(r.shop.openPack, nil, "skip closes the pack")
+    check(not pv:IsVisible(), "PackView hides when the pack closes")
+    check(visible("offerCards"), "the shop is back")
+    check(env.AzerothAnteDB.run.shop.openPack == nil, "skip was saved")
+
+    -- Buffoon pack: trinket slot rules, and the Negative choice still fits when full.
+    r.trinkets = {}
+    for i = 1, 5 do r.trinkets[i] = { id = "ARCANE_INTELLECT" } end
+    click(sp.packOffers[2].buy, "Open Buffoon")
+    stub.advance(1)
+    local bp = r.shop.openPack
+    check(bp and bp.type == "BUFFOON", "Buffoon pack open")
+    bp.choices = { { type = "trinket", id = "HEALTHSTONE" }, { type = "trinket", id = "BLOODLUST", ed = "NEGATIVE" } }
+    bp.picksLeft = 1
+    Main.Render(r)
+    stub.advance(1)
+    check(not bp.hand, "Buffoon has no drawn hand")
+    click(pv.packChoices[1].frame, "plain trinket choice")
+    check(not pv.pick:IsEnabled(), "Pick disabled with trinket slots full")
+    eq(pv.pick.reason, "Trinket slots full - sell one first", "full slots say why")
+    click(pv.packChoices[2].frame, "Negative trinket choice")
+    check(pv.detailBody:GetText():find("+1 trinket slot", 1, true), "detail says +1 trinket slot")
+    check(pv.pick:IsEnabled(), "a Negative trinket fits when slots are full")
+    click(pv.pick, "Pick Negative trinket")
+    stub.advance(2)
+    eq(#r.trinkets, 6, "Negative trinket taken into the sixth slot")
+    eq(r.shop.openPack, nil, "pack closes after the last pick")
+    check(not pv:IsVisible(), "PackView closed after the last pick")
+    r.trinkets = {}
+
+    -- Standard pack: the choices are real cards; picking adds one to the deck.
+    r.shop.packs[2] = { type = "STANDARD", size = "normal", cost = 4 }
+    Main.Render(r)
+    local deckBefore = #r.deck
+    click(sp.packOffers[2].buy, "Open Standard")
+    stub.advance(1)
+    local sc = r.shop.openPack
+    check(sc and sc.type == "STANDARD" and #sc.choices == 3, "Standard pack shows 3 cards")
+    sc.choices[1] = { rank = 12, suit = "H", enh = "GOLD", ed = "FOIL" }
+    Main.Render(r)
+    stub.advance(1)
+    local cw = pv.packChoices[1].widget
+    check(cw and cw.art:GetTexture() == MEDIA .. "Face_GOLD", "Standard choice is a real card with its enhancement")
+    click(cw, "Standard card choice")
+    check(pv.detailBody:GetText():find("Gold", 1, true) and pv.detailBody:GetText():find("Foil", 1, true),
+      "detail lists the card's enhancement and edition")
+    click(pv.pick, "Pick the card")
+    stub.advance(2)
+    eq(#r.deck, deckBefore + 1, "picked card joined the deck")
+    eq(r.shop.openPack, nil, "Standard pack closed")
+
+    -- Celestial pack: the picked Tome levels its hand at once.
+    r.shop.packs[2] = { type = "CELESTIAL", size = "normal", cost = 4 }
+    Main.Render(r)
+    click(sp.packOffers[2].buy, "Open Celestial")
+    stub.advance(1)
+    local cp = r.shop.openPack
+    cp.choices[1] = { kind = "tome", id = "PAIR" }
+    Main.Render(r)
+    stub.advance(1)
+    local lvl = r.handLevels.PAIR
+    click(pv.packChoices[1].frame, "Tome choice")
+    check(pv.pick:IsEnabled(), "a Tome needs no card selection")
+    click(pv.pick, "Pick the Tome")
+    stub.advance(0.1)
+    check(stub.findText("Pair Lv " .. (lvl + 1)), "the level-up floats over the choice")
+    stub.advance(2)
+    eq(r.handLevels.PAIR, lvl + 1, "Tome levelled its hand")
+    r.handLevels.PAIR = lvl -- later steps expect a level-1 Pair
+    eq(r.shop.openPack, nil, "Celestial pack closed after its only pick")
+
+    -- An empty pack is never a dead end.
+    r.shop.packs[2] = { type = "BUFFOON", size = "normal", cost = 4 }
+    Main.Render(r)
+    click(sp.packOffers[2].buy, "Open an empty Buffoon")
+    stub.advance(1)
+    local ep = r.shop.openPack
+    ep.choices, ep.picksLeft = {}, 0
+    Main.Render(r)
+    stub.advance(1)
+    check(pv:IsVisible() and pv.empty:IsShown(), "empty pack says Nothing to choose")
+    eq(pv.empty:GetText(), "Nothing to choose", "empty pack message")
+    check(pv.skip:IsEnabled() and pv.skip:GetWidth() >= 200, "Skip is prominent on an empty pack")
+    check(not pv.pick:IsShown(), "no Pick on an empty pack")
+    click(pv.skip, "Skip the empty pack")
+    stub.advance(1)
+    eq(r.shop.openPack, nil, "empty pack skipped")
+    r.consumables = {}
+    Main.Render(r)
+    stub.advance(1)
+  end
+  step("4b shop v2: item cards, packs, pack screen, reload, skip")
+
   -- 5. Shop.
   local run = Main.run
   run.gold = 100
