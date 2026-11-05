@@ -1,0 +1,7 @@
+## Interface: 120000
+## Title: Azeroth Ante
+## Notes: Poker roguelike for queue waits
+## SavedVariables: AzerothAnteDB
+## Version: 0.1.0
+
+Core\RNG.lua
