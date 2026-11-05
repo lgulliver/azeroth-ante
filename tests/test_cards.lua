@@ -49,3 +49,33 @@ T.test("draw_past_empty", function()
   T.eq(#hand, 3)
   T.eq(#pile, 0)
 end)
+
+T.test("cards_stone_and_wild", function()
+  local stone = { id = 53, enh = "STONE" }
+  local wild = { id = 54, rank = 12, suit = "D", enh = "WILD" }
+  T.ok(ns.Cards.isStone(stone))
+  T.ok(not ns.Cards.isStone(wild))
+  for _, suit in ipairs({ "S", "H", "C", "D" }) do
+    T.eq(ns.Cards.hasSuit(stone, suit), false)
+    T.eq(ns.Cards.hasSuit(wild, suit), true)
+  end
+  T.eq(ns.Cards.hasSuit(card(2, "S"), "S"), true)
+  T.eq(ns.Cards.hasSuit(card(2, "S"), "H"), false)
+  T.eq(ns.Cards.chipValue(stone), 0)
+  T.eq(ns.Cards.isFace(stone), false)
+  T.eq(ns.Cards.label(stone), "")
+  T.eq(ns.Cards.chipValue(wild), 10)
+  T.eq(ns.Cards.isFace(wild), true)
+  T.eq(ns.Cards.label(wild), "Q")
+  local two, ace = card(2, "S"), card(14, "H")
+  local otherStone = { id = 55, enh = "STONE" }
+  local list = { stone, two, ace, otherStone }
+  ns.Cards.sort(list, "rank")
+  T.ok(rawequal(list[1], ace))
+  T.ok(rawequal(list[2], two))
+  T.ok(ns.Cards.isStone(list[3]) and ns.Cards.isStone(list[4]))
+  ns.Cards.sort(list, "suit")
+  T.ok(rawequal(list[1], two))
+  T.ok(rawequal(list[2], ace))
+  T.ok(ns.Cards.isStone(list[3]) and ns.Cards.isStone(list[4]))
+end)

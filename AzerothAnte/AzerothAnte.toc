@@ -6,6 +6,7 @@
 
 Core\RNG.lua
 Core\Cards.lua
+Core\Deck.lua
 Data\Hands.lua
 Core\HandEval.lua
 Data\Trinkets.lua
