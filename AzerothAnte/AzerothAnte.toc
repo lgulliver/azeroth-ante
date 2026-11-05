@@ -14,3 +14,5 @@ Data\Decks.lua
 Core\Scoring.lua
 Core\Shop.lua
 Core\Run.lua
+Core\Save.lua
+Core\QueueState.lua
