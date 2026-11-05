@@ -34,8 +34,10 @@ for i = 1, runs do
   local run = ns.Run.new(baseSeed * 104729 + i * 7919, deckId)
   if bot.playRun(run) then wins = wins + 1 end
   goldSum = goldSum + run.gold
-  local key = run.phase == "won" and "9.9" or string.format("%d.%d", run.stage, run.blind)
-  reached[key] = (reached[key] or 0) + 1
+  if run.phase ~= "won" then
+    local key = string.format("%d.%d", run.stage, run.blind)
+    reached[key] = (reached[key] or 0) + 1
+  end
 end
 
 print(string.format("deck %s, %d runs, seed %d", deckId, runs, baseSeed))
@@ -49,6 +51,6 @@ table.sort(keys, function(a, b)
   if sa ~= sb then return sa < sb end
   return ba < bb
 end)
-print("final stage.blind (lost there, or won):")
-for _, k in ipairs(keys) do print(string.format("  %s  %d", k == "9.9" and "won" or k, reached[k])) end
+print("lost at stage.blind:")
+for _, k in ipairs(keys) do print(string.format("  %s  %d", k, reached[k])) end
 print(string.format("mean final gold %.1f", goldSum / runs))

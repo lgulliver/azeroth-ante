@@ -19,6 +19,8 @@ return function(ns)
     "FURY", "BLESSING", "FORTUNE", "THORIUM", "CRYSTAL", "FEL", "STRENGTH",
     "STARS", "SUMMONING", "KNOWLEDGE", "GREED", "THRIFT", "CHANCE",
   }
+  -- Only buy a Scroll when gold stays at or above this (Scroll cost 3 + a 5 gold cushion).
+  local SCROLL_BUY_RESERVE = 8
   local SCROLL_RANK = {}
   for i, id in ipairs(SCROLL_PRIORITY) do SCROLL_RANK[id] = i end
 
@@ -135,7 +137,7 @@ return function(ns)
     while run.phase == "play" do
       local best, idx = bestPlay(run)
       local need = (run.target - run.score) / run.handsLeft
-      if best < 0.4 * need and run.discardsLeft > 0 then
+      if best < need and best < run.target - run.score and run.discardsLeft > 0 then
         local plan = discardPlan(run, idx)
         if #plan > 0 then
           Run.discard(run, plan)
@@ -204,7 +206,7 @@ return function(ns)
     end
     -- Scrolls on offer.
     for i, offer in ipairs(run.shop.cards) do
-      if offer and offer.type == "scroll" and SCROLL_RANK[offer.id] and run.gold >= 3 + 5 then
+      if offer and offer.type == "scroll" and SCROLL_RANK[offer.id] and run.gold >= SCROLL_BUY_RESERVE then
         Shop.buy(run, i)
       end
     end
