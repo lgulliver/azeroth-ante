@@ -2,7 +2,6 @@ local _, ns = ...
 
 -- use(run, cards, api) -> nil. `cards` are the selected cards, left to right.
 -- `check(run) -> ok, reason` is an optional extra precondition.
--- `rejectsStone` blocks Stone cards, which have lost their rank and suit.
 local Scrolls = {}
 
 local ICON = "Interface\\Icons\\INV_Scroll_0"
@@ -77,7 +76,7 @@ local def = {
   },
   FORTUNE = {
     name = "Scroll of Fortune", desc = "Up to 2 selected cards become Lucky.",
-    select = { min = 1, max = 2 }, rejectsStone = true, use = setEnhancement("LUCKY"),
+    select = { min = 1, max = 2 }, use = setEnhancement("LUCKY"),
   },
   STARS = {
     name = "Scroll of the Stars", desc = "Create up to 2 random Tomes.",
@@ -85,7 +84,7 @@ local def = {
   },
   FURY = {
     name = "Scroll of Fury", desc = "Up to 2 selected cards become Mult.",
-    select = { min = 1, max = 2 }, rejectsStone = true, use = setEnhancement("MULT"),
+    select = { min = 1, max = 2 }, use = setEnhancement("MULT"),
   },
   KNOWLEDGE = {
     name = "Scroll of Knowledge", desc = "Create up to 2 random Scrolls.",
@@ -93,19 +92,19 @@ local def = {
   },
   BLESSING = {
     name = "Scroll of Blessing", desc = "Up to 2 selected cards become Bonus.",
-    select = { min = 1, max = 2 }, rejectsStone = true, use = setEnhancement("BONUS"),
+    select = { min = 1, max = 2 }, use = setEnhancement("BONUS"),
   },
   WILDGROWTH = {
     name = "Scroll of Wildgrowth", desc = "1 selected card becomes Wild.",
-    select = { min = 1, max = 1 }, rejectsStone = true, use = setEnhancement("WILD"),
+    select = { min = 1, max = 1 }, use = setEnhancement("WILD"),
   },
   THORIUM = {
     name = "Scroll of Thorium", desc = "1 selected card becomes Steel.",
-    select = { min = 1, max = 1 }, rejectsStone = true, use = setEnhancement("STEEL"),
+    select = { min = 1, max = 1 }, use = setEnhancement("STEEL"),
   },
   CRYSTAL = {
     name = "Scroll of Crystal", desc = "1 selected card becomes Glass.",
-    select = { min = 1, max = 1 }, rejectsStone = true, use = setEnhancement("GLASS"),
+    select = { min = 1, max = 1 }, use = setEnhancement("GLASS"),
   },
   GREED = {
     name = "Scroll of Greed", desc = "Double your gold (max +$20).",
@@ -132,7 +131,7 @@ local def = {
     select = { min = 1, max = 2 },
     use = function(_, cards, api)
       for _, card in ipairs(cards) do
-        if card.rank then
+        if not ns.Cards.isStone(card) then
           card.rank = card.rank == 14 and 2 or card.rank + 1
           api.changed(card)
         end
@@ -167,28 +166,28 @@ local def = {
   },
   FEL = {
     name = "Scroll of the Fel", desc = "1 selected card becomes Gold.",
-    select = { min = 1, max = 1 }, rejectsStone = true, use = setEnhancement("GOLD"),
+    select = { min = 1, max = 1 }, use = setEnhancement("GOLD"),
   },
   EARTH = {
     name = "Scroll of Earth", desc = "1 selected card becomes Stone.",
     select = { min = 1, max = 1 },
     use = function(_, cards, api)
       local card = cards[1]
-      card.enh, card.rank, card.suit = "STONE", nil, nil
+      card.enh = "STONE"
       api.changed(card)
     end,
   },
   GEMS = {
     name = "Scroll of Gems", desc = "Up to 3 selected cards become Diamonds.",
-    select = { min = 1, max = 3 }, rejectsStone = true, use = setSuit("D"),
+    select = { min = 1, max = 3 }, use = setSuit("D"),
   },
   GROVE = {
     name = "Scroll of the Grove", desc = "Up to 3 selected cards become Clubs.",
-    select = { min = 1, max = 3 }, rejectsStone = true, use = setSuit("C"),
+    select = { min = 1, max = 3 }, use = setSuit("C"),
   },
   LIGHT = {
     name = "Scroll of Light", desc = "Up to 3 selected cards become Hearts.",
-    select = { min = 1, max = 3 }, rejectsStone = true, use = setSuit("H"),
+    select = { min = 1, max = 3 }, use = setSuit("H"),
   },
   SUMMONING = {
     name = "Scroll of Summoning", desc = "Create a random trinket (needs a free slot).",
@@ -207,12 +206,14 @@ local def = {
       end
       if #ofRarity == 0 then ofRarity = pool end
       local trinkets = api.trinkets()
-      trinkets[#trinkets + 1] = { id = ns.RNG.pick(api.rng, ofRarity) }
+      trinkets[#trinkets + 1] = {
+        id = ns.RNG.pick(api.rng, ofRarity), ed = ns.CardTypes.rollEdition(api.rng, true),
+      }
     end,
   },
   BLADES = {
     name = "Scroll of Blades", desc = "Up to 3 selected cards become Spades.",
-    select = { min = 1, max = 3 }, rejectsStone = true, use = setSuit("S"),
+    select = { min = 1, max = 3 }, use = setSuit("S"),
   },
 }
 

@@ -61,11 +61,6 @@ function Consumables.canApply(run, item, cards)
     if #cards < def.select.min or #cards > def.select.max then
       return false, selectReason(def.select)
     end
-    if def.rejectsStone then
-      for _, card in ipairs(cards) do
-        if ns.Cards.isStone(card) then return false, "Stone cards cannot be changed" end
-      end
-    end
   elseif not USABLE_PHASES[run.phase] then
     return false, "Cannot use that now"
   end
@@ -138,7 +133,7 @@ function Consumables.apply(run, item, cards)
   else
     def.use(run, cards or {}, buildApi(run, outcome))
   end
-  if item.kind ~= "relic" and item.id ~= "ECHOES" then
+  if item.kind ~= "relic" and not (item.kind == "scroll" and item.id == "ECHOES") then
     run.lastConsumable = { kind = item.kind, id = item.id }
   end
   return outcome
