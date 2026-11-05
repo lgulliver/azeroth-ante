@@ -37,7 +37,8 @@ local function makeOffer(id)
   return { id = id, cost = ns.Trinkets.def[id].cost }
 end
 
-function Shop.open(run)
+-- Up to OFFER_COUNT distinct, unowned offers.
+local function generateOffers(run)
   local taken, offers = {}, {}
   while #offers < OFFER_COUNT do
     local id = draw(run, taken)
@@ -45,8 +46,12 @@ function Shop.open(run)
     taken[id] = true
     offers[#offers + 1] = makeOffer(id)
   end
+  return offers
+end
+
+function Shop.open(run)
   run.shop = {
-    offers = offers,
+    offers = generateOffers(run),
     tome = { handId = ns.RNG.pick(run.rng, ns.Hands.order), cost = TOME_COST },
     rerollCost = REROLL_COST,
   }
@@ -82,27 +87,14 @@ function Shop.sell(run, slot)
   return gained
 end
 
--- Replaces every live trinket offer with a fresh one. Bought slots stay false.
+-- Regenerates the whole trinket offer list, refilling bought slots. Only owned
+-- trinkets are excluded, so current offers may reappear.
 function Shop.reroll(run)
   local shop = run.shop
   if run.gold < shop.rerollCost then return false, "gold" end
   run.gold = run.gold - shop.rerollCost
   shop.rerollCost = shop.rerollCost + 1
-  local taken = {}
-  for _, offer in ipairs(shop.offers) do
-    if offer then taken[offer.id] = true end
-  end
-  for i, offer in ipairs(shop.offers) do
-    if offer then
-      local id = draw(run, taken)
-      if id then
-        taken[id] = true
-        shop.offers[i] = makeOffer(id)
-      else
-        shop.offers[i] = false
-      end
-    end
-  end
+  shop.offers = generateOffers(run)
   return true
 end
 
