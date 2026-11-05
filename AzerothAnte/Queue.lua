@@ -3,17 +3,23 @@ local _, ns = ...
 local Queue = {}
 local state = ns.QueueState.new()
 local lastQueued = false
+local pendingShow = false
 local battlefieldStatuses = {}
 
 local function emit(event)
   local action = ns.QueueState.handle(state, event)
+  if not state.queued and not state.paused then pendingShow = false end
   local Main, Screens = ns.UI.Main, ns.UI.Screens
   if action == "show" then
-    if not InCombatLockdown() then Main.Show() end
+    pendingShow = InCombatLockdown()
+    if not pendingShow then Main.Show() end
   elseif action == "pause" then
-    Main.Show()
-    Screens.ShowPaused()
-    if SOUNDKIT then PlaySound(SOUNDKIT.READY_CHECK) end
+    pendingShow = InCombatLockdown()
+    if not pendingShow then
+      Main.Show()
+      Screens.ShowPaused()
+    end
+    if SOUNDKIT and SOUNDKIT.READY_CHECK and PlaySound then PlaySound(SOUNDKIT.READY_CHECK) end
   elseif action == "resume" then
     Screens.HidePaused()
   elseif action == "hide" then
@@ -54,6 +60,9 @@ local function updateQueues()
   end
   for i, status in pairs(statuses) do
     if status ~= battlefieldStatuses[i] then
+      if battlefieldStatuses[i] == "confirm" and status ~= "active" then
+        emit("PROPOSAL_FAILED")
+      end
       if status == "confirm" then
         emit("PROPOSAL")
       elseif status == "active" then
@@ -72,12 +81,25 @@ local events = {
 }
 
 local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("LFG_UPDATE")
 frame:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
 frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
 for event in pairs(events) do frame:RegisterEvent(event) end
 frame:SetScript("OnEvent", function(_, event)
-  if events[event] then emit(events[event]) else updateQueues() end
+  if event == "PLAYER_REGEN_ENABLED" then
+    if pendingShow and not InCombatLockdown() then
+      pendingShow = false
+      if state.queued or state.paused then
+        ns.UI.Main.Show()
+        if state.paused then ns.UI.Screens.ShowPaused() end
+      end
+    end
+  elseif events[event] then
+    emit(events[event])
+  else
+    updateQueues()
+  end
 end)
 
 Queue.frame = frame
