@@ -40,7 +40,6 @@ local function makeButton(parent, label, x, w)
   b:SetSize(w, 26)
   b:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, Theme.margin)
   b:SetText(label)
-  b:SetScript("OnClick", function() end) -- wired in Task 11
   return b
 end
 
@@ -127,6 +126,7 @@ function Main.Create()
   buttons.discard:SetPoint("LEFT", buttons.play, "RIGHT", 10, 0)
   buttons.sortRank:SetPoint("LEFT", buttons.discard, "RIGHT", 10, 0)
   buttons.sortSuit:SetPoint("LEFT", buttons.sortRank, "RIGHT", 10, 0)
+  ns.UI.HandView.Build(Main)
 
   -- Resize grip (outer frame, outside the scaled canvas).
   local grip = CreateFrame("Button", nil, frame)
@@ -151,6 +151,7 @@ function Main.Show()
   Main.Create()
   Main.frame:Show()
   Main.Render(Main.run)
+  ns.UI.HandView.Update(Main.run, true)
 end
 
 function Main.Hide()
@@ -172,6 +173,7 @@ end
 function Main.SetRun(run)
   Main.run = run
   Main.Render(run)
+  ns.UI.HandView.Update(run, Main.frame ~= nil and Main.frame:IsShown())
 end
 
 ns.UI.Main = Main

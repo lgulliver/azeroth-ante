@@ -20,3 +20,6 @@ UI\Theme.lua
 UI\MainFrame.lua
 UI\Sidebar.lua
 UI\TrinketRow.lua
+UI\Tween.lua
+UI\CardWidget.lua
+UI\HandView.lua
