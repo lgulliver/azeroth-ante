@@ -10,6 +10,12 @@ local driver = CreateFrame("Frame")
 local active = {}   -- array of records
 local byFrame = {}  -- frame -> record (one tween per frame)
 
+local function safe(fn)
+  if not fn then return end
+  local ok, err = pcall(fn)
+  if not ok then geterrorhandler()(err) end
+end
+
 local function ease(t)
   local u = 1 - t
   return 1 - u * u * u
@@ -67,23 +73,25 @@ local function onUpdate(_, dt)
     end
   end
   if #active == 0 then driver:SetScript("OnUpdate", nil) end
-  -- Callbacks run last, so they may start new tweens safely.
+  -- Callbacks run last (each isolated), so they may start new tweens safely.
   if finished then
-    for i = #finished, 1, -1 do finished[i]() end
+    for i = #finished, 1, -1 do safe(finished[i]) end
   end
 end
 
 -- Tweens the first anchor offset (x, y), alpha and/or scale of `frame`.
 -- `to` = { x =, y =, alpha =, scale = }; any key may be omitted. A new tween on
 -- a frame replaces its running one (continuing from the current values; the
--- replaced tween's onDone is not called). `delay` seconds before it starts.
-function Tween.To(frame, to, duration, onDone, delay)
+-- replaced tween's onDone is not called; its onCancel is). `delay` seconds
+-- before it starts. `onCancel` runs if this tween is replaced or cancelled.
+function Tween.To(frame, to, duration, onDone, delay, onCancel)
   local old = byFrame[frame]
-  local r = { frame = frame, dur = duration or 0, onDone = onDone, t = -(delay or 0) }
+  local r = { frame = frame, dur = duration or 0, onDone = onDone, onCancel = onCancel, t = -(delay or 0) }
   if old then
     r.point, r.rel, r.relPoint = old.point, old.rel, old.relPoint
     r.cx, r.cy, r.ca, r.cs = old.cx, old.cy, old.ca, old.cs
     remove(old)
+    safe(old.onCancel)
   end
 
   if to.x or to.y then
@@ -106,7 +114,7 @@ function Tween.To(frame, to, duration, onDone, delay)
 
   if r.dur <= 0 and r.t >= 0 then
     apply(r, 1)
-    if onDone then onDone() end
+    safe(onDone)
     return
   end
   if r.dur <= 0 then r.dur = 0.0001 end
@@ -119,7 +127,10 @@ end
 -- Stops a frame's tween where it is; onDone is not called.
 function Tween.Cancel(frame)
   local r = byFrame[frame]
-  if r then remove(r) end
+  if r then
+    remove(r)
+    safe(r.onCancel)
+  end
 end
 
 function Tween.IsActive(frame)
