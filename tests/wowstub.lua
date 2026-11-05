@@ -142,6 +142,9 @@ function M.install(env)
   function methods.EnableMouse(self, on) self._mouse = on and true or false end
   function methods.IsMouseEnabled(self) return self._mouse end
 
+  function methods.SetTexture(self, t) self._texture = t end
+  function methods.GetTexture(self) return self._texture end
+
   function methods.SetText(self, t) self._text = t end
   function methods.GetText(self) return self._text end
 

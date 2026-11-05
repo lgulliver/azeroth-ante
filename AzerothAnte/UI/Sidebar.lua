@@ -67,6 +67,15 @@ function Sidebar.Build(frame)
   Theme.setColor(frame.gold, Theme.gold)
   frame.stage = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -332, w)
   Theme.setColor(frame.stage, Theme.parchment)
+
+  local deck = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  deck:SetSize(w, 26)
+  deck:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", m, m)
+  deck:SetText("Deck (0)")
+  deck:SetScript("OnClick", function()
+    ns.UI.DeckView.Toggle(ns.UI.Main and ns.UI.Main.run)
+  end)
+  frame.deckButton = deck
 end
 
 -- chips and mult are optional (shown as 0 when nil), for live scoring display.
@@ -87,6 +96,8 @@ function Sidebar.Update(run, chips, mult)
     frame.multBox.text:SetText("0")
     frame.handName:SetText("")
     frame.targetLabel:SetText("Score at least")
+    frame.deckButton:SetText("Deck (0)")
+    ns.UI.DeckView.Hide()
     return
   end
 
@@ -116,6 +127,8 @@ function Sidebar.Update(run, chips, mult)
   frame.discards:SetText("Discards: " .. tostring(run.discardsLeft or 0))
   frame.gold:SetText("Gold: " .. tostring(run.gold or 0))
   frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8 - Blind " .. tostring(run.blind or 1) .. " / 3")
+  frame.deckButton:SetText("Deck (" .. #(run.deck or {}) .. ")")
+  ns.UI.DeckView.Refresh(run)
 end
 
 local function round2(n)
