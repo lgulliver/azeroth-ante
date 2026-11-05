@@ -54,6 +54,8 @@ function Sidebar.Build(frame)
   local boxW = (w - 24) / 2
   frame.chipsBox = statBox(frame, Theme.chips, m, -190, boxW, 40)
   frame.multBox = statBox(frame, Theme.mult, m + boxW + 24, -190, boxW, 40)
+  frame.handName = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -233, w)
+  Theme.setColor(frame.handName, Theme.gold)
   local x = frame:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
   x:SetPoint("LEFT", frame.chipsBox, "RIGHT", 0, 0)
   x:SetPoint("RIGHT", frame.multBox, "LEFT", 0, 0)
@@ -83,6 +85,7 @@ function Sidebar.Update(run, chips, mult)
     frame.stage:SetText("")
     frame.chipsBox.text:SetText("0")
     frame.multBox.text:SetText("0")
+    frame.handName:SetText("")
     return
   end
 
@@ -99,10 +102,25 @@ function Sidebar.Update(run, chips, mult)
   frame.score:SetText(tostring(run.score or 0))
   frame.chipsBox.text:SetText(tostring(chips or 0))
   frame.multBox.text:SetText(tostring(mult or 0))
+  frame.handName:SetText("")
   frame.hands:SetText("Hands: " .. tostring(run.handsLeft or 0))
   frame.discards:SetText("Discards: " .. tostring(run.discardsLeft or 0))
   frame.gold:SetText("Gold: " .. tostring(run.gold or 0))
   frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8 - Blind " .. tostring(run.blind or 1) .. " / 3")
+end
+
+-- Fine-grained setters for the score tally (no run needed).
+function Sidebar.SetScore(n)
+  local frame = ns.UI.Main and ns.UI.Main.sidebar
+  if frame and frame.score then frame.score:SetText(tostring(n)) end
+end
+
+function Sidebar.SetChipsMult(chips, mult, handName)
+  local frame = ns.UI.Main and ns.UI.Main.sidebar
+  if not frame or not frame.chipsBox then return end
+  frame.chipsBox.text:SetText(tostring(chips or 0))
+  frame.multBox.text:SetText(tostring(mult or 0))
+  if handName then frame.handName:SetText(handName) end
 end
 
 ns.UI.Sidebar = Sidebar
