@@ -168,6 +168,15 @@ function Main.Render(run)
   if not Main.frame then return end
   ns.UI.Sidebar.Update(run, 0, 0)
   ns.UI.TrinketRow.Update(run)
+  local Screens = ns.UI.Screens
+  if not Screens then return end
+  Screens.Track(run)
+  local phase = run and run.phase
+  if phase == "blind" or phase == "play" or phase == "shop" or phase == "won" or phase == "lost" then
+    Screens.Show(phase, run)
+  else
+    Screens.Show("newrun", run)
+  end
 end
 
 function Main.SetRun(run)
