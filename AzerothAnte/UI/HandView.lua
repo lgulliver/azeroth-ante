@@ -79,13 +79,17 @@ end
 local function moveTo(w, x, y, duration)
   w.lx, w.ly = x, y
   w:SetFaceUp(true)
-  Tween.To(w, { x = x, y = y, alpha = 1 }, duration)
+  Tween.To(w, { x = x, y = y, alpha = 1 }, duration) -- cancels a deal; its onCancel lands the card
 end
 
 ---------------------------------------------------------------------------
 -- Buttons
 
 local function showButtonTooltip(b)
+  if not b:IsVisible() then
+    if hoveredButton == b then hoveredButton = nil end
+    return
+  end
   if b:IsEnabled() or not b.reason then
     if GameTooltip:GetOwner() == b then GameTooltip:Hide() end
     return
@@ -229,8 +233,13 @@ function HandView.Update(run, animate)
       w.lx, w.ly = x, BASE_Y
       w:SetAlpha(0)
       w:SetFaceUp(false)
-      Tween.To(w, { x = x, y = BASE_Y, alpha = 1 }, DEAL_TIME, function() w:SetFaceUp(true) end,
-        dealt * DEAL_STAGGER)
+      w:EnableMouse(false) -- not clickable until it has landed
+      local function landed()
+        if w.locked then return end
+        w:SetFaceUp(true)
+        w:EnableMouse(true)
+      end
+      Tween.To(w, { x = x, y = BASE_Y, alpha = 1 }, DEAL_TIME, landed, dealt * DEAL_STAGGER, landed)
       dealt = dealt + 1
     elseif isNew then
       place(w, x, BASE_Y)
@@ -255,6 +264,8 @@ local function detach(sel)
     w:SetSelected(false) -- lowers the lift (and the highlight) before it locks
     w.locked, w.hover, w.topmost = true, false, true
     w:EnableMouse(false)
+    w:SetFaceUp(true)
+    w:SetAlpha(1)
     w:ApplyLevel()
   end
   local rest = {}
@@ -263,6 +274,20 @@ local function detach(sel)
   end
   list = rest
   return out
+end
+
+-- Undoes detach() after a failed Run action: widgets return to the hand, selected.
+local function restore(run, widgets)
+  for _, w in ipairs(widgets) do
+    widgetOf[w.card] = w
+    for j = #held, 1, -1 do if held[j] == w then table.remove(held, j) end end
+    w.locked, w.topmost = false, false
+    w:EnableMouse(true)
+    w:SetSelected(true)
+    w:ApplyLevel()
+  end
+  busy = false
+  HandView.Update(run, false)
 end
 
 local function afterAll(count, fn)
@@ -282,17 +307,10 @@ local function doPlay()
   busy = true
   local myGen = gen
   local widgets = detach(sel)
-  local result = ns.Run.play(run, sel)
-  if not result then -- cannot happen after canPlay; fail safe, never stay locked
-    for _, w in ipairs(widgets) do
-      widgetOf[w.card] = w
-      w.locked, w.topmost = false, false
-      w:EnableMouse(true)
-      w:ApplyLevel()
-      for j = #held, 1, -1 do if held[j] == w then table.remove(held, j) end end
-    end
-    busy = false
-    HandView.Update(run, false)
+  local ok, result = pcall(ns.Run.play, run, sel)
+  if not ok or not result then
+    restore(run, widgets)
+    if not ok then geterrorhandler()(result) end
     return
   end
 
@@ -342,7 +360,12 @@ local function doDiscard()
   busy = true
   local myGen = gen
   local widgets = detach(sel)
-  ns.Run.discard(run, sel)
+  local ok, err = pcall(ns.Run.discard, run, sel)
+  if not ok then
+    restore(run, widgets)
+    geterrorhandler()(err)
+    return
+  end
 
   local arrived = afterAll(#widgets, function()
     if myGen ~= gen then return end

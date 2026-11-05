@@ -115,6 +115,8 @@ local function create(parent)
   local w = CreateFrame("Button", nil, parent)
   w:SetSize(WIDTH, HEIGHT)
   w:RegisterForClicks("LeftButtonUp")
+  -- The visible card rises when selected; keep its top clickable.
+  w:SetHitRectInsets(0, 0, -LIFT_SELECTED, 0)
 
   local body = CreateFrame("Frame", nil, w)
   body:SetSize(WIDTH, HEIGHT)
