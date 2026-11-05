@@ -186,6 +186,10 @@ local function run(w)
   -- 5. Shop.
   local run = Main.run
   run.gold = 100
+  run.shop.cards = {
+    { type = "trinket", id = "BLOODLUST", cost = 4 },
+    { type = "tome", id = "PAIR", cost = 3 },
+  }
   Main.Render(run)
   stub.advance(1)
   local shop = panel("offerCards")
@@ -194,10 +198,11 @@ local function run(w)
   check(run.gold < gold, "buying offer 1 spends gold")
   eq(#run.trinkets, 1, "trinket owned")
   gold = run.gold
-  local tomeHand = run.shop.tome and run.shop.tome.handId
-  click(shop.tomeCard.buy, "buy tome")
+  click(shop.offerCards[2].buy, "buy tome")
   check(run.gold < gold, "buying the tome spends gold")
-  check(run.handLevels[tomeHand] == 2, "tome levelled the hand")
+  eq(run.handLevels.PAIR, 1, "bought tome waits for use")
+  eq(run.consumables[1].kind, "tome", "tome stored in consumable slot")
+  eq(run.consumables[1].id, "PAIR", "bought the offered tome")
   gold = run.gold
   click(shop.reroll, "Reroll")
   check(run.gold < gold, "reroll spends gold")

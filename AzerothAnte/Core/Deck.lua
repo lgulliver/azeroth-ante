@@ -49,7 +49,10 @@ end
 function Deck.relink(run)
   local byId = {}
   for _, card in ipairs(run.deck) do byId[card.id] = card end
-  for _, list in ipairs({ run.hand, run.pile }) do
+  local lists = { run.hand, run.pile }
+  local pack = run.shop and run.shop.openPack
+  if pack and pack.hand then lists[#lists + 1] = pack.hand end
+  for _, list in ipairs(lists) do
     for i, card in ipairs(list) do list[i] = byId[card.id] end
   end
 end

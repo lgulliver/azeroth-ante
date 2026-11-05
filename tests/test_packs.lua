@@ -1,0 +1,189 @@
+local ns, T = ...
+
+local function offered(kind, size, gold)
+  local run = ns.Run.new(42, "ADVENTURER")
+  run.phase, run.gold = "shop", gold or 100
+  ns.Shop.open(run)
+  run.shop.packs[1] = { type = kind or "ARCANA", size = size or "mega", cost = 8 }
+  return run
+end
+
+T.test("open_pack_charges_and_sizes", function()
+  local run = offered()
+  T.eq(ns.Packs.open(run, 1), true)
+  T.eq(run.gold, 92)
+  T.eq(run.shop.packs[1], false)
+  local pack = run.shop.openPack
+  T.eq({ pack.type, pack.size, #pack.choices, pack.picksLeft, #pack.hand }, { "ARCANA", "mega", 5, 2, 8 })
+  for _, card in ipairs(pack.hand) do T.ok(rawequal(card, ns.Deck.find(run, card.id))) end
+end)
+
+T.test("all_pack_sizes_and_kinds", function()
+  for _, kind in ipairs({ "ARCANA", "CELESTIAL", "SPECTRAL", "BUFFOON", "STANDARD" }) do
+    for _, size in ipairs({ "normal", "jumbo", "mega" }) do
+      local run = offered(kind, size)
+      T.eq(ns.Packs.open(run, 1), true)
+      local pack = run.shop.openPack
+      local small = kind == "SPECTRAL" or kind == "BUFFOON"
+      T.eq(#pack.choices, size == "normal" and (small and 2 or 3) or (small and 4 or 5))
+      T.eq(pack.picksLeft, size == "mega" and 2 or 1)
+      T.eq(pack.hand ~= nil, kind == "ARCANA" or kind == "SPECTRAL")
+    end
+  end
+end)
+
+T.test("open_errors_do_not_charge", function()
+  local run = offered(nil, nil, 7)
+  local ok, err = ns.Packs.open(run, 1)
+  T.eq({ ok, err }, { false, "gold" })
+  T.eq(run.gold, 7)
+  ok, err = ns.Packs.open(run, 3)
+  T.eq({ ok, err }, { false, "gone" })
+end)
+
+T.test("pick_scroll_uses_on_pack_hand", function()
+  local run = offered()
+  ns.Packs.open(run, 1)
+  local pack = run.shop.openPack
+  pack.choices[1] = { kind = "scroll", id = "BLESSING" }
+  run.maxConsumables = 0
+  local ok, err = ns.Packs.pick(run, 1, { 1, 1 })
+  T.eq(ok, false)
+  T.ok(err)
+  T.eq(pack.picksLeft, 2)
+  local outcome
+  ok, err, outcome = ns.Packs.pick(run, 1, { 2 })
+  T.eq(ok, true)
+  T.eq(pack.hand[2].enh, "BONUS")
+  T.eq(outcome.changed, { pack.hand[2].id })
+  T.eq(pack.choices[1], false)
+  T.eq(pack.picksLeft, 1)
+  T.eq(#run.consumables, 0)
+  T.eq(ns.Packs.pick(run, 1), false)
+  pack.choices[2] = { kind = "scroll", id = "BLESSING" }
+  T.eq(ns.Packs.pick(run, 2, { 1 }), true)
+  T.eq(run.shop.openPack, nil)
+end)
+
+T.test("pick_tome_applies_without_slot", function()
+  local run = offered("CELESTIAL", "normal")
+  ns.Packs.open(run, 1)
+  run.maxConsumables = 0
+  local item = run.shop.openPack.choices[1]
+  T.eq(item.kind, "tome")
+  T.eq(ns.Packs.pick(run, 1), true)
+  T.eq(run.handLevels[item.id], 2)
+  T.eq(#run.consumables, 0)
+  T.eq(run.shop.openPack, nil)
+end)
+
+T.test("celestial_hides_secret_tomes", function()
+  local run = offered("CELESTIAL")
+  for _ = 1, 100 do
+    run.shop.packs[1] = { type = "CELESTIAL", size = "mega", cost = 0 }
+    ns.Packs.open(run, 1)
+    for _, item in ipairs(run.shop.openPack.choices) do T.ok(not ns.Hands.def[item.id].secret) end
+    ns.Packs.skip(run)
+  end
+end)
+
+T.test("pick_relic_uses_pack_hand", function()
+  local run = offered("SPECTRAL")
+  ns.Packs.open(run, 1)
+  run.shop.openPack.choices[1] = { kind = "relic", id = "RADIANCE" }
+  local ok = ns.Packs.pick(run, 1, { 1 })
+  T.eq(ok, true)
+  T.ok(run.shop.openPack.hand[1].ed)
+end)
+
+T.test("buffoon_distinct_unowned_and_slots", function()
+  local run = offered("BUFFOON")
+  run.trinkets = { { id = "BLOODLUST", ed = "NEGATIVE" } }
+  ns.Packs.open(run, 1)
+  local pack, seen = run.shop.openPack, {}
+  for _, item in ipairs(pack.choices) do
+    T.ok(item.id ~= "BLOODLUST" and not seen[item.id])
+    seen[item.id] = true
+  end
+  pack.choices[1] = { type = "trinket", id = "FORTITUDE", ed = "FOIL", cost = 6 }
+  run.maxTrinkets = 0
+  local ok, err = ns.Packs.pick(run, 1)
+  T.eq({ ok, err }, { false, "slots" })
+  T.eq(pack.picksLeft, 2)
+  run.maxTrinkets = 1
+  T.eq(ns.Packs.pick(run, 1), true)
+  T.eq(run.trinkets[2], { id = "FORTITUDE", ed = "FOIL" })
+end)
+
+T.test("pick_standard_adds_to_deck", function()
+  local run = offered("STANDARD", "normal")
+  ns.Packs.open(run, 1)
+  local card = run.shop.openPack.choices[1]
+  T.eq(#run.deck, 52)
+  T.eq(card.id, nil)
+  T.ok(card.rank >= 2 and card.rank <= 14 and card.suit)
+  T.eq(ns.Packs.pick(run, 1), true)
+  T.eq(#run.deck, 53)
+  T.ok(rawequal(run.deck[53], card))
+  T.eq(card.id, 53)
+end)
+
+T.test("standard_rolls_types_without_negative_and_keeps_stone_rank", function()
+  local run, enh, seals, editions, stones = offered("STANDARD"), 0, 0, 0, 0
+  for _ = 1, 1000 do
+    run.shop.packs[1] = { type = "STANDARD", size = "mega", cost = 0 }
+    ns.Packs.open(run, 1)
+    for _, card in ipairs(run.shop.openPack.choices) do
+      T.ok(card.rank >= 2 and card.rank <= 14 and card.suit)
+      T.eq(card.id, nil)
+      T.ok(card.ed ~= "NEGATIVE")
+      if card.enh then enh = enh + 1 end
+      if card.enh == "STONE" then stones = stones + 1 end
+      if card.seal then seals = seals + 1 end
+      if card.ed then editions = editions + 1 end
+    end
+    ns.Packs.skip(run)
+  end
+  T.ok(enh > 1800 and enh < 2200, "enhancement frequency")
+  T.ok(seals > 850 and seals < 1150, "seal frequency")
+  T.ok(editions > 120 and editions < 250, "edition frequency")
+  T.ok(stones > 0)
+  T.eq(#run.deck, 52)
+end)
+
+T.test("skip_closes", function()
+  local run = offered()
+  ns.Packs.open(run, 1)
+  ns.Packs.skip(run)
+  T.eq(run.shop.openPack, nil)
+  T.eq(run.gold, 92)
+end)
+
+T.test("open_pack_survives_save", function()
+  local run, db = offered(), {}
+  ns.Packs.open(run, 1)
+  ns.Save.store(db, run)
+  local loaded = ns.Save.load(db)
+  T.eq(loaded.shop.openPack, run.shop.openPack)
+  T.eq(loaded.rng, run.rng)
+  for _, card in ipairs(loaded.shop.openPack.hand) do
+    T.ok(rawequal(card, ns.Deck.find(loaded, card.id)), "pack hand must relink to deck")
+  end
+  loaded.shop.openPack.choices[1] = { kind = "scroll", id = "BLESSING" }
+  T.eq(ns.Packs.pick(loaded, 1, { 1 }), true)
+  local card = loaded.shop.openPack.hand[1]
+  T.eq(ns.Deck.find(loaded, card.id).enh, "BONUS")
+end)
+
+T.test("shop_locked_while_pack_open", function()
+  local run = offered()
+  ns.Packs.open(run, 1)
+  for _, action in ipairs({ function() return ns.Shop.buy(run, 1) end,
+    function() return ns.Shop.reroll(run) end, function() return ns.Run.nextBlind(run) end,
+    function() return ns.Packs.open(run, 2) end }) do
+    local ok, err = action()
+    T.eq({ ok, err }, { false, "pack" })
+    T.eq(run.gold, 92)
+    T.eq(run.phase, "shop")
+  end
+end)

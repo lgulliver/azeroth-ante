@@ -191,6 +191,7 @@ function Run.winBlind(run)
 end
 
 function Run.nextBlind(run)
+  if run.shop and run.shop.openPack then return false, "pack" end
   if run.phase ~= "shop" then return end
   if run.blind == 3 then
     run.stage, run.blind = run.stage + 1, 1
