@@ -300,6 +300,30 @@ local function run(w)
   check(not Tally.IsBusy(), "Tally busy after hiding mid-tally")
   step("9 hide mid-flight and mid-tally")
 
+  -- 9b. A queue event mid-tally must not render the post-hand screens early.
+  open()
+  eq(Main.run.phase, "play", "still playing before the queue-event step")
+  Main.run.target = 1
+  selectCard(1)
+  playSelected()
+  waited = 0
+  while not Tally.IsBusy() and waited < 5 do
+    stub.advance(0.05)
+    waited = waited + 0.05
+  end
+  check(Tally.IsBusy(), "tally started for the queue-event step")
+  stub.advance(0.4)
+  check(Tally.IsBusy(), "tally still running")
+  stub.fire("LFG_PROPOSAL_SHOW")
+  check(Tally.IsBusy(), "tally still running after the queue event")
+  check(not visible("offerCards"), "shop screen appeared early on a queue event")
+  stub.fire("LFG_PROPOSAL_FAILED")
+  stub.advance(10)
+  check(not Tally.IsBusy() and not HandView.IsBusy(), "board still locked after the tally")
+  eq(Main.run.phase, "shop", "phase after the winning hand")
+  check(visible("offerCards"), "shop screen shows once the tally is done")
+  step("9b queue event mid-tally does not re-render")
+
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w }) do
     for name in pairs(world.newGlobals) do
