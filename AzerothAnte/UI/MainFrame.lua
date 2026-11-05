@@ -149,8 +149,9 @@ end
 
 function Main.Show()
   Main.Create()
+  if Main.frame:IsShown() then return end -- already open: never re-render mid-hand
   Main.frame:Show()
-  Main.Render(Main.run)
+  Main.Render(Main.run, true)
   ns.UI.HandView.Update(Main.run, true)
 end
 
@@ -164,8 +165,15 @@ function Main.Toggle()
 end
 
 -- Updates every view from run state; run and run.phase may be nil (empty view).
-function Main.Render(run)
+-- A no-op while a hand is resolving (flight or tally) unless force is set, so
+-- stray events cannot jump the sidebar or screens ahead. Only the hand's own
+-- completion paths (and window show / run change) force a render.
+function Main.Render(run, force)
   if not Main.frame then return end
+  if not force then
+    local HandView, Tally = ns.UI.HandView, ns.UI.Tally
+    if (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy()) then return end
+  end
   ns.UI.Sidebar.Update(run, 0, 0)
   ns.UI.TrinketRow.Update(run)
   local Screens = ns.UI.Screens
@@ -181,7 +189,7 @@ end
 
 function Main.SetRun(run)
   Main.run = run
-  Main.Render(run)
+  Main.Render(run, true)
   ns.UI.HandView.Update(run, Main.frame ~= nil and Main.frame:IsShown())
 end
 

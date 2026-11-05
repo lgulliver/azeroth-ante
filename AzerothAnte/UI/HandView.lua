@@ -318,7 +318,7 @@ local function doPlay()
     if myGen ~= gen or not busy then return end
     releaseHeld()
     busy = false
-    main().Render(run) -- after the tally and slide-away, before any refill deal
+    main().Render(run, true) -- after the tally and slide-away, before any refill deal
     if run.phase == "play" then
       HandView.Update(run, true)
     else
@@ -381,7 +381,7 @@ local function doDiscard()
     Tween.To(w, { x = w.lx + DISCARD_SLIDE, y = w.ly, alpha = 0 }, DISCARD_TIME, arrived,
       (k - 1) * 0.02)
   end
-  main().Render(run)
+  main().Render(run, true)
   HandView.RefreshButtons()
 end
 
