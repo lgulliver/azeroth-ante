@@ -1,6 +1,6 @@
 local _, ns = ...
 
--- Card: { id, rank?, suit?, enh?, ed?, seal? }. Stone has no rank or suit.
+-- Card: { id, rank, suit, enh?, ed?, seal? }. Stone keeps its rank and suit but ignores them (see isStone).
 -- Ranks: 2..14; 11=J, 12=Q, 13=K, 14=A.
 local Cards = {}
 

@@ -48,17 +48,42 @@ T.test("enhancement_replaces_and_keeps_seal_edition", function()
   T.eq(card.seal, "RED")
 end)
 
-T.test("stone_rejected_by_enhancers", function()
+T.test("enhancing_stone_restores_card", function()
   local run = newRun()
-  local card = cardAt(run, 1)
+  local card = cardAt(run, 5)
   apply(run, "EARTH", { card })
-  local ok, reason = ns.Consumables.canApply(run, { kind = "scroll", id = "FORTUNE" }, { card })
-  T.ok(not ok)
-  T.eq(reason, "Stone cards cannot be changed")
-  ok = ns.Consumables.canApply(run, { kind = "scroll", id = "BLADES" }, { card })
-  T.ok(not ok)
-  T.ok(ns.Consumables.canApply(run, { kind = "scroll", id = "STRENGTH" }, { card }))
-  T.ok(ns.Consumables.canApply(run, { kind = "scroll", id = "SACRIFICE" }, { card }))
+  apply(run, "FURY", { card })
+  T.eq(card.enh, "MULT")
+  T.eq(card.rank, 6)
+  T.eq(card.suit, "S")
+  T.ok(not ns.Cards.isStone(card))
+end)
+
+T.test("suit_scroll_on_stone_changes_suit", function()
+  local run = newRun()
+  local card = cardAt(run, 5)
+  apply(run, "EARTH", { card })
+  apply(run, "LIGHT", { card })
+  T.eq(card.suit, "H")
+  T.eq(card.enh, "STONE")
+  T.eq(card.rank, 6)
+end)
+
+T.test("stone_with_rank_scores_as_stone", function()
+  local run = newRun()
+  local stone, king = cardAt(run, 12), cardAt(run, 11)
+  apply(run, "EARTH", { stone })
+  local plain = ns.Scoring.score({
+    cards = { stone }, held = {}, goldRef = { gold = 0 }, handLevels = run.handLevels, trinkets = {},
+    rng = run.rng, handsPlayedTotal = 1, isLastHand = false, discardsLeft = 0, gold = 0,
+  })
+  T.eq(plain.chips, 5 + 50)
+  local paired = ns.Scoring.score({
+    cards = { stone, king }, held = {}, goldRef = { gold = 0 }, handLevels = run.handLevels, trinkets = {},
+    rng = run.rng, handsPlayedTotal = 1, isLastHand = false, discardsLeft = 0, gold = 0,
+  })
+  T.eq(paired.handId, "HIGH_CARD")
+  T.eq(paired.chips, 5 + 50 + 10)
 end)
 
 local function suitScroll(scrollId, suit)
@@ -113,9 +138,10 @@ T.test("thrift_caps_50", function()
   run.trinkets = {}
   for i = 1, 5 do run.trinkets[i] = { id = "BLOODLUST", ed = "NEGATIVE" } end
   -- Raise the base cost so the total goes over the cap.
+  local original = ns.Trinkets.def.BLOODLUST.cost
   ns.Trinkets.def.BLOODLUST.cost = 40
   local ok, err = pcall(apply, run, "THRIFT", {})
-  ns.Trinkets.def.BLOODLUST.cost = 8
+  ns.Trinkets.def.BLOODLUST.cost = original
   if not ok then error(err, 0) end
   T.eq(run.gold, 4 + 50)
 end)
@@ -161,7 +187,7 @@ T.test("strength_stone_unaffected", function()
   local card = cardAt(run, 1)
   apply(run, "EARTH", { card })
   local outcome = apply(run, "STRENGTH", { card })
-  T.eq(card.rank, nil)
+  T.eq(card.rank, 2)
   T.eq(card.enh, "STONE")
   T.eq(outcome.changed, {})
 end)
@@ -172,8 +198,8 @@ T.test("earth_makes_stone", function()
   card.seal = "RED"
   apply(run, "EARTH", { card })
   T.eq(card.enh, "STONE")
-  T.eq(card.rank, nil)
-  T.eq(card.suit, nil)
+  T.eq(card.rank, 6)
+  T.eq(card.suit, "S")
   T.eq(card.seal, "RED")
 end)
 
@@ -268,7 +294,6 @@ T.test("summoning_adds_trinket", function()
   apply(run, "SUMMONING", {})
   T.eq(#run.trinkets, 1)
   T.ok(ns.Trinkets.def[run.trinkets[1].id])
-  T.eq(run.trinkets[1].ed, nil)
   run.trinkets = {}
   for i = 1, 5 do run.trinkets[i] = { id = ns.Trinkets.order[i] } end
   local ok = ns.Consumables.canApply(run, { kind = "scroll", id = "SUMMONING" }, {})
@@ -292,4 +317,17 @@ T.test("echoes_does_not_set_last", function()
   T.eq(run.lastConsumable, { kind = "scroll", id = "GREED" })
   apply(run, "THRIFT", {})
   T.eq(run.lastConsumable, { kind = "scroll", id = "THRIFT" })
+end)
+
+T.test("summoning_can_roll_editions", function()
+  local editions = {}
+  for seed = 1, 3000 do
+    local run = newRun()
+    run.rng = ns.RNG.new(seed * 10007919)
+    apply(run, "SUMMONING", {})
+    local ed = run.trinkets[1].ed
+    if ed then editions[ed] = true end
+  end
+  T.ok(editions.FOIL, "Foil rolls")
+  T.ok(next(editions) ~= nil)
 end)
