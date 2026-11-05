@@ -107,8 +107,11 @@ function Main.Create()
   sbBg:SetColorTexture(0, 0, 0, 0.35)
   ns.UI.Sidebar.Build(sidebar)
 
-  local trinketRow = region(content, "trinketRow", "TOPLEFT", rightX, top, rightW, 48)
+  local consumableW = 190
+  local trinketRow = region(content, "trinketRow", "TOPLEFT", rightX, top, rightW - consumableW - m, 48)
   ns.UI.TrinketRow.Build(trinketRow)
+  local consumableRow = region(content, "consumableRow", "TOPRIGHT", -m, top, consumableW, ns.UI.ConsumableRow.HEIGHT)
+  ns.UI.ConsumableRow.Build(consumableRow)
 
   local handH, btnH = 170, 26
   local playH = bodyH - 48 - handH - btnH - 3 * m
@@ -177,6 +180,7 @@ function Main.Render(run, force)
   end
   ns.UI.Sidebar.Update(run, 0, 0)
   ns.UI.TrinketRow.Update(run)
+  ns.UI.ConsumableRow.Update(run)
   local Screens = ns.UI.Screens
   if not Screens then return end
   Screens.Track(run)
