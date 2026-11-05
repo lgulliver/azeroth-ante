@@ -155,7 +155,7 @@ Trinkets.def = {
     desc = "Each scoring Ace gives x1.5 mult.",
     icon = "Interface\\Icons\\Ability_Hunter_MarkedForDeath",
     onCard = function(_, card)
-      if card.rank == 14 then return { xmult = 1.5 } end
+      if not ns.Cards.isStone(card) and card.rank == 14 then return { xmult = 1.5 } end
     end,
   },
 }

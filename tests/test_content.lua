@@ -213,3 +213,8 @@ T.test("decks_values", function()
     T.ok(d[id].name and d[id].desc, id .. ": missing name or desc")
   end
 end)
+
+T.test("hunters_mark_ignores_ranked_stone", function()
+  local stone = { id = 70, rank = 14, suit = "S", enh = "STONE" }
+  T.eq(cardHook("HUNTERS_MARK", ctx(), stone), nil)
+end)

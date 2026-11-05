@@ -79,3 +79,18 @@ T.test("cards_stone_and_wild", function()
   T.ok(rawequal(list[2], ace))
   T.ok(ns.Cards.isStone(list[3]) and ns.Cards.isStone(list[4]))
 end)
+
+T.test("cards_ranked_stone_reads_as_stone", function()
+  local stone = { id = 60, rank = 14, suit = "H", enh = "STONE" }
+  T.eq(ns.Cards.chipValue(stone), 0)
+  T.eq(ns.Cards.label(stone), "")
+  T.eq(ns.Cards.isFace(stone), false)
+  T.eq(ns.Cards.hasSuit(stone, "H"), false)
+  local two, ace = card(2, "S"), card(14, "H")
+  local list = { stone, two, ace }
+  ns.Cards.sort(list, "rank")
+  T.ok(rawequal(list[3], stone))
+  list = { stone, two, ace }
+  ns.Cards.sort(list, "suit")
+  T.ok(rawequal(list[3], stone))
+end)
