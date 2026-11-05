@@ -25,6 +25,9 @@ for _seal in ("GOLD", "RED", "BLUE", "PURPLE"):
 
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0
+CARD_H = 179  # the card occupies the top 128x179 of the 128x256 canvas
+CARD_PREFIXES = ("Face_", "Consumable_", "Pack")
+# Fractions are of the card region.
 COVERAGE = {"Ed_Sheen.tga": (0.1, 0.9), "Ed_Holo.tga": (0.1, 0.9), "Face_GLASS.tga": (0.5, 1.0)}
 
 
@@ -59,16 +62,37 @@ def check(name, size):
     if len(pixels) != w * h * 4:
         return "pixel data length %d, want %d" % (len(pixels), w * h * 4)
     alpha = pixels[3::4]
+    if name.startswith(CARD_PREFIXES) or name in ("CardBack.tga", "Ed_Sheen.tga", "Ed_Holo.tga"):
+        return check_card(name, w, h, alpha)
     if 0 not in alpha or 255 not in alpha:
         return "alpha lacks both 0 and 255"
+    return None
+
+
+def check_card(name, w, h, alpha):
+    """Cards are authored in the top 128x179 (5:7) of the 128x256 canvas."""
+    top, rest = alpha[:w * CARD_H], alpha[w * CARD_H:]
+    if any(a != 0 for a in rest):
+        return "pixels below the top %dx%d card region" % (w, CARD_H)
+    if 0 not in top:
+        return "card region has no transparent corners"
+    if max(top) != 255:
+        return "card region has no opaque pixel"
+    frac = sum(1 for a in top if a > 0) / float(len(top))
     if name in COVERAGE:
         lo, hi = COVERAGE[name]
-        frac = sum(1 for a in alpha if a > 0) / float(len(alpha))
         if not (lo <= frac <= hi):
             return "alpha coverage %.2f outside %.2f..%.2f" % (frac, lo, hi)
-    if name.startswith(("Face_", "Consumable_", "Pack")) and name != "Face_GLASS.tga":
-        if sum(1 for a in alpha if a == 255) < len(alpha) * 0.5:
+    if name.startswith(("Face_", "CardBack")) and name != "Face_GLASS.tga":
+        # opaque everywhere inside the rounded edge (an 8px inset clears the corners)
+        for y in range(8, CARD_H - 8):
+            row = alpha[y * w + 8:y * w + w - 8]
+            if min(row) != 255:
+                return "face not opaque inside the card region (row %d)" % y
+    elif name.startswith(("Consumable_", "Pack")):
+        if sum(1 for a in top if a == 255) < len(top) * 0.5:
             return "expected a mostly opaque texture"
+    return None
     return None
 
 

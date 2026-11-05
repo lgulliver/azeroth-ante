@@ -99,7 +99,8 @@ NAVY = (22, 18, 52)
 NAVY_LIGHT = (34, 28, 76)
 GOLD = (214, 175, 62)
 GOLD_DARK = (150, 118, 38)
-BACK_W, BACK_H = 128, 256
+CANVAS_H = 256        # textures are 128x256 (power of two); cards use the top 128x179 (5:7)
+BACK_W, BACK_H = 128, 179
 CORNER = 9.0  # corner radius in px; corners outside are transparent
 
 
@@ -151,7 +152,7 @@ def card_back(px, py):
 # ------------------------------------------------------------ v2 helpers
 import colorsys
 
-FACE_W, FACE_H = 128, 256
+FACE_W, FACE_H = 128, 179
 CLEAR = (0, 0, 0, 0)
 PARCH = (238, 224, 182)
 PARCH_DARK = (212, 190, 140)
@@ -300,7 +301,7 @@ def parchment_face(px, py, frame=None, tint=None, clover=False):
     if ring < 0.9 or _rune_row(px, py, h - 22.0, 44.0, 4, 14.0, 9.0, 2):
         c = _shade(c, 0.9)
     if clover:
-        cl = _clover(px, py, 101.0, 226.0)
+        cl = _clover(px, py, 101.0, 152.0)
         if cl:
             return _rgb(cl)
     return _rgb(c)
@@ -408,8 +409,8 @@ def face_stone(px, py):
     n = _vnoise(px, py, 14, 7) * 0.5 + _vnoise(px, py, 5, 8) * 0.3 + _vnoise(px, py, 1.6, 9) * 0.2
     c = _mix((78, 76, 76), (128, 124, 118), n)
     # chiselled cracks
-    for x0, y0, x1, y1 in ((20, 40, 60, 92), (60, 92, 54, 140), (54, 140, 96, 176),
-                           (96, 176, 104, 226), (60, 92, 100, 84), (30, 200, 70, 170)):
+    for x0, y0, x1, y1 in ((20, 28, 60, 64), (60, 64, 54, 98), (54, 98, 96, 123),
+                           (96, 123, 104, 158), (60, 64, 100, 59), (30, 140, 70, 119)):
         dd = _seg_dist(px, py, x0, y0, x1, y1)
         if dd < 1.1:
             c = _shade(c, 0.45)
@@ -546,7 +547,7 @@ def ed_holo(px, py):
 def consumable_scroll(px, py):
     w, h = FACE_W, FACE_H
     # rolled rods at the top and bottom
-    for y0 in (4.0, 234.0):
+    for y0 in (4.0, h - 22.0):
         if y0 <= py <= y0 + 18.0:
             u = (py - y0) / 18.0
             cap = (px < 8.0 or px > w - 8.0)
@@ -559,21 +560,21 @@ def consumable_scroll(px, py):
             if cap:
                 c = _shade(_mix(GOLD_DARK, (250, 226, 130), math.sin(u * math.pi)), 1.0)
             return _rgb(c)
-    if not (10.0 <= px <= w - 10.0 and 21.0 <= py <= 236.0):
+    if not (10.0 <= px <= w - 10.0 and 21.0 <= py <= h - 20.0):
         return CLEAR
-    d = min(px - 10.0, w - 10.0 - px, py - 21.0, 236.0 - py)
+    d = min(px - 10.0, w - 10.0 - px, py - 21.0, h - 20.0 - py)
     n = _vnoise(px, py, 7, 12) * 0.6 + _vnoise(px, py, 2.5, 13) * 0.4
     c = _mix((232, 210, 158), (248, 232, 190), n)
     c = _mix(c, (170, 120, 60), 0.5 * max(0.0, 1 - d / 14.0))
     if py < 30:
         c = _shade(c, 0.72 + 0.28 * (py - 21.0) / 9.0)  # shadow under the rod
-    elif py > 227:
-        c = _shade(c, 0.72 + 0.28 * (236.0 - py) / 9.0)
+    elif py > h - 29.0:
+        c = _shade(c, 0.72 + 0.28 * (h - 20.0 - py) / 9.0)
     if 8.0 <= d < 9.0:
         c = GOLD_DARK
     if 11.0 <= d < 11.8:
         c = _mix(c, GOLD, 0.6)
-    if _rune_row(px, py, 46.0, 28.0, 5, 18.0, 9.0, 0, 0.9) or _rune_row(px, py, 211.0, 28.0, 5, 18.0, 9.0, 3, 0.9):
+    if _rune_row(px, py, 40.0, 28.0, 5, 18.0, 9.0, 0, 0.9) or _rune_row(px, py, h - 40.0, 28.0, 5, 18.0, 9.0, 3, 0.9):
         c = _mix(c, (130, 70, 30), 0.65)
     return _rgb(c)
 
@@ -594,7 +595,7 @@ def consumable_tome(px, py):
     # spine on the left with gold bands
     if px < 16.0:
         c = _shade(c, 0.75 + 0.25 * math.sin(px / 16.0 * math.pi))
-        for by in (40.0, 128.0, 216.0):
+        for by in (30.0, 89.0, 150.0):
             if abs(py - by) < 3.0:
                 return _rgb(_mix(GOLD_DARK, (250, 226, 130), 1 - abs(py - by) / 3.0))
     # gold border and corner brackets
@@ -692,7 +693,7 @@ def pack_wrapper(px, py):
     if side < 5.0:
         return _rgb(GOLD_DARK)
     # central emblem: gold ring, eight-point star, runes
-    cx, cy = w / 2.0, 118.0
+    cx, cy = w / 2.0, 72.0
     dx, dy = px - cx, py - cy
     r = math.hypot(dx, dy)
     if 36.0 <= r < 38.0:
@@ -707,12 +708,12 @@ def pack_wrapper(px, py):
             return _rgb(_mix((250, 226, 130), (200, 150, 50), r / star))
         return _rgb(inner)
     # banner with runes below the emblem
-    if 168.0 <= py < 200.0:
-        by = abs(py - 184.0)
-        c = _mix((214, 175, 62), (150, 118, 38), by / 16.0)
-        if by > 13.5:
+    if 126.0 <= py < 150.0:
+        by = abs(py - 138.0)
+        c = _mix((214, 175, 62), (150, 118, 38), by / 12.0)
+        if by > 10.5:
             c = GOLD_DARK
-        elif _rune_row(px, py, 184.0, 28.0, 6, 14.4, 11.0, 1, 1.0):
+        elif _rune_row(px, py, 138.0, 28.0, 6, 14.4, 9.0, 1, 1.0):
             c = (60, 24, 90)
         return _rgb(c)
     return _rgb(c)
@@ -750,6 +751,13 @@ def render(width, height, fn):
             else:
                 out += bytes((255, 255, 255, 0))
     return bytes(out)
+
+
+def top_only(fn, height):
+    """Cards occupy the top 128x179 of the 128x256 canvas; the rest is transparent."""
+    def sample(px, py):
+        return CLEAR if py >= height else fn(px, py)
+    return sample
 
 
 def render_suit(fn, size=64):
@@ -798,9 +806,9 @@ def main(argv):
         os.makedirs(png_dir, exist_ok=True)
     os.makedirs(MEDIA, exist_ok=True)
     jobs = [(name, 64, 64, render_suit(fn)) for name, fn in SUITS.items()]
-    jobs.append(("CardBack", BACK_W, BACK_H, render(BACK_W, BACK_H, card_back)))
+    jobs.append(("CardBack", BACK_W, CANVAS_H, render(BACK_W, CANVAS_H, top_only(card_back, BACK_H))))
     for name, fn in NEW_JOBS.items():
-        jobs.append((name, FACE_W, FACE_H, render(FACE_W, FACE_H, fn)))
+        jobs.append((name, FACE_W, CANVAS_H, render(FACE_W, CANVAS_H, top_only(fn, FACE_H))))
     for kind in SEALS:
         jobs.append(("Seal_" + kind, SEAL_SIZE, SEAL_SIZE, render(SEAL_SIZE, SEAL_SIZE, seal_fn(kind))))
     for name, w, h, rgba in jobs:

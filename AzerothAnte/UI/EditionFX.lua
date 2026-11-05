@@ -11,6 +11,7 @@ local EditionFX = {}
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
 local CYCLE, SWEEP = 2.5, 1.0   -- Foil: a glint every 2.5s, crossing in 1s
 local TWO_PI = 2 * math.pi
+local CARD_V = ns.UI.Theme.cardV
 
 local driver = CreateFrame("Frame")
 local attached = {}   -- active fx records
@@ -89,21 +90,30 @@ local function create(frame)
   root:SetFrameLevel(frame:GetFrameLevel() + 1)
   local fx = { frame = frame, root = root }
 
-  fx.tint = root:CreateTexture(nil, "BACKGROUND")
-  fx.tint:SetAllPoints(root)
+  -- The Negative tint lives on the frame itself, under the rank text. A card
+  -- face sets fxTintBelow to tint only its art; an icon is tinted above it.
+  if frame.fxTintBelow then
+    fx.tint = frame:CreateTexture(nil, "ARTWORK", nil, -1)
+  else
+    fx.tint = frame:CreateTexture(nil, "OVERLAY", nil, 1)
+  end
+  fx.tint:SetAllPoints(frame)
   fx.tint:SetTexture(MEDIA .. "Face_Plain") -- rounded, so the tint follows the card corners
+  fx.tint:SetTexCoord(0, 1, 0, CARD_V)
   fx.tint:SetVertexColor(0.1, 0.08, 0.35)
   fx.tint:SetAlpha(0.5)
   fx.tint:Hide()
 
   fx.sheen = root:CreateTexture(nil, "OVERLAY")
   fx.sheen:SetTexture(MEDIA .. "Ed_Sheen")
+  fx.sheen:SetTexCoord(0, 1, 0, CARD_V)
   fx.sheen:SetBlendMode("ADD")
   fx.sheen:SetVertexColor(0.85, 0.95, 1)
   fx.sheen:Hide()
 
   fx.holo = root:CreateTexture(nil, "OVERLAY")
   fx.holo:SetTexture(MEDIA .. "Ed_Holo")
+  fx.holo:SetTexCoord(0, 1, 0, CARD_V)
   fx.holo:SetBlendMode("ADD")
   fx.holo:Hide()
 

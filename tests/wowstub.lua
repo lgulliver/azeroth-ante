@@ -187,7 +187,7 @@ function M.install(env)
   -- Tooltip: remembers its owner and last text.
   local tip = createFrame("GameTooltip", "GameTooltip", UIParent)
   tip:Hide()
-  function tip.SetOwner(self, owner) self._owner = owner end
+  function tip.SetOwner(self, owner) self._owner = owner; self._lines = {} end
   function tip.GetOwner(self) return self._owner end
   function tip.SetText(self, t) self._tipText = t end
   function tip.AddLine(self, t) self._lines = self._lines or {}; self._lines[#self._lines + 1] = t end
