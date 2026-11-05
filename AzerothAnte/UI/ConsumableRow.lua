@@ -391,13 +391,14 @@ function ConsumableRow.Build(frame)
   row = frame
   frame.slots = {}
   for i = 1, MAX_SLOTS do makeSlot(i) end
+  -- frame:IsMouseOver() rather than the global MouseIsOver, which the live client lacks.
+  local function over(f) return f ~= nil and f:IsVisible() and f:IsMouseOver() end
   frame:SetScript("OnEvent", function(_, event)
     if event ~= "GLOBAL_MOUSE_DOWN" or not openSlot then return end
     local run = main() and main().run
-    local slot = row.slots[openSlot]
-    if MouseIsOver(popover) or (slot and MouseIsOver(slot)) then return end
-    if run and run.phase == "play" and MouseIsOver(main().handArea) then return end -- keep selecting cards
-    if packHandOpen(run) and ns.UI.PackView.HandFrame() and MouseIsOver(ns.UI.PackView.HandFrame()) then return end
+    if over(popover) or over(row.slots[openSlot]) then return end
+    if run and run.phase == "play" and over(main().handArea) then return end -- keep selecting cards
+    if packHandOpen(run) and over(ns.UI.PackView.HandFrame()) then return end
     ConsumableRow.Close()
   end)
   frame:SetScript("OnHide", function()
