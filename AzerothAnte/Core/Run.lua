@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Run = {}
 
-Run.BASE_TARGETS = { 300, 600, 1200, 2200, 3600, 5500, 8000, 11000 }
+Run.BASE_TARGETS = { 300, 600, 1000, 1700, 2600, 3800, 5200, 7000 }
 
 function Run.target(stage, blind, bossId)
   local mult = 1
