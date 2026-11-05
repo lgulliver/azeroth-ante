@@ -10,7 +10,22 @@ EXPECTED = {
     "Suit_C.tga": (64, 64),
     "Suit_D.tga": (64, 64),
     "CardBack.tga": (128, 256),
+    "Face_Plain.tga": (128, 256),
+    "Ed_Sheen.tga": (128, 256),
+    "Ed_Holo.tga": (128, 256),
+    "Consumable_Scroll.tga": (128, 256),
+    "Consumable_Tome.tga": (128, 256),
+    "Consumable_Relic.tga": (128, 256),
+    "Pack.tga": (128, 256),
 }
+for _enh in ("BONUS", "MULT", "WILD", "GLASS", "STEEL", "STONE", "GOLD", "LUCKY"):
+    EXPECTED["Face_%s.tga" % _enh] = (128, 256)
+for _seal in ("GOLD", "RED", "BLUE", "PURPLE"):
+    EXPECTED["Seal_%s.tga" % _seal] = (32, 32)
+
+# Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
+# name -> (min, max) fraction of pixels with alpha > 0
+COVERAGE = {"Ed_Sheen.tga": (0.1, 0.9), "Ed_Holo.tga": (0.1, 0.9), "Face_GLASS.tga": (0.5, 1.0)}
 
 
 def is_pow2(n):
@@ -46,6 +61,14 @@ def check(name, size):
     alpha = pixels[3::4]
     if 0 not in alpha or 255 not in alpha:
         return "alpha lacks both 0 and 255"
+    if name in COVERAGE:
+        lo, hi = COVERAGE[name]
+        frac = sum(1 for a in alpha if a > 0) / float(len(alpha))
+        if not (lo <= frac <= hi):
+            return "alpha coverage %.2f outside %.2f..%.2f" % (frac, lo, hi)
+    if name.startswith(("Face_", "Consumable_", "Pack")) and name != "Face_GLASS.tga":
+        if sum(1 for a in alpha if a == 255) < len(alpha) * 0.5:
+            return "expected a mostly opaque texture"
     return None
 
 
