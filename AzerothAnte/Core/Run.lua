@@ -16,7 +16,10 @@ function Run.new(seed, deckId)
   local run = {
     seed = seed, rng = ns.RNG.new(seed), deckId = deckId,
     stage = 1, blind = 1, phase = "blind", gold = deck.gold,
-    handSize = 8, maxTrinkets = 5, trinkets = {}, handLevels = {},
+    deck = ns.Deck.new(), nextCardId = 53, baseHandSize = 8, handSizeMod = 0,
+    maxTrinkets = 5, trinkets = {}, handLevels = {},
+    consumables = {}, maxConsumables = 2, seenHands = {},
+    lastHandId = nil, lastConsumable = nil,
     handsPlayedTotal = 0, bosses = {}, score = 0,
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
@@ -30,6 +33,14 @@ function Run.new(seed, deckId)
   return run
 end
 
+function Run.trinketSlots(run)
+  local slots = run.maxTrinkets
+  for _, trinket in ipairs(run.trinkets) do
+    if trinket.ed == "NEGATIVE" then slots = slots + 1 end
+  end
+  return slots
+end
+
 function Run.bossId(run)
   if run.blind == 3 then return run.bosses[run.stage] end
 end
@@ -39,9 +50,9 @@ function Run.startBlind(run)
   local bossId = Run.bossId(run)
   local boss = bossId and ns.Bosses.def[bossId]
   run.phase = "play"
-  run.pile = ns.Cards.shuffledDeck(run.rng)
+  run.pile = ns.Deck.shuffledPile(run)
   run.hand = {}
-  ns.Cards.draw(run.pile, run.hand, run.handSize)
+  ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run))
   ns.Cards.sort(run.hand, run.sortMode or "rank")
   run.handsLeft = boss and boss.hands or deck.hands
   run.discardsLeft = boss and boss.discards or deck.discards
@@ -83,29 +94,44 @@ function Run.canDiscard(run, idx)
   return true
 end
 
-local function removeAndRefill(run, idx)
+local function removeSelected(run, idx)
   local descending = {}
   for i, index in ipairs(idx) do descending[i] = index end
   table.sort(descending, function(a, b) return a > b end)
   for _, index in ipairs(descending) do table.remove(run.hand, index) end
-  ns.Cards.draw(run.pile, run.hand, run.handSize - #run.hand)
+end
+
+local function refill(run)
+  ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run) - #run.hand)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
 end
 
 function Run.play(run, idx)
   local ok, reason = Run.canPlay(run, idx)
   if not ok then return nil, reason end
-  local cards = {}
-  for i, index in ipairs(idx) do cards[i] = run.hand[index] end
+  local cards, held, selected = {}, {}, {}
+  for i, index in ipairs(idx) do
+    cards[i] = run.hand[index]
+    selected[index] = true
+  end
+  for i, card in ipairs(run.hand) do
+    if not selected[i] then held[#held + 1] = card end
+  end
+  local goldRef = { gold = run.gold }
   run.handsPlayedTotal = run.handsPlayedTotal + 1
   local result = ns.Scoring.score({
-    cards = cards, handLevels = run.handLevels, trinkets = run.trinkets,
+    cards = cards, held = held, goldRef = goldRef, handLevels = run.handLevels, trinkets = run.trinkets,
     bossId = Run.bossId(run), rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
     isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
   })
+  run.gold = goldRef.gold
+  run.seenHands[result.handId] = true
+  run.lastHandId = result.handId
   run.score = run.score + result.total
   run.handsLeft = run.handsLeft - 1
-  removeAndRefill(run, idx)
+  removeSelected(run, idx)
+  for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
+  if run.score < run.target then refill(run) end
   run.lastResult = result
   if run.score >= run.target then
     Run.winBlind(run)
@@ -119,13 +145,21 @@ function Run.discard(run, idx)
   local ok, reason = Run.canDiscard(run, idx)
   if not ok then return nil, reason end
   run.discardsLeft = run.discardsLeft - 1
-  removeAndRefill(run, idx)
+  if ns.Consumables then
+    for _, index in ipairs(idx) do
+      if run.hand[index].seal == "PURPLE" and #run.consumables < run.maxConsumables then
+        ns.Consumables.add(run, ns.Consumables.random(run, "scroll"))
+      end
+    end
+  end
+  removeSelected(run, idx)
+  refill(run)
 end
 
 function Run.winBlind(run)
   local payout = {
     reward = ({ 3, 4, 5 })[run.blind], hands = run.handsLeft,
-    interest = math.min(5, math.floor(run.gold / 5)), trinkets = 0,
+    interest = math.min(5, math.floor(run.gold / 5)), trinkets = 0, held = 0,
   }
   for _, trinket in ipairs(run.trinkets) do
     local def = ns.Trinkets.def[trinket.id]
@@ -133,7 +167,16 @@ function Run.winBlind(run)
       payout.trinkets = payout.trinkets + (def.onRoundEnd(run) or 0)
     end
   end
-  payout.total = payout.reward + payout.hands + payout.interest + payout.trinkets
+  for _, card in ipairs(run.hand) do
+    if card.enh == "GOLD" then
+      payout.held = payout.held + ((card.seal == "RED") and 6 or 3)
+    end
+    if card.seal == "BLUE" and run.lastHandId and ns.Consumables
+      and #run.consumables < run.maxConsumables then
+      ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
+    end
+  end
+  payout.total = payout.reward + payout.hands + payout.interest + payout.trinkets + payout.held
   run.lastPayout = payout
   run.gold = run.gold + payout.total
   if run.stage == 8 and run.blind == 3 then

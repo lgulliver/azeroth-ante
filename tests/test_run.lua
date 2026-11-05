@@ -26,7 +26,15 @@ T.test("new_run_shape", function()
   T.eq(run.blind, 1)
   T.eq(run.phase, "blind")
   T.eq(run.gold, 4)
-  T.eq(run.handSize, 8)
+  T.eq(ns.Deck.handSize(run), 8)
+  T.eq(run.baseHandSize, 8)
+  T.eq(run.handSizeMod, 0)
+  T.eq(run.nextCardId, 53)
+  T.eq(run.consumables, {})
+  T.eq(run.maxConsumables, 2)
+  T.eq(run.seenHands, {})
+  T.eq(run.lastHandId, nil)
+  T.eq(run.lastConsumable, nil)
   T.eq(run.maxTrinkets, 5)
   T.eq(run.trinkets, {})
   T.eq(run.handsPlayedTotal, 0)
@@ -133,7 +141,7 @@ T.test("play_reaches_target_goes_shop", function()
   if not ok then error(err, 0) end
   T.eq(run.phase, "shop")
   T.eq(run.gold, 18)
-  T.eq(run.lastPayout, { reward = 3, hands = 3, interest = 2, trinkets = 0, total = 8 })
+  T.eq(run.lastPayout, { reward = 3, hands = 3, interest = 2, trinkets = 0, held = 0, total = 8 })
   T.ok(seen and seen.run == run)
   T.eq(seen.phase, "shop")
   T.eq(seen.gold, 18)
@@ -237,7 +245,7 @@ T.test("payout_rewards_interest_cap_and_trinkets", function()
   run.gold, run.blind, run.handsLeft = 29, 2, 2
   run.trinkets = { { id = "HEARTHSTONE" }, { id = "ARCANE_INTELLECT" } }
   ns.Run.winBlind(run)
-  T.eq(run.lastPayout, { reward = 4, hands = 2, interest = 5, trinkets = 3, total = 14 })
+  T.eq(run.lastPayout, { reward = 4, hands = 2, interest = 5, trinkets = 3, held = 0, total = 14 })
   T.eq(run.gold, 43)
 end)
 
@@ -336,4 +344,189 @@ T.test("sort_mode_persists", function()
   T.eq(loaded.sortMode, "suit")
   ns.Run.discard(loaded, { 1 })
   T.ok(sortedBy(loaded.hand, "suit"), "loaded run lost its sort mode")
+end)
+
+T.test("run_has_persistent_deck", function()
+  local run = playing()
+  T.eq(#run.deck, 52)
+  T.eq(#run.hand, 8)
+  for _, list in ipairs({ run.hand, run.pile }) do
+    for _, card in ipairs(list) do
+      T.ok(rawequal(card, ns.Deck.find(run, card.id)))
+    end
+  end
+  run.hand[1].enh = "MULT"
+  local id = run.hand[1].id
+  ns.Run.startBlind(run)
+  T.eq(ns.Deck.find(run, id).enh, "MULT")
+end)
+
+T.test("glass_destroyed_leaves_deck", function()
+  local run = playing()
+  run.target = 10 ^ 9
+  run.hand[1].enh = "GLASS"
+  local id, survivor = run.hand[1].id, run.hand[3]
+  run.rng = ns.RNG.new(0) -- First roll is below 1/4.
+  local result = ns.Run.play(run, { 1, 2 })
+  T.eq(result.destroyed, { id })
+  T.eq(#run.deck, 51)
+  T.eq(ns.Deck.find(run, id), nil)
+  T.eq(#run.hand, 8)
+  local found = false
+  for _, card in ipairs(run.hand) do
+    T.ok(card.id ~= id)
+    if rawequal(card, survivor) then found = true end
+  end
+  T.ok(found, "destroying played glass removed an unplayed card")
+  ns.Run.startBlind(run)
+  T.eq(#run.pile, 43)
+end)
+
+T.test("tiny_deck_draws_available", function()
+  local run = ns.Run.new(7, "ADVENTURER")
+  for id = 4, 52 do ns.Deck.destroy(run, id) end
+  ns.Run.startBlind(run)
+  T.eq(#run.hand, 3)
+  T.eq(#run.pile, 0)
+  T.ok(ns.Run.play(run, { 1 }))
+  T.eq(#run.hand, 2)
+  T.eq(#run.deck, 3)
+end)
+
+T.test("gold_enh_pays_held", function()
+  local run = playing()
+  run.hand[1].enh = "GOLD"
+  local gold = run.gold
+  ns.Run.winBlind(run)
+  T.eq(run.lastPayout.held, 3)
+  T.eq(run.lastPayout.total, 10)
+  T.eq(run.gold, gold + 10)
+end)
+
+T.test("red_seal_retriggers_held_gold", function()
+  local run = playing()
+  run.hand[1].enh, run.hand[1].seal = "GOLD", "RED"
+  ns.Run.winBlind(run)
+  T.eq(run.lastPayout.held, 6)
+  T.eq(run.lastPayout.total, 13)
+end)
+
+local function withConsumables(fn)
+  local old = ns.Consumables
+  ns.Consumables = {
+    add = function(run, item)
+      T.ok(#run.consumables < run.maxConsumables, "called add without room")
+      run.consumables[#run.consumables + 1] = item
+      return true
+    end,
+    random = function(run, kind)
+      T.eq(kind, "scroll")
+      T.ok(#run.consumables < run.maxConsumables, "rolled without room")
+      return { kind = "scroll", id = "FORTUNE" }
+    end,
+  }
+  local ok, err = pcall(fn)
+  ns.Consumables = old
+  if not ok then error(err, 0) end
+end
+
+T.test("blue_seal_creates_tome", function()
+  withConsumables(function()
+    local run = playing()
+    run.lastHandId = "PAIR"
+    run.hand[1].seal, run.hand[2].seal, run.hand[3].seal = "BLUE", "BLUE", "BLUE"
+    run.consumables = { { kind = "scroll", id = "FORTUNE" } }
+    ns.Run.winBlind(run)
+    T.eq(run.consumables, { { kind = "scroll", id = "FORTUNE" }, { kind = "tome", id = "PAIR" } })
+  end)
+end)
+
+T.test("purple_seal_discard_creates_scroll", function()
+  withConsumables(function()
+    local run = playing()
+    run.hand[1].seal, run.hand[2].seal, run.hand[3].seal = "PURPLE", "PURPLE", "PURPLE"
+    local id = run.hand[1].id
+    ns.Run.discard(run, { 1, 2, 3 })
+    T.eq(run.consumables, { { kind = "scroll", id = "FORTUNE" }, { kind = "scroll", id = "FORTUNE" } })
+    T.eq(#run.hand, 8)
+    T.eq(#run.deck, 52)
+    T.eq(ns.Deck.find(run, id).seal, "PURPLE")
+  end)
+end)
+
+T.test("seals_work_without_consumables_module", function()
+  local old = ns.Consumables
+  ns.Consumables = nil
+  local ok, err = pcall(function()
+    local run = playing()
+    run.hand[1].seal = "PURPLE"
+    ns.Run.discard(run, { 1 })
+    run.hand[1].seal, run.lastHandId = "BLUE", "HIGH_CARD"
+    ns.Run.winBlind(run)
+    T.eq(run.consumables, {})
+  end)
+  ns.Consumables = old
+  if not ok then error(err, 0) end
+end)
+
+T.test("negative_card_grows_hand", function()
+  local run = ns.Run.new(7, "ADVENTURER")
+  run.deck[1].ed = "NEGATIVE"
+  ns.Run.startBlind(run)
+  T.eq(#run.hand, 9)
+  T.eq(#run.pile, 43)
+  run.target = 10 ^ 9
+  ns.Run.play(run, { 1 })
+  T.eq(#run.hand, 9)
+end)
+
+T.test("refill_preserves_excess_cards", function()
+  local run = playing()
+  run.target = 10 ^ 9
+  for i = 1, 3 do
+    local card = ns.Deck.add(run, { rank = 2, suit = "S" })
+    run.hand[#run.hand + 1] = card
+  end
+  local pileCount = #run.pile
+  ns.Run.play(run, { 1 })
+  T.eq(#run.hand, 10)
+  T.eq(#run.pile, pileCount)
+  ns.Run.discard(run, { 1 })
+  T.eq(#run.hand, 9)
+  T.eq(#run.pile, pileCount)
+end)
+
+T.test("play_scores_held_and_updates_gold_once", function()
+  local run = playing()
+  run.target = 10 ^ 9
+  run.hand[1].seal = "GOLD"
+  run.hand[2].enh = "STEEL"
+  local result = ns.Run.play(run, { 1 })
+  T.eq(result.gold, 3)
+  T.eq(run.gold, 7)
+  T.eq(result.mult, 1.5)
+  T.eq(run.seenHands.HIGH_CARD, true)
+  T.eq(run.lastHandId, "HIGH_CARD")
+end)
+
+T.test("negative_trinkets_add_slots", function()
+  local run = playing()
+  run.trinkets = { { id = "HEARTHSTONE", ed = "NEGATIVE" }, { id = "BLOODLUST", ed = "FOIL" },
+    { id = "EXECUTE", ed = "NEGATIVE" } }
+  T.eq(ns.Run.trinketSlots(run), 7)
+end)
+
+T.test("winning_play_uses_final_held_cards", function()
+  withConsumables(function()
+    local run = playing()
+    run.target = 1
+    run.hand[1].enh = "GOLD" -- Played cards do not pay held effects.
+    run.hand[2].enh, run.hand[2].seal = "GOLD", "BLUE"
+    run.pile[#run.pile].enh, run.pile[#run.pile].seal = "GOLD", "BLUE"
+    local pileCount = #run.pile
+    ns.Run.play(run, { 1 })
+    T.eq(run.lastPayout.held, 3)
+    T.eq(run.consumables, { { kind = "tome", id = "HIGH_CARD" } })
+    T.eq(#run.pile, pileCount)
+  end)
 end)

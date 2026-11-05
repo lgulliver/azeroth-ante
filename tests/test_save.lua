@@ -41,3 +41,20 @@ T.test("clear_removes_run", function()
   ns.Save.clear(db)
   T.eq(ns.Save.load(db), nil)
 end)
+
+T.test("relink_after_load_shares_tables", function()
+  local run = playing()
+  local db = {}
+  ns.Save.store(db, run)
+  local loaded = ns.Save.load(db)
+  loaded.hand[1].enh = "MULT"
+  T.eq(ns.Deck.find(loaded, loaded.hand[1].id).enh, "MULT")
+  for _, card in ipairs(loaded.pile) do
+    T.ok(rawequal(card, ns.Deck.find(loaded, card.id)))
+  end
+  T.eq(db.run.hand[1].enh, nil)
+end)
+
+T.test("load_rejects_v1", function()
+  T.eq(ns.Save.load({ version = 1, run = playing() }), nil)
+end)
