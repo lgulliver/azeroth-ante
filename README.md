@@ -38,8 +38,26 @@ on the character-select AddOns screen until you set the right number.
 1. Choose a deck, then start a blind and reach its target score.
 2. Select one to five cards to play a poker hand; stronger hands score more.
 3. Score chips × multiplier, and discard unwanted cards within your limits.
-4. Spend gold in the shop on trinkets and tomes to improve future hands.
+4. Spend gold in the shop on trinkets, consumables and packs to improve future hands.
 5. Beat three blinds per stage across eight stages; running out of hands loses the run.
+
+**Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.
+
+- Scrolls change cards. Select the cards first; the popover shows what will be affected.
+- Tomes level up a poker hand.
+- Relics are powerful one-offs with a cost, such as adding cards or creating a trinket.
+
+**Card types** come from Scrolls and packs, and show on the card and in its tooltip.
+
+- Enhancements change how a card scores (Bonus, Mult, Wild, Glass, Steel, Stone, Gold, Lucky).
+- Editions add a shimmer and a bonus: Foil, Holographic, Polychrome or Negative.
+- Seals (Gold, Red, Blue, Purple) trigger when a card is played, held or discarded.
+
+**Packs** are bought in the shop. Opening one shows a choice; pick from it, or Skip.
+Arcana packs also show a hand to aim Scrolls at. A pack left open survives `/reload`.
+
+**Deck view**: the Deck button in the sidebar lists every card you own, with its
+types, grouped by suit. Hover a card for details.
 
 ## Running the tests
 
@@ -83,6 +101,12 @@ Run these checks in Retail and Forever:
 - [ ] A queue pop during combat plays the sound only; the window opens after combat.
 - [ ] A PvP queue (battleground) opens the window, and the pop shows the overlay.
 - [ ] One full run to the win or lose screen.
+- [ ] Edition shimmer (Foil, Holographic, Polychrome, Negative) is visible and smooth.
+- [ ] A Glass card shatters when it breaks.
+- [ ] Use works on cards in play and on cards in a pack.
+- [ ] `/reload` with a pack open resumes on the same pack and choices.
+- [ ] A hand of more than 8 cards still fits the play area.
+- [ ] The deck view opens, shows every card and its types, and closes.
 - [ ] Abandon Run asks for a second click (and reverts after 3 seconds), then returns to the deck screen.
 
 ## Art

@@ -1122,6 +1122,215 @@ local function run(w)
   check(visible("tiles"), "abandon returns to the new-run screen")
   step("9c abandon run")
 
+  -- 10. The balance bot plays a scripted run through the UI: it decides, we click.
+  do
+    local PackView, DeckView = ns.UI.PackView, ns.UI.DeckView -- the world was swapped at step 6
+    local bot = dofile("tools/sim/bot.lua")(ns)
+    local started = os.clock()
+    local used = { consumables = 0, picks = 0, packs = 0, deck = 0, saves = 0 }
+    local played = {}
+
+    local function busy()
+      return HandView.IsBusy() or Tally.IsBusy() or PackView.IsBusy()
+    end
+    -- Lets animations finish, then checks nothing is stuck and the save matches the live run.
+    local function settle(what, extra)
+      local t = 0
+      while busy() and t < 20 do
+        stub.advance(0.25)
+        t = t + 0.25
+      end
+      stub.advance(extra or 0.5) -- dealing is not "busy", so deals pass a longer wait
+      check(not busy(), what .. ": stuck busy")
+      check(env.AzerothAnteDB.run ~= nil and deepEq(env.AzerothAnteDB.run, Main.run), what .. ": save is out of date")
+      used.saves = used.saves + 1
+    end
+
+    local function widgetOf(parent, card)
+      for _, c in ipairs(parent._children) do
+        if c.card == card and not c.released and c:IsShown() then return c end
+      end
+    end
+    local function selectIn(parent, cards)
+      for _, card in ipairs(cards) do
+        local w = widgetOf(parent, card)
+        click(w, "card widget")
+        check(w.selected, "card did not become selected")
+      end
+    end
+
+    -- Uses every consumable the bot wants to use: select, open the slot, click Use.
+    local function useConsumables(cards, what)
+      local slot = 1
+      while slot <= #Main.run.consumables do
+        local r = Main.run
+        local item = r.consumables[slot]
+        local idx = bot.usePlan(r, slot, cards)
+        local done = false
+        if idx then
+          HandView.ClearSelection()
+          local picked = {}
+          for _, i in ipairs(idx) do picked[#picked + 1] = cards[i] end
+          selectIn(Main.handArea, picked)
+          click(Main.consumableRow.slots[slot], what .. " consumable slot " .. slot)
+          click(popover().use, what .. " Use")
+          settle(what .. " use", 2)
+          done = Main.run.consumables[slot] ~= item
+          if done then used.consumables = used.consumables + 1 end
+        end
+        if not done then slot = slot + 1 end
+      end
+      HandView.ClearSelection()
+    end
+
+    local function pickFromPack()
+      while Main.run.shop.openPack do
+        local r = Main.run
+        local pack = r.shop.openPack
+        local pv = panel("packChoices")
+        check(pv and pv:IsVisible(), "PackView visible while a pack is open")
+        local choice, idx = bot.choosePick(r, pack, played)
+        if not choice then break end
+        PackView.ClearSelection()
+        local cards = {}
+        for _, i in ipairs(idx) do cards[#cards + 1] = pack.hand[i] end
+        selectIn(pv.hand, cards)
+        click(pv.packChoices[choice].frame, "pack choice " .. choice)
+        local left = pack.picksLeft
+        click(pv.pick, "Pick")
+        settle("pack pick")
+        used.picks = used.picks + 1
+        if Main.run.shop.openPack == pack then check(pack.picksLeft < left, "pick did not use a pick") end
+      end
+      if Main.run.shop.openPack then
+        click(panel("packChoices").skip, "Skip")
+        settle("pack skip")
+      end
+      eq(Main.run.shop.openPack, nil, "pack closed")
+    end
+
+    local function shopPhase(first)
+      local r = Main.run
+      if first then -- make sure the first shop has something of everything to click
+        r.gold = 100
+        r.shop.cards = {
+          { type = "scroll", id = "FURY", cost = 3 },
+          { type = "trinket", id = "BLOODLUST", cost = 4 },
+        }
+        r.shop.packs = { { type = "ARCANA", size = "mega", cost = 8 }, { type = "CELESTIAL", size = "normal", cost = 4 } }
+        Main.Render(r)
+        ns.UI.OnRunChanged()
+        stub.advance(1)
+      end
+      useConsumables(nil, "shop")
+      local function offers() return panel("offerCards") end
+      -- Trinkets, best first.
+      local again = true
+      while again do
+        again = false
+        r = Main.run
+        local bestI, bestRank = nil, 1e9
+        for i, offer in ipairs(r.shop.cards) do
+          if offer and offer.type == "trinket" and offer.cost <= r.gold and #r.trinkets < ns.Run.trinketSlots(r) then
+            local rank = bot.TRINKET_RANK[offer.id] or 99
+            if rank < bestRank then bestI, bestRank = i, rank end
+          end
+        end
+        if bestI then
+          click(offers().offerCards[bestI].buy, "buy trinket")
+          settle("buy trinket")
+          again = true
+        end
+      end
+      local favourite = bot.mostPlayed(Main.run, played)
+      for i, offer in ipairs(Main.run.shop.cards) do
+        if offer and offer.type == "tome" and offer.id == favourite and offers().offerCards[i].buy:IsEnabled() then
+          click(offers().offerCards[i].buy, "buy tome")
+          settle("buy tome")
+        end
+      end
+      for i, offer in ipairs(Main.run.shop.packs) do
+        if offer and (offer.type == "ARCANA" or offer.type == "CELESTIAL")
+          and Main.run.gold >= 8 and offer.cost <= Main.run.gold then
+          click(offers().packOffers[i].buy, "open pack")
+          settle("open pack")
+          used.packs = used.packs + 1
+          pickFromPack()
+        end
+      end
+      for i, offer in ipairs(Main.run.shop.cards) do
+        if offer and offer.type == "scroll" and bot.SCROLL_RANK[offer.id] and Main.run.gold >= 8
+          and offers().offerCards[i].buy:IsEnabled() then
+          click(offers().offerCards[i].buy, "buy scroll")
+          settle("buy scroll")
+        end
+      end
+      useConsumables(nil, "shop")
+      click(offers().next, "Next Blind")
+      settle("next blind")
+    end
+
+    local function playBlind()
+      local r = Main.run
+      click(panel("preview").start, "Start Blind")
+      settle("start blind", 3)
+      eq(Main.run.phase, "play", "phase after Start Blind")
+      if used.deck == 0 then -- the deck view, opened and closed by clicks
+        click(Main.sidebar.deckButton, "Deck button")
+        stub.advance(0.3)
+        check(DeckView.IsShown() and visible("deckTitle"), "deck view opens")
+        click(panel("deckTitle").close, "deck view Close")
+        check(not DeckView.IsShown(), "deck view closes")
+        used.deck = used.deck + 1
+      end
+      useConsumables(Main.run.hand, "blind")
+      while Main.run.phase == "play" do
+        r = Main.run
+        HandView.ClearSelection()
+        local best, idx = bot.bestPlay(r)
+        local need = (r.target - r.score) / r.handsLeft
+        local plan
+        if best < need and best < r.target - r.score and r.discardsLeft > 0 then
+          plan = bot.discardPlan(r, idx)
+          if #plan == 0 then plan = nil end
+        end
+        local cards = {}
+        for _, i in ipairs(plan or idx) do cards[#cards + 1] = r.hand[i] end
+        selectIn(Main.handArea, cards)
+        if plan then
+          click(Main.buttons.discard, "Discard")
+        else
+          click(Main.buttons.play, "Play")
+        end
+        local handId
+        if not plan then handId = ns.HandEval.evaluate(cards).id end
+        settle(plan and "discard" or "play", 3)
+        if handId then played[handId] = (played[handId] or 0) + 1 end
+      end
+    end
+
+    click(panel("tiles").tiles[2], "deck tile 2") -- a deck the bot gets through six blinds with
+    stub.advance(1)
+    local beaten = 0
+    while beaten < 6 and Main.run.phase ~= "lost" and Main.run.phase ~= "won" do
+      playBlind()
+      if Main.run.phase == "shop" then
+        beaten = beaten + 1
+        shopPhase(beaten == 1)
+      end
+    end
+    check(beaten >= 1 and (beaten >= 6 or Main.run.phase == "lost" or Main.run.phase == "won"), "the bot got through its blinds")
+    check(used.consumables >= 1, "a consumable was used through the UI")
+    check(used.packs >= 1 and used.picks >= 1, "a pack was opened and picked from")
+    check(used.deck >= 1, "the deck view was used")
+    check(used.saves > 10, "the run saved after actions")
+    local elapsed = os.clock() - started
+    check(elapsed < 60, "bot-driven run took " .. elapsed .. "s")
+    print(("    bot run: %d blinds beaten, ended %s, %d consumables, %d packs, %d picks, %d saves, %.1fs"):format(
+      beaten, Main.run.phase, used.consumables, used.packs, used.picks, used.saves, elapsed))
+  end
+  step("10 bot drives a full run through the UI")
+
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w }) do
     for name in pairs(world.newGlobals) do
