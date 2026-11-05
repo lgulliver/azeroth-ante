@@ -8,4 +8,7 @@ Core\RNG.lua
 Core\Cards.lua
 Data\Hands.lua
 Core\HandEval.lua
+Data\Trinkets.lua
+Data\Bosses.lua
+Data\Decks.lua
 Core\Scoring.lua
