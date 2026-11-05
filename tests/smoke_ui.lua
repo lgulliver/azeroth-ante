@@ -510,6 +510,46 @@ local function run(w)
   eq(Main.sidebar.score:GetText(), tostring(Main.run.score), "sidebar score text")
   step("3 play a card, tally finishes")
 
+  -- 3b. A Glass card that breaks, a Red-sealed card that retriggers and a held Steel card.
+  do
+    local r = Main.run
+    r.handsLeft = math.max(r.handsLeft, 2)
+    r.target = 10 ^ 9
+    for _, c in ipairs(r.deck) do c.enh, c.ed, c.seal = nil, nil, nil end
+    local glass = ns.Deck.add(r, { rank = 13, suit = "S", enh = "GLASS" })
+    local red = ns.Deck.add(r, { rank = 13, suit = "H", seal = "RED" })
+    local steel = ns.Deck.add(r, { rank = 7, suit = "C", enh = "STEEL" })
+    r.hand[1], r.hand[2], r.hand[3] = glass, red, steel
+    r.rng.s = 1 -- the Glass destroy roll comes up under 25%
+    HandView.Update(r, false)
+    stub.advance(1)
+    local deckBefore, glassId = #r.deck, glass.id
+    local gw, rw, sw = HandView.WidgetForCard(glass.id), HandView.WidgetForCard(red.id), HandView.WidgetForCard(steel.id)
+    click(gw, "glass card")
+    click(rw, "red card")
+    playSelected()
+    local sawAgain, sawSteelPulse, sawShatter, steelLifted = false, false, false, false
+    for _ = 1, 100 do
+      stub.advance(0.1)
+      if stub.findText("Again!") then sawAgain = true end
+      if sw.face:GetScale() > 1.01 then sawSteelPulse = true end
+      if sw.body._y and sw.body._y ~= 0 then steelLifted = true end
+      if gw.face:GetAlpha() < 1 then sawShatter = true end
+      if not Tally.IsBusy() and not HandView.IsBusy() then break end
+    end
+    check(not Tally.IsBusy() and not HandView.IsBusy(), "board unlocked after the Glass/Red/Steel tally")
+    check(sawAgain, "the Red seal showed Again!")
+    check(sawSteelPulse and not steelLifted, "held Steel pulsed in place")
+    check(sawShatter, "the Glass card shattered")
+    eq(#r.deck, deckBefore - 1, "the broken Glass card left the deck")
+    check(ns.Deck.find(r, glassId) == nil, "Glass card is gone")
+    eq(Main.sidebar.score:GetText(), tostring(r.score), "tally reached total")
+    eq(r.lastResult.destroyed[1], glassId, "result lists the destroyed card")
+    HandView.Update(r, false)
+    stub.advance(1)
+  end
+  step("3b tally: glass shatter, red retrigger, held steel")
+
   -- 4. Force a win.
   Main.run.target = 1
   selectCard(1)
