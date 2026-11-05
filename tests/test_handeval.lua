@@ -64,7 +64,7 @@ T.test("full_house_contains", function()
 end)
 
 T.test("hand_definitions", function()
-  local order = { "HIGH_CARD", "PAIR", "TWO_PAIR", "THREE_KIND", "STRAIGHT", "FLUSH", "FULL_HOUSE", "FOUR_KIND", "STRAIGHT_FLUSH" }
+  local order = { "HIGH_CARD", "PAIR", "TWO_PAIR", "THREE_KIND", "STRAIGHT", "FLUSH", "FULL_HOUSE", "FOUR_KIND", "STRAIGHT_FLUSH", "FIVE_KIND", "FLUSH_HOUSE", "FLUSH_FIVE" }
   local values = {
     { "High Card", 5, 1, 10, 1 }, { "Pair", 10, 2, 15, 1 },
     { "Two Pair", 20, 2, 20, 1 }, { "Three of a Kind", 30, 3, 20, 2 },
@@ -73,8 +73,8 @@ T.test("hand_definitions", function()
     { "Straight Flush", 100, 8, 40, 4 },
   }
   T.eq(ns.Hands.order, order)
-  for i, id in ipairs(order) do
-    local v = values[i]
+  for i, v in ipairs(values) do
+    local id = order[i]
     T.eq(ns.Hands.def[id], { name = v[1], chips = v[2], mult = v[3], lvlChips = v[4], lvlMult = v[5] })
     local chips, mult = ns.Hands.base(id, 1)
     T.eq(chips, v[2])
@@ -94,4 +94,69 @@ T.test("does_not_mutate_cards", function()
   ns.HandEval.evaluate(input)
   ns.HandEval.contains(input)
   T.eq(input, original)
+end)
+
+local function stone()
+  return { enh = "STONE", id = 0 }
+end
+
+local H5 = { "H", "H", "H", "H", "H" }
+local S5 = { "S", "S", "S", "S", "S" }
+
+T.test("five_kind", function()
+  T.eq((ns.HandEval.evaluate(cards({ 9, 9, 9, 9, 9 }))), "FIVE_KIND")
+end)
+
+T.test("flush_house", function()
+  T.eq((ns.HandEval.evaluate(cards({ 13, 13, 13, 4, 4 }, H5))), "FLUSH_HOUSE")
+end)
+
+T.test("flush_five", function()
+  T.eq((ns.HandEval.evaluate(cards({ 7, 7, 7, 7, 7 }, S5))), "FLUSH_FIVE")
+end)
+
+T.test("wild_completes_flush", function()
+  local hand = cards({ 2, 5, 9, 13, 7 }, { "H", "H", "H", "H", "S" })
+  hand[5].enh = "WILD"
+  local handId, scoringIdx = ns.HandEval.evaluate(hand)
+  T.eq(handId, "FLUSH")
+  T.eq(scoringIdx, { 1, 2, 3, 4, 5 })
+end)
+
+T.test("stone_always_scores", function()
+  local hand = cards({ 13, 13 }, { "S", "H" })
+  hand[3] = stone()
+  local handId, scoringIdx = ns.HandEval.evaluate(hand)
+  T.eq(handId, "PAIR")
+  T.ok(scoringIdx[3] == 3, "stone index in scoringIdx")
+  T.eq(scoringIdx, { 1, 2, 3 })
+end)
+
+T.test("stone_breaks_straight", function()
+  local hand = cards({ 2, 3, 4, 5 }, { "S", "H", "C", "D" })
+  hand[5] = stone()
+  local handId, scoringIdx = ns.HandEval.evaluate(hand)
+  T.eq(handId, "HIGH_CARD")
+  T.eq(scoringIdx, { 4, 5 })
+end)
+
+T.test("secret_hidden_until_seen", function()
+  T.eq(#ns.Hands.visible({ seenHands = {} }), 9)
+  T.eq(#ns.Hands.visible({ seenHands = { FIVE_KIND = true } }), 10)
+end)
+
+T.test("secret_definitions", function()
+  T.eq(ns.Hands.def.FIVE_KIND, { name = "Five of a Kind", chips = 120, mult = 12, lvlChips = 35, lvlMult = 3, secret = true })
+  T.eq(ns.Hands.def.FLUSH_HOUSE, { name = "Flush House", chips = 140, mult = 14, lvlChips = 40, lvlMult = 4, secret = true })
+  T.eq(ns.Hands.def.FLUSH_FIVE, { name = "Flush Five", chips = 160, mult = 16, lvlChips = 50, lvlMult = 3, secret = true })
+end)
+
+T.test("secret_contains", function()
+  local five = ns.HandEval.contains(cards({ 9, 9, 9, 9, 9 }))
+  T.ok(five.FIVE_KIND and five.FOUR_KIND and five.THREE_KIND and five.PAIR)
+  local flushFive = ns.HandEval.contains(cards({ 7, 7, 7, 7, 7 }, S5))
+  T.ok(flushFive.FLUSH_FIVE and flushFive.FIVE_KIND and flushFive.FLUSH)
+  local flushHouse = ns.HandEval.contains(cards({ 13, 13, 13, 4, 4 }, H5))
+  T.ok(flushHouse.FLUSH_HOUSE and flushHouse.FULL_HOUSE and flushHouse.FLUSH)
+  T.ok(flushHouse.TWO_PAIR and flushHouse.THREE_KIND and flushHouse.PAIR)
 end)
