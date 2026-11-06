@@ -87,6 +87,12 @@ ns.Trinkets.add {
   onBlindSelect = function() return { handsDelta = 3, discardsSet = 0 } end,
 }
 
+-- True when the current boss debuffs the card: debuffed discards trigger nothing (like the Purple seal).
+local function debuffed(run, card, rules)
+  local boss = ns.Bosses.def[ns.Run.bossId(run) or ""]
+  return boss and boss.debuff and boss.debuff(card, rules) and true or false
+end
+
 -- 57: Faceless One.
 ns.Trinkets.add {
   id = "FACELESS_ONE", name = "Faceless One", rarity = "common", cost = 4,
@@ -95,7 +101,7 @@ ns.Trinkets.add {
   onDiscard = function(run, _, cards)
     local n, rules = 0, ns.TrinketRules.set(run.trinkets)
     for _, card in ipairs(cards) do
-      if ns.Cards.isFace(card, rules) then n = n + 1 end
+      if ns.Cards.isFace(card, rules) and not debuffed(run, card, rules) then n = n + 1 end
     end
     if n >= 3 then return { gold = 5 } end
   end,
@@ -233,7 +239,9 @@ ns.Trinkets.add {
   copyable = false,
   init = function(self) self.state.pay = 1 end,
   onBossDefeated = function(_, self, isCopy)
-    if not isCopy then self.state.pay = self.state.pay + 2 end
+    if isCopy then return end
+    self.state.pay = self.state.pay + 2
+    return { msg = "Upgrade!" }
   end,
   onRoundEnd = function(_, self) return self.state.pay end,
   status = function(self) return "Currently " .. self.state.pay .. "g" end,
@@ -283,10 +291,12 @@ ns.Trinkets.add {
   roundUpdate = function(run, self, isCopy)
     if not isCopy then pickMailRank(self, run) end
   end,
-  onDiscard = function(_, self, cards)
-    local n = 0
+  onDiscard = function(run, self, cards)
+    local n, rules = 0, ns.TrinketRules.set(run.trinkets)
     for _, card in ipairs(cards) do
-      if not ns.Cards.isStone(card) and card.rank == self.state.rank then n = n + 1 end
+      if not ns.Cards.isStone(card) and card.rank == self.state.rank and not debuffed(run, card, rules) then
+        n = n + 1
+      end
     end
     if n > 0 then return { gold = 5 * n } end
   end,
@@ -324,6 +334,7 @@ ns.Trinkets.add {
   id = "TRADING_POST", name = "Trading Post", rarity = "uncommon", cost = 6,
   desc = "First discard of round is 1 card: destroy it, 3g",
   icon = "Interface\\Icons\\INV_Misc_Note_01",
+  copyable = false, -- Balatro's Trading Card is not Blueprint-compatible.
   onDiscard = function(run, _, cards)
     if run.discardsUsedRound == 0 and #cards == 1 then
       return { destroyCard = cards[1].id, gold = 3 }
@@ -338,7 +349,9 @@ ns.Trinkets.add {
   icon = "Interface\\Icons\\Spell_Holy_FlashHeal",
   init = function(self) self.state.mult = 0 end,
   onShopReroll = function(_, self, isCopy)
-    if not isCopy then self.state.mult = self.state.mult + 2 end
+    if isCopy then return end
+    self.state.mult = self.state.mult + 2
+    return { msg = "Upgrade!" }
   end,
   onHand = function(_, self) return { mult = self.state.mult } end,
   status = function(self) return "Currently +" .. self.state.mult .. " Mult" end,
@@ -374,11 +387,17 @@ ns.Trinkets.add {
   status = function(self) return "Currently ×" .. self.state.x .. " Mult" end,
 }
 
+-- The suit of a random non-Stone deck card, never the current suit unless the deck has no other.
 local function pickCastleSuit(self, run)
-  local pool = {}
-  for _, suit in ipairs(ns.Cards.SUITS) do
-    if suit ~= self.state.suit then pool[#pool + 1] = suit end
+  local other, any = {}, {}
+  for _, card in ipairs(run.deck) do
+    if not ns.Cards.isStone(card) then
+      any[#any + 1] = card.suit
+      if card.suit ~= self.state.suit then other[#other + 1] = card.suit end
+    end
   end
+  local pool = #other > 0 and other or any
+  if #pool == 0 then pool = ns.Cards.SUITS end
   self.state.suit = ns.RNG.pick(run.rng, pool)
 end
 
@@ -393,9 +412,13 @@ ns.Trinkets.add {
   end,
   onDiscard = function(run, self, cards, isCopy)
     if isCopy then return end
-    local rules = ns.TrinketRules.set(run.trinkets)
+    local rules, gained = ns.TrinketRules.set(run.trinkets), 0
     for _, card in ipairs(cards) do
-      if ns.Cards.hasSuit(card, self.state.suit, rules) then self.state.chips = self.state.chips + 3 end
+      if ns.Cards.hasSuit(card, self.state.suit, rules) and not debuffed(run, card, rules) then gained = gained + 3 end
+    end
+    if gained > 0 then
+      self.state.chips = self.state.chips + gained
+      return { msg = "Upgrade!" }
     end
   end,
   onHand = function(_, self) return { chips = self.state.chips } end,
@@ -409,10 +432,15 @@ ns.Trinkets.add {
   icon = "Interface\\Icons\\Spell_Fire_Fire",
   init = function(self) self.state.x = 1 end,
   onSell = function(_, self, _, isCopy)
-    if not isCopy then self.state.x = self.state.x + 0.25 end
+    if isCopy then return end
+    self.state.x = self.state.x + 0.25
+    return { msg = "Upgrade!" }
   end,
   onBossDefeated = function(_, self, isCopy)
-    if not isCopy then self.state.x = 1 end
+    if isCopy then return end
+    local grown = self.state.x > 1
+    self.state.x = 1
+    if grown then return { msg = "Reset" } end
   end,
   onHand = function(_, self)
     if self.state.x > 1 then return { xmult = self.state.x } end
@@ -426,8 +454,11 @@ ns.Trinkets.add {
   desc = "Prevents loss if score >= 25% of target; destroyed",
   icon = "Interface\\Icons\\Spell_Shadow_SoulGem",
   copyable = false,
-  onLose = function(run)
-    if run.score >= 0.25 * run.target then return { save = true, destroySelf = true, msg = "Saved!" } end
+  onLose = function(run, self)
+    -- Claims the save inside the hook: hooks run before effects apply, so a second stone would also see it unclaimed.
+    if run.savedBy or run.score < 0.25 * run.target then return end
+    run.savedBy, run.savedById = self.uid, self.id
+    return { save = true, destroySelf = true, msg = "Saved!" }
   end,
 }
 
@@ -461,14 +492,22 @@ ns.Trinkets.add {
   desc = "Gains ×0.5 Mult per Jack discarded this round (resets)",
   icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
   init = function(self) self.state.x = 1 end,
-  onDiscard = function(_, self, cards, isCopy)
+  onDiscard = function(run, self, cards, isCopy)
     if isCopy then return end
+    local rules, gained = ns.TrinketRules.set(run.trinkets), 0
     for _, card in ipairs(cards) do
-      if not ns.Cards.isStone(card) and card.rank == 11 then self.state.x = self.state.x + 0.5 end
+      if not ns.Cards.isStone(card) and card.rank == 11 and not debuffed(run, card, rules) then gained = gained + 0.5 end
+    end
+    if gained > 0 then
+      self.state.x = self.state.x + gained
+      return { msg = "Upgrade!" }
     end
   end,
   roundUpdate = function(_, self, isCopy)
-    if not isCopy then self.state.x = 1 end
+    if isCopy then return end
+    local grown = self.state.x > 1
+    self.state.x = 1
+    if grown then return { msg = "Reset" } end
   end,
   onHand = function(_, self)
     if self.state.x > 1 then return { xmult = self.state.x } end
@@ -510,7 +549,9 @@ ns.Trinkets.add {
     run.lifecycleEvents = run.lifecycleEvents or {}
     run.lifecycleEvents[#run.lifecycleEvents + 1] =
       { kind = "trinketCreated", uid = copy.uid, slot = #run.trinkets - 1, id = copy.id, by = self.uid }
-    return { msg = "Duplicated!" }
+    -- The sold potion's own slot is gone by now, so the message rides on the copy.
+    run.lifecycleEvents[#run.lifecycleEvents + 1] =
+      { kind = "trinketMsg", uid = copy.uid, slot = #run.trinkets - 1, text = "Duplicated!" }
   end,
   status = function(self)
     return self.state.rounds >= 2 and "Ready!" or self.state.rounds .. "/2 rounds"
