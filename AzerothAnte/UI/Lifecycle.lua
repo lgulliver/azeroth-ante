@@ -9,6 +9,7 @@ local TAIL = 0.3             -- beat after the last one, so a melt or pop finish
 local MELT = 0.3             -- a destroyed trinket fades and shrinks
 local POP_TIME, POP_FROM = 0.2, 0.6
 local FAST = 4               -- clicking speeds the queue up
+local LONG = 8               -- events after this many play at FAST, so a long queue never holds input
 local WATCHDOG = 5           -- real seconds beyond the queue's own length
 local STACK = 16             -- rise between floats stacked on one target
 local CREAM = { 1, 0.95, 0.75 }
@@ -172,13 +173,13 @@ function Lifecycle.Drain(run, done)
   for _, e in ipairs(events) do
     if visual(e) then
       steps[#steps + 1] = { at = at, event = e }
-      at = at + STEP
+      at = at + ((#steps >= LONG) and STEP / FAST or STEP)
     end
   end
   if #steps == 0 then return done() end
   state = {
     run = run, done = done, steps = steps, next = 1, clock = 0, real = 0, speed = 1, floats = {},
-    endAt = at - STEP + TAIL,
+    endAt = steps[#steps].at + TAIL,
   }
   if ns.UI.HandView then ns.UI.HandView.RefreshButtons() end -- Play and Discard wait for the queue
   overlayBtn:Show()

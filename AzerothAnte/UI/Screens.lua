@@ -447,6 +447,7 @@ local function onSell(slot, id)
   local uid = owned.uid
   local gained = ns.Run.sellTrinket(run, slot)
   if not gained then return end
+  persist() -- the sale is saved before the events play, so a /reload mid-drain cannot undo it
   ns.UI.Outcome.FloatGold(gained)
   -- A farewell effect (onSelfSold) or an onSell hook plays its events first; the sold slot melts.
   if run.lifecycleEvents and #run.lifecycleEvents > 0 then ns.UI.TrinketRow.Destroy(uid, 0.15) end
@@ -906,7 +907,7 @@ local function refreshShop(p, run)
       -- A saved blind pays no reward: its line names the trinket instead, with no amount.
       local saved = key == "reward" and pay.saved
       row.value:SetShown(not saved)
-      Theme.setColor(row.label, saved and Theme.gold or WHITE)
+      if key == "reward" then Theme.setColor(row.label, saved and Theme.gold or WHITE) end
       row.label:ClearAllPoints()
       row.value:ClearAllPoints()
       row.label:SetPoint("TOPLEFT", p, "TOPLEFT", 16, y)
