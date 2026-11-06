@@ -32,9 +32,9 @@ local Theme = {
     danger = { fill = { 0.2, 0.09, 0.07 }, border = { 0.66, 0.28, 0.22 }, text = { 0.95, 0.5, 0.42 } },
   },
   rarity = {
-    common = { 1, 1, 1 },
-    uncommon = { 0.12, 1, 0 },
-    rare = { 0, 0.44, 0.87 },
+    common = { 0.616, 0.616, 0.616 },   -- WoW item quality: ff9d9d9d, ff1eff00, ff0070dd
+    uncommon = { 0.118, 1, 0 },
+    rare = { 0, 0.439, 0.867 },
     legendary = { 1, 0.5, 0 },
   },
   fonts = {
