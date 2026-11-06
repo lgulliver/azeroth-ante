@@ -245,7 +245,7 @@ function Consumables.use(run, slot, idx)
 end
 
 function Consumables.sellValue(item)
-  return math.floor((item.paid or Consumables.COST[item.kind]) / 2) + (item.sellBonus or 0)
+  return math.max(1, math.floor((item.paid or Consumables.COST[item.kind]) / 2)) + (item.sellBonus or 0)
 end
 
 function Consumables.sell(run, slot)
