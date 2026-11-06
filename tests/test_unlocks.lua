@@ -44,7 +44,7 @@ T.test("profile_creation_migration_preserves_progress_and_save", function()
   local db = { run = { seed = 7 }, version = 2 }
   local p = ns.Profile.get(db)
   T.eq(p, { version = 1, discovered = {}, stats = {}, seenUnlocks = {},
-    counters = {}, achievements = {}, bossesSeen = {}, unlockedDecks = {}, seenAchievements = {} })
+    counters = {}, achievements = {}, bossesSeen = {}, unlockedDecks = {}, seenAchievements = {}, unlockMigration = 2 })
   T.ok(p == ns.Profile.get(db))
   db.profile = { version = 0, discovered = { ["scroll:FURY"] = true }, stats = { ROGUE = { wins = 2 } } }
   p = ns.Profile.get(db)
@@ -85,6 +85,25 @@ T.test("thresholds_scale_with_total", function()
     T.eq({ ns.Profile.isUnlocked(db, id) }, { true, need, need })
   end
   T.eq(ns.Profile.unlockThreshold("ROGUE"), 0)
+end)
+
+T.test("old_threshold_grandfathered_on_upgrade", function()
+  local db = { profile = { discovered = {}, unlockedDecks = {} } }
+  for i = 1, 9 do db.profile.discovered["t:" .. i] = true end
+  local p = ns.Profile.get(db)
+  T.eq(p.unlockedDecks.WARRIOR, true)
+  T.eq(p.unlockedDecks.GOBLIN, nil)
+  T.eq(p.unlockMigration, 2)
+end)
+
+T.test("migration_runs_once", function()
+  local db = { profile = { discovered = {}, unlockedDecks = {} } }
+  for i = 1, 9 do db.profile.discovered["t:" .. i] = true end
+  ns.Profile.get(db)
+  db.profile.unlockedDecks = {}
+  for i = 1, 9 do db.profile.discovered["t:" .. i] = nil end
+  for i = 1, 6 do db.profile.discovered["t:" .. i] = true end
+  T.eq(ns.Profile.get(db).unlockedDecks.WARRIOR, nil)
 end)
 
 T.test("grandfathered_unlock_kept", function()

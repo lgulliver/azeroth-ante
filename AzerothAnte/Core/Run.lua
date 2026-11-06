@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Run = {}
 
-Run.BASE_TARGETS = { 300, 600, 1200, 2200, 3600, 5500, 8000, 11000 }
+Run.BASE_TARGETS = { 300, 700, 1500, 3000, 5500, 9000, 13000, 18000 }
 
 -- Gold paid for beating the small, big and boss blind.
 Run.BLIND_REWARDS = { 3, 4, 5 }
