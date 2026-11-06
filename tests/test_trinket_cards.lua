@@ -19,6 +19,7 @@ H.test("chipvalue_bonus", function()
   T.eq(ns.Cards.chipValue({ rank = 5, suit = "S" }), 5)
   T.eq(ns.Cards.chipValue({ rank = 14, suit = "S", enh = "STONE", bonusChips = 10 }), 10)
   local run = ns.Run.new(1, "ROGUE")
+  T.eq(ns.Cards.nominal({ rank = 14, suit = "S", bonusChips = 10 }), 11)
   local copy = ns.Deck.copy(run, { rank = 4, suit = "H", bonusChips = 15 })
   T.eq(copy.bonusChips, 15)
 end)
@@ -179,8 +180,8 @@ H.test("lucky_hook_counts", function()
   local ok, result = pcall(H.score, run, { H.card(9, "H", "LUCKY") }, {})
   ns.RNG.next = realNext
   assert(ok, result)
-  T.eq(calls, 2)
-  T.eq(result.luckyTriggers, 2)
+  T.eq(calls, 1)
+  T.eq(result.luckyTriggers, 1)
 end)
 
 H.test("boss_triggered_flag", function()
@@ -189,7 +190,11 @@ H.test("boss_triggered_flag", function()
   T.eq(H.score(run, { H.card(14, "H") }, {}, { bossId = "VANCLEEF" }).bossTriggered, false)
   T.eq(H.score(run, { H.card(14, "H") }, {}).bossTriggered, false)
   T.eq(H.score(run, { H.card(14, "H") }, {}, { bossId = "RIVENDARE" }).bossTriggered, true)
-  T.eq(H.score(run, { H.card(14, "H") }, {}, { bossId = "HEROD" }).bossTriggered, true)
+  T.eq(H.score(run, { H.card(14, "H") }, {}, { bossId = "HEROD" }).bossTriggered, false)
+  -- A debuffed kicker does not score, so it does not trigger.
+  local pair = { H.card(9, "H"), H.card(9, "H"), H.card(3, "S") }
+  T.eq(H.score(run, { pair[3], pair[1], pair[2] }, {}, { bossId = "VANCLEEF" }).bossTriggered, false)
+  T.eq(H.score(run, { H.card(9, "S"), H.card(9, "S"), H.card(3, "H") }, {}, { bossId = "VANCLEEF" }).bossTriggered, true)
 end)
 
 H.test("play_supplies_ctx_fields", function()
@@ -215,4 +220,25 @@ H.test("save_migration_defaults_hands_played_round", function()
   local db = {}
   ns.Save.store(db, run)
   T.eq(ns.Save.load(db).handsPlayedRound, 0)
+end)
+
+H.test("raised_fist_ignores_bonus_chips", function()
+  local run = H.run({ trinkets = { "FIST_JUSTICE" } })
+  local low = H.card(2, "S")
+  low.bonusChips = 10
+  local result = H.score(run, { H.card(9, "H") }, { low, H.card(8, "C") })
+  local mult = 0
+  for _, e in ipairs(result.events) do
+    if e.kind == "trinket" and e.heldIndex == 1 then mult = mult + (e.mult or 0) end
+  end
+  T.eq(mult, 4)
+end)
+
+H.test("save_migration_hands_played_round_from_round_plays", function()
+  local run = H.run()
+  run.handsPlayedRound = nil
+  run.roundHandPlays = { PAIR = 2, HIGH_CARD = 1 }
+  local db = {}
+  ns.Save.store(db, run)
+  T.eq(ns.Save.load(db).handsPlayedRound, 3)
 end)

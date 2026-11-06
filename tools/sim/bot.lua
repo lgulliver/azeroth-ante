@@ -76,6 +76,9 @@ return function(ns)
           isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
           handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
           pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
+          deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
+          firstHandOfRound = (run.handsPlayedRound or 0) == 0,
+          consumableRoom = ns.Consumables.slots(run) - #run.consumables,
         })
         if result.total > best then best, bestIdx = result.total, idx end
       end
