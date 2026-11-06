@@ -14,8 +14,12 @@ function Consumables.def(item)
   if item.kind == "relic" and ns.Relics then return ns.Relics.def[item.id] end
 end
 
+function Consumables.slots(run)
+  return run.maxConsumables + ns.Vouchers.extraConsumables(run)
+end
+
 function Consumables.add(run, item)
-  if #run.consumables >= run.maxConsumables then return false end
+  if #run.consumables >= Consumables.slots(run) then return false end
   run.consumables[#run.consumables + 1] = item
   if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain(item.kind, item.id) end
   return true
@@ -75,7 +79,7 @@ function Consumables.canApply(run, item, cards)
     if not ok then return false, reason end
   end
   if def.creates then
-    local free = run.maxConsumables - #run.consumables + (inSlot(run, item) and 1 or 0)
+    local free = Consumables.slots(run) - #run.consumables + (inSlot(run, item) and 1 or 0)
     if free < 1 then return false, "No room" end
   end
   return true
@@ -238,7 +242,7 @@ end
 function Consumables.sell(run, slot)
   local item = run.consumables[slot]
   if not item then return 0 end
-  local gained = math.floor(Consumables.COST[item.kind] / 2)
+  local gained = math.floor((item.paid or Consumables.COST[item.kind]) / 2)
   run.gold = run.gold + gained
   table.remove(run.consumables, slot)
   return gained

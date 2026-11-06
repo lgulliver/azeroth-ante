@@ -139,6 +139,13 @@ function Scoring.score(ctx)
     if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "post") end
   end
 
+  for _, item in ipairs(ctx.consumables or {}) do
+    if item.kind == "tome" and item.id == handId then
+      mult = mult * 1.5
+      emit({ kind = "voucher", id = "OBSERVATORY", xmult = 1.5 })
+    end
+  end
+
   local total = math.floor(chips * mult)
   emit({ kind = "total", total = total })
 

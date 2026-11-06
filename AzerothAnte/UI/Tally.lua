@@ -209,6 +209,22 @@ local function fire(e)
       floatText(slot, "\195\151" .. Sidebar.round2(e.xmult), Theme.mult, lift)
     end
     showRun(e)
+  elseif kind == "voucher" then
+    -- Observatory: the Tome in the consumable row pulses and floats its multiplier.
+    local CR = ns.UI.ConsumableRow
+    local holder
+    for i, item in ipairs(s.run.consumables) do
+      if item.kind == "tome" and item.id == s.run.lastHandId then
+        holder = CR and CR.SlotHolder and CR.SlotHolder(i)
+        if holder then break end
+      end
+    end
+    holder = holder or (CR and CR.SlotHolder and CR.SlotHolder(1))
+    if holder then
+      popBox(holder)
+      stackedFloat(s, holder, "\195\151" .. Sidebar.round2(e.xmult), Theme.mult)
+    end
+    showRun(e)
   elseif kind == "total" then
     s.count = { from = s.from, to = s.run.score, t = 0 }
   elseif kind == "destroy" then

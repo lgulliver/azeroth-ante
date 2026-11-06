@@ -608,7 +608,7 @@ local function refreshShop(p, run)
       if offer.type == "trinket" then
         full = #run.trinkets >= ns.Run.trinketSlots(run) + (offer.ed == "NEGATIVE" and 1 or 0)
       else
-        full = #run.consumables >= run.maxConsumables
+        full = #run.consumables >= ns.Consumables.slots(run)
       end
       local afford = run.gold >= offer.cost
       Screens.SkinFace(c.face, info)

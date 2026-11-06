@@ -7,6 +7,8 @@ Run.BASE_TARGETS = { 300, 600, 1200, 2200, 3600, 5500, 8000, 11000 }
 -- Gold paid for beating the small, big and boss blind.
 Run.BLIND_REWARDS = { 3, 4, 5 }
 
+Run.BOSS_REROLL_COST = 10
+
 function Run.target(stage, blind, bossId)
   local mult = 1
   if blind == 2 then mult = 1.5 end
@@ -38,9 +40,21 @@ function Run.new(seed, deckId)
   return run
 end
 
+local function event(name, amount, run)
+  if ns.Profile and ns.Profile.onEvent then ns.Profile.onEvent(name, amount, run) end
+end
+
+local function editionTrinkets(run)
+  local count = 0
+  for _, trinket in ipairs(run.trinkets) do
+    if trinket.ed then count = count + 1 end
+  end
+  event("editionTrinkets", count, run)
+end
+
 function Run.trinketSlots(run)
   local deck = ns.Decks.def[run.deckId]
-  local slots = run.maxTrinkets + (deck.extraTrinketSlots or 0)
+  local slots = run.maxTrinkets + (deck.extraTrinketSlots or 0) + ns.Vouchers.extraTrinkets(run)
   for _, trinket in ipairs(run.trinkets) do
     if trinket.ed == "NEGATIVE" then slots = slots + 1 end
   end
@@ -60,11 +74,24 @@ function Run.startBlind(run)
   run.hand = {}
   ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run))
   ns.Cards.sort(run.hand, run.sortMode or "rank")
-  run.handsLeft = boss and boss.hands or deck.hands
-  run.discardsLeft = boss and boss.discards or deck.discards
+  run.handsLeft = math.max(1, (boss and boss.hands or deck.hands) + ns.Vouchers.extraHands(run))
+  run.discardsLeft = math.max(0, (boss and boss.discards or deck.discards) + ns.Vouchers.extraDiscards(run))
   run.score = 0
   run.target = Run.target(run.stage, run.blind, bossId)
+  if bossId then
+    run.bossesFought[bossId] = true
+    event("bossFought", bossId, run)
+  end
+  event("handSize", ns.Deck.handSize(run), run)
+  editionTrinkets(run)
   Run.checkHand(run)
+end
+
+-- Ends the run as lost, once.
+local function lose(run)
+  if run.phase == "lost" then return end
+  run.phase = "lost"
+  event("runEnded", 0, run)
 end
 
 local function validSelection(run, idx)
@@ -118,7 +145,7 @@ end
 function Run.checkHand(run)
   if run.phase ~= "play" then return end
   if #run.hand == 0 then refill(run) end
-  if #run.hand == 0 and run.score < run.target then run.phase = "lost" end
+  if #run.hand == 0 and run.score < run.target then lose(run) end
 end
 
 function Run.play(run, idx)
@@ -138,7 +165,10 @@ function Run.play(run, idx)
     cards = cards, held = held, goldRef = goldRef, handLevels = run.handLevels, trinkets = run.trinkets,
     bossId = Run.bossId(run), rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
     isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
+    consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
   })
+  run.handPlays[result.handId] = (run.handPlays[result.handId] or 0) + 1
+  event("cardsPlayed", #cards, run)
   run.gold = goldRef.gold
   run.seenHands[result.handId] = true
   run.lastHandId = result.handId
@@ -151,7 +181,7 @@ function Run.play(run, idx)
   if run.score >= run.target then
     Run.winBlind(run)
   elseif run.handsLeft == 0 then
-    run.phase = "lost"
+    lose(run)
   else
     Run.checkHand(run)
   end
@@ -163,13 +193,14 @@ function Run.discard(run, idx)
   local ok, reason = Run.canDiscard(run, idx)
   if not ok then return nil, reason end
   run.discardsLeft = run.discardsLeft - 1
+  event("cardsDiscarded", #idx, run)
   local outcome = { created = {} }
   if ns.Consumables then
     local boss = ns.Bosses.def[Run.bossId(run) or ""]
     for _, index in ipairs(idx) do
       local card = run.hand[index]
       local debuffed = boss and boss.debuff and boss.debuff(card)
-      if card.seal == "PURPLE" and not debuffed and #run.consumables < run.maxConsumables then
+      if card.seal == "PURPLE" and not debuffed and #run.consumables < ns.Consumables.slots(run) then
         local item = ns.Consumables.random(run, "scroll")
         ns.Consumables.add(run, item)
         outcome.created[#outcome.created + 1] = item
@@ -188,8 +219,15 @@ function Run.winBlind(run)
   local payout = {
     reward = Run.BLIND_REWARDS[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),
     discards = run.discardsLeft * (deck.goldPerDiscard or 0),
-    interest = deck.noInterest and 0 or math.min(5, math.floor(run.gold / 5)), trinkets = 0, held = 0,
+    interest = 0, trinkets = 0, held = 0,
   }
+  local cap = ns.Vouchers.interestCap(run)
+  if not deck.noInterest then payout.interest = math.min(cap, math.floor(run.gold / 5)) end
+  local streak = (payout.interest == cap and payout.interest > 0) and run.streak.maxInterest + 1 or 0
+  if streak ~= run.streak.maxInterest then
+    run.streak.maxInterest = streak
+    event("maxInterestStreak", streak, run)
+  end
   for _, trinket in ipairs(run.trinkets) do
     local def = ns.Trinkets.def[trinket.id]
     if def and def.onRoundEnd then
@@ -203,7 +241,7 @@ function Run.winBlind(run)
         payout.held = payout.held + ((card.seal == "RED") and 6 or 3)
       end
       if card.seal == "BLUE" and run.lastHandId and ns.Consumables
-        and #run.consumables < run.maxConsumables then
+        and #run.consumables < ns.Consumables.slots(run) then
         ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
         payout.created = (payout.created or 0) + 1
       end
@@ -214,6 +252,7 @@ function Run.winBlind(run)
   run.gold = run.gold + payout.total
   if run.stage == 8 and run.blind == 3 then
     run.phase = "won"
+    event("runEnded", 1, run)
   else
     run.phase = "shop"
     ns.Shop.open(run)
@@ -225,10 +264,39 @@ function Run.nextBlind(run)
   if run.phase ~= "shop" then return end
   if run.blind == 3 then
     run.stage, run.blind = run.stage + 1, 1
+    run.bossRerollsUsed = 0
   else
     run.blind = run.blind + 1
   end
   run.phase = "blind"
+end
+
+function Run.canRerollBoss(run)
+  if run.stage >= 8 then return false, "The final boss cannot be rerolled." end
+  if run.phase ~= "blind" or run.blind ~= 3 then return false, "Not at a boss blind." end
+  if run.bossRerollsUsed >= ns.Vouchers.bossRerolls(run) then return false, "No boss rerolls left." end
+  if run.gold < Run.BOSS_REROLL_COST then return false, "Not enough gold." end
+  return true
+end
+
+function Run.rerollBoss(run)
+  local ok, reason = Run.canRerollBoss(run)
+  if not ok then return false, reason end
+  local current = run.bosses[run.stage]
+  local fresh, any = {}, {}
+  for _, id in ipairs(ns.Bosses.pool) do
+    if id ~= current then
+      any[#any + 1] = id
+      if not run.bossesFought[id] then fresh[#fresh + 1] = id end
+    end
+  end
+  local pool = #fresh > 0 and fresh or any
+  local bossId = ns.RNG.pick(run.rng, pool)
+  run.gold = run.gold - Run.BOSS_REROLL_COST
+  run.bossRerollsUsed = run.bossRerollsUsed + 1
+  run.bosses[run.stage] = bossId
+  event("spend", Run.BOSS_REROLL_COST, run)
+  return true, bossId
 end
 
 function Run.sortHand(run, mode)

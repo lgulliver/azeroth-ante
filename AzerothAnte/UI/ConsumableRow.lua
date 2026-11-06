@@ -399,7 +399,7 @@ end
 
 function ConsumableRow.Update(run)
   if not row or not row.slots then return end
-  local count = math.min(MAX_SLOTS, run and run.maxConsumables or 0)
+  local count = math.min(MAX_SLOTS, run and ns.Consumables.slots(run) or 0)
   local pitch = SLOT_W + SLOT_GAP
   -- The row takes only the width it needs; the trinket row gets the rest, so
   -- 8 trinkets and 5 consumables never overlap.
