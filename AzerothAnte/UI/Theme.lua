@@ -63,6 +63,64 @@ function Theme.setColor(region, c, isTexture)
   end
 end
 
+---------------------------------------------------------------------------
+-- Pixel-perfect edges. The window canvas is scaled (window size / 900x560) on
+-- top of UIParent's scale, so one design unit is often less than one physical
+-- pixel and the engine's pixel snapping drops or thins a 1-unit line. Every
+-- themed edge is therefore sized max(1 physical pixel, its design thickness),
+-- registered here, and re-sized whenever the scale changes.
+
+-- Design units equal to exactly one physical pixel for `region`. Every API is
+-- guarded: GetPhysicalScreenSize may be missing on Forever, so it falls back to
+-- GetScreenHeight() * UIParent's effective scale, then to 1 unit.
+function Theme.Pixel(region)
+  local height
+  if type(GetPhysicalScreenSize) == "function" then
+    local _, h = GetPhysicalScreenSize()
+    height = h
+  end
+  if type(height) ~= "number" or height <= 0 then
+    height = nil
+    if type(GetScreenHeight) == "function" and UIParent and UIParent.GetEffectiveScale then
+      local sh, us = GetScreenHeight(), UIParent:GetEffectiveScale()
+      if type(sh) == "number" and type(us) == "number" then height = sh * us end
+    end
+  end
+  local scale = region and region.GetEffectiveScale and region:GetEffectiveScale()
+  if type(height) ~= "number" or height <= 0 or type(scale) ~= "number" or scale <= 0 then return 1 end
+  return 768 / height / scale
+end
+
+-- texture -> { axis = "w" | "h", thickness = design units }. Weak keys; nothing per frame.
+local edgeRegistry = setmetatable({}, { __mode = "k" })
+Theme.edgeRegistry = edgeRegistry
+
+local function applyEdge(t, info)
+  local v = math.max(Theme.Pixel(t:GetParent() or t), info.thickness)
+  if info.axis == "w" then t:SetWidth(v) else t:SetHeight(v) end
+end
+
+-- Makes `t` a themed edge line: `axis` is the dimension it is thin in ("w" for
+-- a vertical line, "h" for a horizontal one).
+function Theme.Edge(t, axis, thickness)
+  if t.SetSnapToPixelGrid then t:SetSnapToPixelGrid(false) end
+  if t.SetTexelSnappingBias then t:SetTexelSnappingBias(0) end
+  local info = { axis = axis, thickness = thickness }
+  edgeRegistry[t] = info
+  applyEdge(t, info)
+  return t
+end
+
+function Theme.RefreshEdges()
+  for t, info in pairs(edgeRegistry) do applyEdge(t, info) end
+end
+
+local scaleWatcher = CreateFrame("Frame")
+scaleWatcher:SetScript("OnEvent", function() Theme.RefreshEdges() end)
+for _, e in ipairs({ "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED" }) do
+  pcall(scaleWatcher.RegisterEvent, scaleWatcher, e)
+end
+
 -- The look of an empty trinket or consumable slot: a dark inset with a thin,
 -- soft gold outline at low alpha. One helper so both rows match. The returned
 -- frame fills `parent`; Show/Hide it as the slot empties and fills.
@@ -79,9 +137,8 @@ function Theme.EmptySlot(parent)
     local t = f:CreateTexture(nil, "BORDER")
     t:SetPoint(p1, f, p1, 0, 0)
     t:SetPoint(p2, f, p2, 0, 0)
-    if w then t:SetWidth(w) end
-    if h then t:SetHeight(h) end
     t:SetColorTexture(g[1], g[2], g[3], a)
+    Theme.Edge(t, w and "w" or "h", w or h)
   end
   edge("TOPLEFT", "TOPRIGHT", nil, 1)
   edge("BOTTOMLEFT", "BOTTOMRIGHT", nil, 1)
@@ -111,8 +168,7 @@ local function edges(frame, layer, sub, c, a, w, grow)
     local t = flat(frame, layer, sub, c, a)
     t:SetPoint(p1, frame, p1, p1:find("LEFT") and -grow or grow, p1:find("TOP") and grow or -grow)
     t:SetPoint(p2, frame, p2, p2:find("LEFT") and -grow or grow, p2:find("TOP") and grow or -grow)
-    if width then t:SetWidth(width) end
-    if height then t:SetHeight(height) end
+    Theme.Edge(t, width and "w" or "h", width or height)
     list[#list + 1] = t
   end
   edge("TOPLEFT", "TOPRIGHT", nil, w)
@@ -182,7 +238,7 @@ function Theme.TitleBar(bar, span)
   local rule = flat(bar, "BORDER", 0, Theme.goldMuted)
   rule:SetPoint("TOPLEFT", span, "TOPLEFT", 0, -Theme.titleHeight)
   rule:SetPoint("TOPRIGHT", span, "TOPRIGHT", 0, -Theme.titleHeight)
-  rule:SetHeight(1)
+  Theme.Edge(rule, "h", 1)
   bar.rule = rule
 end
 
@@ -216,7 +272,7 @@ function Theme.Raised(frame)
   local hi = flat(frame, "BORDER", 0, { 1, 1, 1 }, 0.07)
   hi:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
   hi:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
-  hi:SetHeight(1)
+  Theme.Edge(hi, "h", 1)
   frame.raisedHighlight = hi
   return frame
 end
@@ -254,7 +310,7 @@ function Theme.Rule(parent, y, pad)
   local t = flat(parent, "BORDER", 1, Theme.goldDim)
   t:SetPoint("TOPLEFT", parent, "TOPLEFT", pad, y)
   t:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -pad, y)
-  t:SetHeight(1)
+  Theme.Edge(t, "h", 1)
   t.isRule = true
   return t
 end
@@ -272,9 +328,24 @@ function Theme.Tile(frame, kind)
   local lip = flat(frame, "BORDER", 0, { 0, 0, 0 }, 0.27)
   lip:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
   lip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
-  lip:SetHeight(2)
+  Theme.Edge(lip, "h", 2)
   frame.tileText = spec.text
   return frame
+end
+
+-- Widens `btn` so its label (plus `pad` on each side) fits. It only widens: the
+-- width the layout gave the button is the floor, and it returns to that floor
+-- when a shorter label is set. Anchors are untouched, so the button grows away
+-- from its anchored side.
+function Theme.FitButton(btn, pad)
+  local label = btn.label
+  if not label or not label.GetStringWidth then return btn end
+  local w = btn:GetWidth()
+  if btn.fitWidth and w == btn.fitWidth then w = btn.fitBase end
+  local target = math.max(w, math.ceil(label:GetStringWidth() + 2 * (pad or 8)))
+  if target ~= btn:GetWidth() then btn:SetWidth(target) end
+  btn.fitBase, btn.fitWidth = w, target
+  return btn
 end
 
 -- Themed button states. The look is textures only, so it never needs the stock template.
@@ -326,11 +397,16 @@ function Theme.Button(btn, variant)
   btn.highlight = flat(btn, "BORDER", 0, { 1, 1, 1 }, 0.08)
   btn.highlight:SetPoint("TOPLEFT", btn, "TOPLEFT", 1, -1)
   btn.highlight:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -1, -1)
-  btn.highlight:SetHeight(1)
+  Theme.Edge(btn.highlight, "h", 1)
   btn.themeEdges = edges(btn, "BORDER", 1, Theme.goldMuted, 1, 1, 0)
   btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   btn:SetFontString(btn.label)
   btn.label:SetPoint("CENTER", btn, "CENTER", 0, 0)
+  local setText = btn.SetText
+  btn.SetText = function(self, text)
+    setText(self, text)
+    Theme.FitButton(self)
+  end
   btn:HookScript("OnEnter", function(self) self.hover = true; buttonRefresh(self) end)
   btn:HookScript("OnLeave", function(self) self.hover, self.pressed = false, false; buttonRefresh(self) end)
   btn:HookScript("OnMouseDown", function(self) self.pressed = true; buttonRefresh(self) end)

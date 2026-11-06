@@ -64,6 +64,7 @@ function Main.Create()
     content:SetScale(math.min(w / W, h / H))
     content:ClearAllPoints()
     content:SetPoint("CENTER")
+    Theme.RefreshEdges() -- a design unit is a different number of pixels now
   end)
   content:SetScale(math.min(frame:GetWidth() / W, frame:GetHeight() / H))
 
@@ -164,6 +165,7 @@ function Main.Create()
   end)
   Main.grip = grip
 
+  Theme.RefreshEdges()
   tinsert(UISpecialFrames, "AzerothAnteFrame")
   frame:Hide()
   return frame
