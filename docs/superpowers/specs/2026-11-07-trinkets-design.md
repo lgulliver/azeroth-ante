@@ -418,10 +418,18 @@ Same as before:
 - **Round-end hooks need a removal channel.** Gros Michel, Cavendish and Popcorn destroy themselves at round end. `onRoundEnd` needs a `destroySelf` return or deferred removal, because removing from `run.trinkets` inside `TrinketEngine.each` would shift slots mid-loop.
 - **Updates before payouts.** All round-end state updates must run before any round-end payouts, as in Balatro, so copies and scaling payers such as Rocket pay consistently.
 - **Card mutations go through the side-effect list.** Hiker, Vampire and Midas Mask must return a `changeCard` side effect from `Scoring.score`, never mutate cards in place. The bot scores speculatively, so in-place changes would leak.
-- **Round-end payout trinkets are not copyable** (Balatro): Golden Joker/Hearthstone, Cloud 9, Rocket, Satellite and Delayed Gratification.
+- **Round-end payout trinkets are not copyable** (Balatro): Golden Joker/Hearthstone, Cloud 9, Rocket, Satellite and Delayed Gratification. **Stuntman (Leeroy Jenkins) IS copyable** (its chips copy; its hand size never does), which corrects the call 2 list. **Trading Card (Trading Post)** is not copyable.
 - **Small parity items deferred from wave 1:**
   - Ancient Joker should exclude the current suit when it re-rolls.
   - Loyalty's status should read "5 remaining" / "Active!".
   - Raised Fist should compare by rank.
   - The Scroll of Chance, Glass and Lucky texts should show the effective odds under Loaded Dice.
 - **Selling during a blind** (call 6) and **derived hand size** (call 5) land in wave 2.
+
+## Notes carried from wave 2 (for the wave 3 plan)
+
+- Blind-select hooks now fire **before** the first hand is drawn, as in Balatro. Marble Joker's Stone card can therefore be drawn in the same round.
+- `UI/ConsumableRow.lua` `busy()` should include `ns.UI.Lifecycle.IsBusy()`. Today a second consumable sale during a drain is only a visual glitch.
+- `Run.play` wraps the scoring commit in `Run.withMods`. If a scoring hook ever creates a trinket that raises hand size, the refill would run before `removeSelected` and reorder the hand. Move the hand removal before the settle if wave 3 adds such a trinket.
+- Card mutations (Hiker, Vampire, Midas Mask) still need a `changeCard` side effect, never in-place changes.
+- Score targets are now `300, 700, 1400, 2800, 5000, 8000, 11500, 16000`. Re-run the sim band check after wave 3.
