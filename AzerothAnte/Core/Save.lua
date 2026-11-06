@@ -50,6 +50,7 @@ function Save.load(db)
     run.lifecycleEvents = run.lifecycleEvents or {}
     if run.shop then run.shop.freeRerolls = run.shop.freeRerolls or 0 end
   end
+  run.pendingDestroy = nil
   run.lifecycleEvents = {} -- Events are for the live UI only; never replayed after a reload.
   ns.Deck.relink(run)
   return run
