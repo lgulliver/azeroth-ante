@@ -29,7 +29,7 @@ local Theme = {
   buttons = {
     default = { fill = { 0.153, 0.11, 0.071 }, border = { 0.541, 0.416, 0.165 }, text = { 1, 0.82, 0.29 } },
     primary = { fill = { 0.31, 0.225, 0.085 }, border = { 0.78, 0.6, 0.22 }, text = { 1, 0.88, 0.45 } },
-    danger = { fill = { 0.12, 0.085, 0.06 }, border = { 0.36, 0.2, 0.15 }, text = { 0.78, 0.36, 0.3 } },
+    danger = { fill = { 0.2, 0.09, 0.07 }, border = { 0.66, 0.28, 0.22 }, text = { 0.95, 0.5, 0.42 } },
   },
   rarity = {
     common = { 1, 1, 1 },
@@ -312,7 +312,7 @@ end
 
 -- Gives a plain Button (no template) the themed look. variant: nil (default raised
 -- fill, gold text), "primary" (warmer gold-tinted fill for the main action) or
--- "danger" (subdued, muted red text). Hover brightens, pressed insets, disabled dims.
+-- "danger" (subdued red: text 6.3:1 on its fill, border 3.1:1 on the inset panel). Hover brightens, pressed insets, disabled dims.
 function Theme.Button(btn, variant)
   variant = variant or "default"
   if btn.themeButton then

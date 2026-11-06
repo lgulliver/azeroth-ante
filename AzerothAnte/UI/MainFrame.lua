@@ -90,6 +90,21 @@ function Main.Create()
   close:SetPoint("TOPRIGHT", content, "TOPRIGHT", -8, -5)
   close:SetScript("OnClick", function() frame:Hide() end)
   Main.close = close
+
+  -- Abandon Run in the title bar: shown whenever a run exists (see Main.Render).
+  local abandon = Theme.NewButton(content, "Abandon Run", 104, 22, "danger")
+  abandon:SetPoint("RIGHT", close, "LEFT", -6, 0)
+  ns.UI.Screens.AttachAbandon(abandon, "Abandon Run", "Click to confirm")
+  abandon:HookScript("OnEnter", function(self)
+    if ns.UI.Screens.Blocked() then
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      GameTooltip:SetText(ns.UI.Screens.BUSY_REASON, 1, 1, 1, 1, true)
+      GameTooltip:Show()
+    end
+  end)
+  abandon:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  abandon:Hide()
+  Main.abandon = abandon
   frame:SetScript("OnHide", function()
     GameTooltip:Hide()
     ns.UI.ConsumableRow.Close()
@@ -185,6 +200,7 @@ function Main.Render(run, force)
   -- The deck-select screen has no items to show.
   local selecting = not (run and (run.phase == "blind" or run.phase == "play" or run.phase == "shop"
     or run.phase == "won" or run.phase == "lost"))
+  if Main.abandon then Main.abandon:SetShown(not selecting) end
   Main.trinketRow:SetShown(not selecting)
   Main.consumableRow:SetShown(not selecting)
   ns.UI.ConsumableRow.Update(run) -- first: it sets the width the trinket row may use

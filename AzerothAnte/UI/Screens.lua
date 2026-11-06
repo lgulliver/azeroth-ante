@@ -86,18 +86,27 @@ local function endRun()
   main().SetRun(nil) -- renders the deck-selection screen
 end
 
--- Small two-click "Abandon Run" button: the first click arms it, and it
--- reverts after ABANDON_ARM seconds. No popup.
+-- Two-click "Abandon Run": the first click arms the button, and it reverts after
+-- ABANDON_ARM seconds. No popup. Shared by the panel buttons and the title-bar
+-- button. A click while a hand, tally or pack is busy is ignored (reason tooltip).
 local ABANDON_ARM = 3
-local function addAbandon(p)
+local BUSY_REASON = "Finish the current action first"
+Screens.Blocked = blocked
+Screens.BUSY_REASON = BUSY_REASON
+function Screens.AttachAbandon(b, idle, armedLabel)
   local armed, token = false, 0
-  local b
   local function disarm()
     armed = false
     token = token + 1 -- cancels a pending revert
-    b:SetText("Abandon Run")
+    b:SetText(idle)
   end
-  b = button(p, "Abandon Run", 150, 24, function()
+  b:SetScript("OnClick", function(self)
+    if blocked() then
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      GameTooltip:SetText(BUSY_REASON, 1, 1, 1, 1, true)
+      GameTooltip:Show()
+      return
+    end
     if armed then
       disarm()
       endRun()
@@ -106,14 +115,19 @@ local function addAbandon(p)
     armed = true
     token = token + 1
     local mine = token
-    b:SetText("Click again to abandon")
+    b:SetText(armedLabel)
     C_Timer.After(ABANDON_ARM, function()
       if token == mine and armed then disarm() end
     end)
-  end, "danger")
-  b:SetWidth(176)
+  end)
+  b:HookScript("OnHide", disarm)
+  return b
+end
+
+local function addAbandon(p)
+  local b = Theme.NewButton(p, "Abandon Run", 176, 24, "danger")
+  Screens.AttachAbandon(b, "Abandon Run", "Click again to abandon")
   b:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 16, 16)
-  b:SetScript("OnHide", disarm)
   p.abandon = b
   return b
 end
