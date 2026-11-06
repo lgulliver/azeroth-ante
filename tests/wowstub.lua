@@ -23,6 +23,8 @@ function M.install(env)
     lfg = {},       -- LFG mode by category number
     bg = {},        -- battlefield status by index
     maxBG = 0,
+    uiScale = 1,                 -- UIParent's effective scale
+    physical = { 1920, 1080 },   -- physical screen size in pixels
   }
 
   local methods = {}
@@ -30,8 +32,11 @@ function M.install(env)
   -- stub.noRotation removes the texture rotation and desaturation APIs, as on a client lacking them.
   local OPTIONAL = { SetRotation = true, GetRotation = true, SetDesaturation = true,
     SetDesaturated = true, IsDesaturated = true, GetDesaturation = true }
+  -- stub.noSnap removes the pixel-snapping controls (Retail only), as on Forever.
+  local SNAP = { SetSnapToPixelGrid = true, SetTexelSnappingBias = true }
   function mt.__index(t, k)
     if stub.noRotation and OPTIONAL[k] then return nil end
+    if stub.noSnap and SNAP[k] then return nil end
     local m = methods[k]
     if m then return m end
     if type(k) == "string" and k:find("^[A-Z]") then
@@ -168,8 +173,31 @@ function M.install(env)
   function methods.SetRotation(self, r) self._rot = r end
   function methods.GetRotation(self) return self._rot or 0 end
 
-  function methods.SetText(self, t) self._text = t end
+  function methods.SetText(self, t)
+    self._text = t
+    if self._fs then self._fs._text = t end -- a Button forwards its text to its font string
+  end
   function methods.GetText(self) return self._text end
+  function methods.SetFontString(self, fs) self._fs = fs end
+  function methods.GetFontString(self) return self._fs end
+
+  -- Approximate text metrics: average glyph width is half the font size.
+  local FONT_SIZE = { GameFontNormalHuge = 20, GameFontNormalLarge = 16, GameFontHighlightLarge = 16,
+    GameFontNormalSmall = 10, GameFontHighlightSmall = 10 }
+  function methods.GetStringWidth(self)
+    local size = (self._font and self._font[2]) or FONT_SIZE[self._fontTemplate] or 12
+    return #(self._text or "") * size * 0.5
+  end
+
+  function methods.SetSnapToPixelGrid(self, on) self._snap = on end
+  function methods.GetSnapToPixelGrid(self) return self._snap end
+  function methods.SetTexelSnappingBias(self, v) self._bias = v end
+  function methods.GetTexelSnappingBias(self) return self._bias end
+  -- Product of scales up the parent chain; UIParent contributes stub.uiScale.
+  function methods.GetEffectiveScale(self)
+    if self == UIParent then return stub.uiScale end
+    return self._scale * (self._parent and self._parent:GetEffectiveScale() or stub.uiScale)
+  end
 
   function methods.SetVertexColor(self, r, g, b) self._vertex = { r, g, b } end
   function methods.GetVertexColor(self)
@@ -230,7 +258,11 @@ function M.install(env)
   end
 
   function methods.CreateTexture(self, name) return newObject("Texture", name, self) end
-  function methods.CreateFontString(self, name) return newObject("FontString", name, self) end
+  function methods.CreateFontString(self, name, layer, template)
+    local fs = newObject("FontString", name, self)
+    fs._fontTemplate = template
+    return fs
+  end
 
   local function createFrame(kind, name, parent, template)
     local o = newObject(kind or "Frame", name, parent or UIParent)
@@ -303,6 +335,8 @@ function M.install(env)
 
   rawset(env, "CreateFrame", createFrame)
   rawset(env, "UIParent", UIParent)
+  rawset(env, "GetPhysicalScreenSize", function() return stub.physical[1], stub.physical[2] end)
+  rawset(env, "GetScreenHeight", function() return stub.physical[2] / stub.uiScale end)
   rawset(env, "GameTooltip", tip)
   rawset(env, "UISpecialFrames", {})
   rawset(env, "tinsert", table.insert)

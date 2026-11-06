@@ -2264,6 +2264,83 @@ local function run(w)
   end
   step("12 window theme: inset, raised, outline-free tiles, themed buttons")
 
+  -- 13 pixel-perfect borders: every themed edge is at least one physical pixel at any scale
+  do
+    local Theme = ns.UI.Theme
+    local frame = Main.frame
+    local DW, DH = Theme.width, Theme.height
+    local function registered()
+      local n = 0
+      for _ in pairs(Theme.edgeRegistry) do n = n + 1 end
+      return n
+    end
+    local function assertEdges(label)
+      local n, worst = 0, 0
+      for t, info in pairs(Theme.edgeRegistry) do
+        local px = Theme.Pixel(t:GetParent() or t)
+        local got = info.axis == "w" and t:GetWidth() or t:GetHeight()
+        check(got >= px - 1e-9, label .. ": edge thinner than one pixel (" .. got .. " < " .. px .. ")")
+        check(got >= info.thickness - 1e-9, label .. ": edge thinner than its design thickness")
+        check(t._snap == false and t._bias == 0, label .. ": edge snapping not disabled")
+        n = n + 1
+        if px > worst then worst = px end
+      end
+      check(n > 40, label .. ": expected many registered edges, got " .. n)
+      return worst
+    end
+    check(registered() > 40, "theme edges are registered")
+    -- 1: UI scale 0.64 on a 1440p screen, default window
+    stub.uiScale, stub.physical = 0.64, { 2560, 1440 }
+    frame:SetSize(DW + 1, DH)
+    frame:SetSize(DW, DH)
+    assertEdges("scale 0.64 @1440p")
+    -- 2: the same with the window shrunk so the canvas scale is 0.64 too: 1 unit is under 1 pixel
+    frame:SetSize(DW * 0.64, DH * 0.64)
+    local worst = assertEdges("shrunk window")
+    check(worst > 1.2, "a pixel is wider than a design unit here (" .. worst .. ")")
+    -- 3: a UI scale change re-applies every thickness (no resize involved)
+    local before = {}
+    for t in pairs(Theme.edgeRegistry) do before[t] = t:GetHeight() + t:GetWidth() end
+    stub.uiScale = 0.45
+    stub.fire("UI_SCALE_CHANGED")
+    local worst2 = assertEdges("after UI_SCALE_CHANGED")
+    check(worst2 > worst, "thickness grew with the smaller scale")
+    stub.physical = { 1920, 1080 }
+    stub.fire("DISPLAY_SIZE_CHANGED")
+    assertEdges("after DISPLAY_SIZE_CHANGED")
+    -- 4: without the Retail APIs the fallbacks still give a sane pixel
+    local gps = env.GetPhysicalScreenSize
+    rawset(env, "GetPhysicalScreenSize", nil)
+    check(math.abs(Theme.Pixel(frame) - 768 / 1080 / frame:GetEffectiveScale()) < 1e-9, "fallback to GetScreenHeight")
+    local gsh = env.GetScreenHeight
+    rawset(env, "GetScreenHeight", nil)
+    eq(Theme.Pixel(frame), 1, "no screen APIs: one unit")
+    rawset(env, "GetPhysicalScreenSize", gps)
+    rawset(env, "GetScreenHeight", gsh)
+    -- restore the default scale
+    stub.uiScale = 1
+    frame:SetSize(DW, DH)
+    stub.fire("UI_SCALE_CHANGED")
+    -- every themed button's label fits, including the armed "Click again to abandon" and "Skip (N left)"
+    for _, f in ipairs(stub.frames) do
+      if f.themeButton and f:GetText() == "Abandon Run" and f._scripts.OnClick then
+        f._scripts.OnClick(f) -- arm it
+      elseif f.themeButton and f:GetText() == "Skip" then
+        f:SetText("Skip (3 left)")
+      end
+    end
+    local checked = 0
+    for _, f in ipairs(stub.frames) do
+      if f.themeButton and f.label and f:GetText() and f:GetText() ~= "" then
+        checked = checked + 1
+        local need = f.label:GetStringWidth()
+        check(need <= f:GetWidth(), ("label '%s' (%.0f) overflows its %.0fpx button"):format(f:GetText(), need, f:GetWidth()))
+      end
+    end
+    check(checked > 10, "button labels were checked: " .. checked)
+  end
+  step("13 pixel-perfect edges and buttons that fit their labels")
+
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w, unpack(extraWorlds) }) do
     for name in pairs(world.newGlobals) do
