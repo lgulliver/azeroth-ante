@@ -27,7 +27,7 @@ function Run.new(seed, deckId)
     lastHandId = nil, lastConsumable = nil,
     vouchers = {}, shopVoucher = nil, handPlays = {}, bossRerollsUsed = 0,
     bossesFought = {}, streak = { maxInterest = 0 },
-    handsPlayedTotal = 0, bosses = {}, score = 0,
+    handsPlayedTotal = 0, handsPlayedRound = 0, bosses = {}, score = 0,
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
@@ -100,6 +100,7 @@ function Run.startBlind(run)
   run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
   run.roundHandPlays = {}
+  run.handsPlayedRound = 0
   run.discardsUsedRound = 0
   run.savedBy, run.savedById = nil, nil
   run.target = Run.target(run.stage, run.blind, bossId)
@@ -166,11 +167,31 @@ function Run.canDiscard(run, idx)
   return true
 end
 
-local function removeSelected(run, idx)
-  local descending = {}
-  for i, index in ipairs(idx) do descending[i] = index end
-  table.sort(descending, function(a, b) return a > b end)
-  for _, index in ipairs(descending) do table.remove(run.hand, index) end
+-- By identity, so cards created into the hand can never shift what was selected.
+local function removePlayed(run, played)
+  local gone = {}
+  for _, card in ipairs(played) do gone[card] = true end
+  for i = #run.hand, 1, -1 do
+    if gone[run.hand[i]] then table.remove(run.hand, i) end
+  end
+end
+
+-- Applies scoring's side effects in order; consumables only while a slot is free.
+local function applySideEffects(run, effects)
+  for _, fx in ipairs(effects) do
+    if fx.kind == "createCard" then
+      local card = ns.Deck.add(run, fx.card)
+      if fx.toHand then run.hand[#run.hand + 1] = card end
+    elseif fx.kind == "createConsumable" then
+      if #run.consumables < ns.Consumables.slots(run) then
+        local item = fx.id and { kind = fx.consumableKind, id = fx.id }
+          or ns.Consumables.random(run, fx.consumableKind)
+        if item then ns.Consumables.add(run, item) end
+      end
+    elseif fx.kind == "destroyCard" then
+      ns.Deck.destroy(run, fx.id)
+    end
+  end
 end
 
 local function refill(run)
@@ -249,7 +270,9 @@ function Run.play(run, idx)
     if not selected[i] then held[#held + 1] = card end
   end
   local goldRef = { gold = run.gold }
+  local firstHandOfRound = run.handsPlayedRound == 0
   run.handsPlayedTotal = run.handsPlayedTotal + 1
+  run.handsPlayedRound = run.handsPlayedRound + 1
   local result = ns.Scoring.score({
     cards = cards, held = held, goldRef = goldRef, handLevels = run.handLevels, trinkets = run.trinkets,
     bossId = Run.bossId(run), rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
@@ -257,11 +280,23 @@ function Run.play(run, idx)
     consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
     handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
     pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
+    deckCards = run.deck, startDeckSize = run.startDeckSize or 52, firstHandOfRound = firstHandOfRound,
+    consumableRoom = ns.Consumables.slots(run) - #run.consumables,
   })
-  -- Scoring worked on scratch copies of the instances; this is the commit. A trinket destroyed while
-  -- scoring changes hands, discards and hand size, so the swap settles them.
-  Run.withMods(run, function() run.trinkets = result.trinketsAfter end)
-  for handId, n in pairs(result.levelUps) do run.handLevels[handId] = (run.handLevels[handId] or 1) + n end
+  removePlayed(run, cards)
+  -- Scoring worked on scratch copies of the instances and cards; this is the commit. A trinket
+  -- destroyed while scoring changes hands, discards and hand size, so the swap settles them.
+  Run.withMods(run, function()
+    run.trinkets = result.trinketsAfter
+    for id, fields in pairs(result.cardsAfter) do
+      local card = ns.Deck.find(run, id)
+      if card then
+        card.enh, card.bonusChips, card.seal, card.ed = fields.enh, fields.bonusChips, fields.seal, fields.ed
+      end
+    end
+    applySideEffects(run, result.sideEffects)
+    for handId, n in pairs(result.levelUps) do run.handLevels[handId] = (run.handLevels[handId] or 1) + n end
+  end)
   run.handPlays[result.handId] = (run.handPlays[result.handId] or 0) + 1
   run.roundHandPlays[result.handId] = (run.roundHandPlays[result.handId] or 0) + 1
   event("cardsPlayed", #cards, run)
@@ -270,7 +305,6 @@ function Run.play(run, idx)
   run.lastHandId = result.handId
   run.score = run.score + result.total
   run.handsLeft = run.handsLeft - 1
-  removeSelected(run, idx)
   for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
   if run.score < run.target then refill(run) end
   run.lastResult = result

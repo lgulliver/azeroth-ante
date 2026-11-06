@@ -22,6 +22,7 @@ end
 function Deck.copy(run, card)
   return Deck.add(run, {
     rank = card.rank, suit = card.suit, enh = card.enh, ed = card.ed, seal = card.seal,
+    bonusChips = card.bonusChips,
   })
 end
 

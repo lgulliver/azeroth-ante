@@ -1,6 +1,6 @@
 local _, ns = ...
 
--- Card: { id, rank, suit, enh?, ed?, seal? }. Stone keeps its rank and suit but ignores them (see isStone).
+-- Card: { id, rank, suit, enh?, ed?, seal?, bonusChips? }. Stone keeps its rank and suit but ignores them (see isStone).
 -- Ranks: 2..14; 11=J, 12=Q, 13=K, 14=A.
 local Cards = {}
 
@@ -20,11 +20,13 @@ function Cards.draw(pile, hand, n)
   return drawn
 end
 
+-- Rank chips (none for Stone) plus any permanent bonusChips the card has earned.
 function Cards.chipValue(card)
-  if Cards.isStone(card) then return 0 end
-  if card.rank == 14 then return 11 end
-  if card.rank >= 11 then return 10 end
-  return card.rank
+  local bonus = card.bonusChips or 0
+  if Cards.isStone(card) then return bonus end
+  if card.rank == 14 then return 11 + bonus end
+  if card.rank >= 11 then return 10 + bonus end
+  return card.rank + bonus
 end
 
 function Cards.isFace(card, rules)
