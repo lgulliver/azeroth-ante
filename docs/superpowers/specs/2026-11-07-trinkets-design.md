@@ -412,3 +412,16 @@ Same as before:
 - Exact popup wording.
 - Icon choice.
 - Sim bot heuristics.
+
+## Notes carried from wave 1 (for the wave 2 and 3 plans)
+
+- **Round-end hooks need a removal channel.** Gros Michel, Cavendish and Popcorn destroy themselves at round end. `onRoundEnd` needs a `destroySelf` return or deferred removal, because removing from `run.trinkets` inside `TrinketEngine.each` would shift slots mid-loop.
+- **Updates before payouts.** All round-end state updates must run before any round-end payouts, as in Balatro, so copies and scaling payers such as Rocket pay consistently.
+- **Card mutations go through the side-effect list.** Hiker, Vampire and Midas Mask must return a `changeCard` side effect from `Scoring.score`, never mutate cards in place. The bot scores speculatively, so in-place changes would leak.
+- **Round-end payout trinkets are not copyable** (Balatro): Golden Joker/Hearthstone, Cloud 9, Rocket, Satellite and Delayed Gratification.
+- **Small parity items deferred from wave 1:**
+  - Ancient Joker should exclude the current suit when it re-rolls.
+  - Loyalty's status should read "5 remaining" / "Active!".
+  - Raised Fist should compare by rank.
+  - The Scroll of Chance, Glass and Lucky texts should show the effective odds under Loaded Dice.
+- **Selling during a blind** (call 6) and **derived hand size** (call 5) land in wave 2.
