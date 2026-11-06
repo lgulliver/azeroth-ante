@@ -35,21 +35,18 @@ local function region(parent, name, point, x, y, w, h)
   return f
 end
 
-local function makeButton(parent, label, x, w)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w, 26)
+local function makeButton(parent, label, x, w, variant)
+  local b = Theme.NewButton(parent, label, w, 28, variant)
   b:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, Theme.margin)
-  b:SetText(label)
   return b
 end
 
 function Main.Create()
   if Main.frame then return Main.frame end
 
-  local frame = CreateFrame("Frame", "AzerothAnteFrame", UIParent, "BackdropTemplate")
+  local frame = CreateFrame("Frame", "AzerothAnteFrame", UIParent)
   Main.frame = frame
-  frame:SetBackdrop(Theme.backdrop)
-  frame:SetBackdropColor(Theme.bg[1], Theme.bg[2], Theme.bg[3], Theme.bg[4])
+  Theme.Frame(frame) -- leather fill, soft shadow, and a gold border that sits above the content
   frame:SetFrameStrata("HIGH") -- above world nameplates; every child inherits it, and GameTooltip (TOOLTIP) stays above
   frame:SetClampedToScreen(true)
   frame:SetMovable(true)
@@ -82,15 +79,17 @@ function Main.Create()
     frame:StopMovingOrSizing()
     saveWindow(frame)
   end)
+  Theme.TitleBar(title, content)
   local titleText = title:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
-  titleText:SetPoint("LEFT", title, "LEFT", Theme.margin + 6, -2)
+  titleText:SetPoint("LEFT", title, "LEFT", Theme.margin + 4, 0)
   titleText:SetText("Azeroth Ante")
-  Theme.setColor(titleText, Theme.gold)
+  Theme.Value(titleText, true)
   Main.title = title
 
-  local close = CreateFrame("Button", nil, content, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -2)
+  local close = Theme.NewButton(content, "x", 22, 22)
+  close:SetPoint("TOPRIGHT", content, "TOPRIGHT", -8, -5)
   close:SetScript("OnClick", function() frame:Hide() end)
+  Main.close = close
   frame:SetScript("OnHide", function()
     GameTooltip:Hide()
     ns.UI.ConsumableRow.Close()
@@ -105,10 +104,7 @@ function Main.Create()
   local bodyH = H - Theme.titleHeight - 2 * m
 
   local sidebar = region(content, "sidebar", "TOPLEFT", m, top, sideW, bodyH)
-  local sbBg = sidebar:CreateTexture(nil, "BACKGROUND")
-  sbBg:SetAllPoints()
-  sbBg:SetColorTexture(0, 0, 0, 0.35)
-  ns.UI.Sidebar.Build(sidebar)
+  ns.UI.Sidebar.Build(sidebar) -- sets the panel in (Theme.Inset)
 
   local consumableW = 1
   Main.rowsWidth = rightW
@@ -117,13 +113,16 @@ function Main.Create()
   local consumableRow = region(content, "consumableRow", "TOPRIGHT", -m, top, consumableW, ns.UI.ConsumableRow.HEIGHT)
   ns.UI.ConsumableRow.Build(consumableRow)
 
-  local handH, btnH = 170, 26
+  local handH, btnH = 168, 28
   local playH = bodyH - 48 - handH - btnH - 3 * m
+  -- The table the hand is played on: one set-in panel behind the play and hand areas.
+  local stage = region(content, "stage", "TOPLEFT", rightX, top - 48 - m, rightW, playH + m + handH)
+  Theme.Inset(stage)
   region(content, "playArea", "TOPLEFT", rightX, top - 48 - m, rightW, playH)
   region(content, "handArea", "TOPLEFT", rightX, top - 48 - m - playH - m, rightW, handH)
 
   local buttons = region(content, "buttons", "BOTTOMLEFT", rightX, m, rightW, btnH)
-  buttons.play = makeButton(buttons, "Play", 0, 110)
+  buttons.play = makeButton(buttons, "Play", 0, 110, "primary")
   buttons.discard = makeButton(buttons, "Discard", 120, 110)
   buttons.sortRank = makeButton(buttons, "Sort Rank", 240, 110)
   buttons.sortSuit = makeButton(buttons, "Sort Suit", 360, 110)

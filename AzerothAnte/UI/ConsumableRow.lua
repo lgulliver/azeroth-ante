@@ -102,11 +102,7 @@ local function makeSlot(i)
   slot:SetSize(SLOT_W, SLOT_H)
   slot:RegisterForClicks("LeftButtonUp")
   slot.index = i
-  slot.glow = slot:CreateTexture(nil, "BACKGROUND")
-  slot.glow:SetPoint("TOPLEFT", -3, 3)
-  slot.glow:SetPoint("BOTTOMRIGHT", 3, -3)
-  slot.glow:SetColorTexture(Theme.gold[1], Theme.gold[2], Theme.gold[3], 1)
-  slot.glow:Hide()
+  Theme.Selected(slot, false) -- the open slot gets a thin gold outline and soft glow
 
   local holder = CreateFrame("Frame", nil, slot)
   holder:SetSize(SLOT_W, SLOT_H)
@@ -227,7 +223,7 @@ function ConsumableRow.Close()
   if catcher then catcher:Hide() end
   if popover then popover:Hide() end
   if row then
-    for i = 1, #row.slots do row.slots[i].glow:Hide() end
+    for i = 1, #row.slots do Theme.Selected(row.slots[i], false) end
   end
 end
 
@@ -245,7 +241,7 @@ function ConsumableRow.Open(i)
     ConsumableRow.LayoutCatcher(run)
     catcher:Show()
   end
-  for k = 1, #row.slots do row.slots[k].glow:SetShown(k == i) end
+  for k = 1, #row.slots do Theme.Selected(row.slots[k], k == i) end
   popover.title:SetText(def.name)
   popover.sell:SetText("Sell (" .. sellValue(item) .. "g)")
   popover:Show()
@@ -293,13 +289,11 @@ local function buildPopover()
   catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   catcher:SetScript("OnClick", function() ConsumableRow.Close() end)
   catcher:Hide()
-  local p = CreateFrame("Frame", nil, main().content, "BackdropTemplate")
+  local p = CreateFrame("Frame", nil, main().content)
   p:SetSize(POP_W, POP_H)
   p:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", 0, -4)
   p:SetFrameLevel(main().content:GetFrameLevel() + POPOVER_LEVEL)
-  p:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
-  p:SetBackdropColor(0.1, 0.08, 0.06, 0.98)
-  p:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
+  Theme.Raised(p) -- floats above the window: a raised tile, not a set-in panel
   p:EnableMouse(true)
   p.title = p:CreateFontString(nil, "OVERLAY", Theme.fonts.text)
   p.title:SetPoint("TOP", p, "TOP", 0, -8)
@@ -312,11 +306,9 @@ local function buildPopover()
   p.affects:SetJustifyV("TOP")
   Theme.setColor(p.affects, Theme.parchment)
 
-  local function button(label, y, onClick)
-    local b = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
-    b:SetSize(POP_W - 20, 24)
+  local function button(label, y, onClick, variant)
+    local b = Theme.NewButton(p, label, POP_W - 20, 24, variant)
     b:SetPoint("TOP", p, "TOP", 0, y)
-    b:SetText(label)
     b:SetMotionScriptsWhileDisabled(true) -- the reason must show while disabled
     b:SetScript("OnClick", onClick)
     b:SetScript("OnEnter", function(self)
@@ -328,7 +320,7 @@ local function buildPopover()
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return b
   end
-  p.use = button("Use", -60, onUse)
+  p.use = button("Use", -60, onUse, "primary")
   p.sell = button("Sell", -90, onSell)
   p:SetScript("OnHide", function() GameTooltip:Hide() end)
   p:Hide()

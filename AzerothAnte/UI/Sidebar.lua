@@ -16,70 +16,82 @@ local function fontString(parent, font, point, x, y, width)
   return fs
 end
 
-local function statBox(parent, color, x, y, w, h)
-  local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+-- A chips or mult tile: a gradient fill with no outline (Theme.Tile).
+local function statBox(parent, kind, x, y, w, h)
+  local box = CreateFrame("Frame", nil, parent)
   box:SetSize(w, h)
   box:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-  box:SetBackdrop({
-    bgFile = "Interface\\Buttons\\WHITE8x8",
-    edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1,
-  })
-  box:SetBackdropColor(color[1] * 0.3, color[2] * 0.3, color[3] * 0.3, 0.9)
-  box:SetBackdropBorderColor(color[1], color[2], color[3], 1)
+  Theme.Tile(box, kind)
   box.text = box:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
-  box.text:SetPoint("CENTER")
-  Theme.setColor(box.text, color)
+  box.text:SetPoint("CENTER", box, "CENTER", 0, 0)
+  Theme.setColor(box.text, box.tileText)
   return box
 end
 
--- Builds the sidebar widgets inside `frame` (the .sidebar region).
+-- Builds the sidebar widgets inside `frame` (the .sidebar region). The sections
+-- are separated by thin dim gold rules, on an 8px rhythm.
 function Sidebar.Build(frame)
-  local w = frame:GetWidth() - 2 * Theme.margin
   local m = Theme.margin
+  local w = frame:GetWidth() - 2 * m
+  Theme.Inset(frame)
+  frame.rules = { round = {}, blind = {}, profile = {} }
+  local function rule(group, y) frame.rules[group][#frame.rules[group] + 1] = Theme.Rule(frame, y, m) end
+
   frame.blindName = fontString(frame, Theme.fonts.title, "TOPLEFT", m, -m, w)
-  Theme.setColor(frame.blindName, Theme.gold)
-  frame.bossRule = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -m - 24, w)
+  Theme.Value(frame.blindName, true)
+  frame.bossRule = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -32, w)
   Theme.setColor(frame.bossRule, Theme.parchment)
   frame.bossRule:SetHeight(32)
   frame.bossRule:SetJustifyV("TOP")
+  rule("round", -72)
 
   frame.targetLabel = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -80, w)
   frame.targetLabel:SetText("Score at least")
+  Theme.Label(frame.targetLabel)
   frame.target = fontString(frame, Theme.fonts.big, "TOPLEFT", m, -96, w)
-  Theme.setColor(frame.target, Theme.gold)
-  frame.scoreLabel = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -132, w)
+  Theme.Value(frame.target, true)
+  frame.scoreLabel = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -136, w)
   frame.scoreLabel:SetText("Round score")
-  frame.score = fontString(frame, Theme.fonts.big, "TOPLEFT", m, -148, w)
-  Theme.setColor(frame.score, Theme.parchment)
+  Theme.Label(frame.scoreLabel)
+  frame.score = fontString(frame, Theme.fonts.big, "TOPLEFT", m, -152, w)
+  Theme.Value(frame.score, false)
+  rule("round", -192)
 
-  local boxW = (w - 24) / 2
-  frame.chipsBox = statBox(frame, Theme.chips, m, -190, boxW, 40)
-  frame.multBox = statBox(frame, Theme.mult, m + boxW + 24, -190, boxW, 40)
-  frame.handName = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -233, w)
-  Theme.setColor(frame.handName, Theme.gold)
+  local gap = 24
+  local boxW = (w - gap) / 2
+  frame.chipsBox = statBox(frame, "chips", m, -200, boxW, 40)
+  frame.multBox = statBox(frame, "mult", m + boxW + gap, -200, boxW, 40)
+  frame.handName = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -244, w)
+  Theme.Value(frame.handName, true)
   local x = frame:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
   x:SetPoint("LEFT", frame.chipsBox, "RIGHT", 0, 0)
   x:SetPoint("RIGHT", frame.multBox, "LEFT", 0, 0)
-  x:SetText("X")
+  x:SetText("\195\151") -- the multiplication sign, in gold
+  Theme.setColor(x, Theme.goldBright)
   frame.xMark = x
+  rule("round", -264)
 
-  -- Profile totals, shown instead of the round stats on the deck-select screen.
+-- Profile totals, shown instead of the round stats on the deck-select screen.
   frame.profileTitle = fontString(frame, Theme.fonts.title, "TOPLEFT", m, -m, w)
   frame.profileTitle:SetText("Your profile")
-  Theme.setColor(frame.profileTitle, Theme.gold)
-  local y = -52
+  Theme.Value(frame.profileTitle, true)
+  rule("profile", -40)
+  local y = -48
   for _, key in ipairs({ "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound" }) do
     frame[key] = fontString(frame, Theme.fonts.text, "TOPLEFT", m, y, w)
-    Theme.setColor(frame[key], Theme.parchment)
-    y = y - 26
+    Theme.Value(frame[key], false)
+    y = y - 24
   end
 
-  frame.hands = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -250, w)
-  frame.discards = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -272, w)
-  frame.gold = fontString(frame, Theme.fonts.title, "TOPLEFT", m, -302, w)
-  Theme.setColor(frame.gold, Theme.gold)
-  frame.stage = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -332, w)
-  Theme.setColor(frame.stage, Theme.parchment)
+  frame.hands = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -272, w)
+  Theme.Value(frame.hands, false)
+  frame.discards = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -296, w)
+  Theme.Value(frame.discards, false)
+  rule("round", -320)
+  frame.gold = fontString(frame, Theme.fonts.title, "TOPLEFT", m, -328, w)
+  Theme.Value(frame.gold, true)
+  frame.stage = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -360, w)
+  Theme.Value(frame.stage, false)
 
   -- Blind screen only: the deck, with its small back icon, above the run info.
   frame.deckIcon = frame:CreateTexture(nil, "ARTWORK")
@@ -89,10 +101,10 @@ function Sidebar.Build(frame)
   frame.deckName = fontString(frame, Theme.fonts.title, "TOPLEFT", m + ICON_W + 8, -m - 4, w - ICON_W - 8)
   frame.deckName:SetHeight(ICON_H - 8)
   frame.deckName:SetJustifyV("TOP")
-  Theme.setColor(frame.deckName, Theme.gold)
+  Theme.Value(frame.deckName, true)
+  rule("blind", -72)
 
-  local deck = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-  deck:SetSize(w, 26)
+  local deck = Theme.NewButton(frame, nil, w, 28)
   deck:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", m, m)
   deck:SetText("Deck (0)")
   deck:SetScript("OnClick", function()
@@ -108,14 +120,20 @@ local ROUND_WIDGETS = { "blindName", "bossRule", "targetLabel", "target", "score
 local BLIND_WIDGETS = { "deckIcon", "deckName", "hands", "discards", "gold", "stage", "deckButton" }
 -- Where the shared rows sit: below the deck line on the blind screen, as before otherwise.
 local ROW_Y = {
-  round = { hands = -250, discards = -272, gold = -302, stage = -332 },
-  blind = { stage = -86, gold = -116, hands = -158, discards = -182 },
+  round = { hands = -272, discards = -296, gold = -328, stage = -360 },
+  blind = { stage = -80, gold = -108, hands = -148, discards = -172 },
 }
 local PROFILE_WIDGETS = { "profileTitle", "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound" }
+
+local RULE_GROUP = { [ROUND_WIDGETS] = "round", [BLIND_WIDGETS] = "blind", [PROFILE_WIDGETS] = "profile" }
 
 local function showGroup(frame, names, shown)
   for _, key in ipairs(names) do
     if frame[key] then frame[key]:SetShown(shown) end
+  end
+  local rules = frame.rules and frame.rules[RULE_GROUP[names]]
+  if rules then
+    for _, r in ipairs(rules) do r:SetShown(shown) end
   end
 end
 

@@ -12,7 +12,6 @@ local RED = { 1, 0.25, 0.2 }
 local GREY = { 0.6, 0.6, 0.6 }
 local BUY_ERRORS = { gold = "Not enough gold", slots = "Slots full", gone = "Sold out", pack = "Finish the open pack first" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
-local FLAT = "Interface\\Buttons\\WHITE8x8"
 
 local panels = {}              -- name -> panel frame
 local current                  -- name of the visible screen ("play" = none)
@@ -53,10 +52,9 @@ local function text(parent, font, point, x, y, width, justify)
   return fs
 end
 
-local function button(parent, label, w, h, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w, h or 26)
-  b:SetText(label)
+-- variant: nil, "primary" (the main action on a screen) or "danger" (see Theme.Button).
+local function button(parent, label, w, h, onClick, variant)
+  local b = Theme.NewButton(parent, label, w, h or 28, variant)
   b:SetScript("OnClick", function()
     if blocked() then return end
     onClick()
@@ -99,7 +97,7 @@ local function addAbandon(p)
     token = token + 1 -- cancels a pending revert
     b:SetText("Abandon Run")
   end
-  b = button(p, "Abandon Run", 150, 22, function()
+  b = button(p, "Abandon Run", 150, 24, function()
     if armed then
       disarm()
       endRun()
@@ -112,9 +110,9 @@ local function addAbandon(p)
     C_Timer.After(ABANDON_ARM, function()
       if token == mine and armed then disarm() end
     end)
-  end)
-  b:SetWidth(170)
-  b:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 16, 20)
+  end, "danger")
+  b:SetWidth(176)
+  b:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 16, 16)
   b:SetScript("OnHide", disarm)
   p.abandon = b
   return b
@@ -122,17 +120,15 @@ end
 
 local function makePanel(name, withTitle)
   local m = main()
-  local p = CreateFrame("Frame", nil, m.content, "BackdropTemplate")
+  local p = CreateFrame("Frame", nil, m.content)
   p:SetPoint("TOPLEFT", m.playArea, "TOPLEFT", 0, -SELL_GAP)
   p:SetPoint("BOTTOMRIGHT", m.buttons, "BOTTOMRIGHT", 0, 0)
   p:SetFrameLevel(m.content:GetFrameLevel() + PANEL_LEVEL)
-  p:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1 })
-  p:SetBackdropColor(0.1, 0.08, 0.06, 0.98)
-  p:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
+  Theme.Inset(p)
   p:EnableMouse(true) -- swallows clicks meant for the hidden hand
   if withTitle then
-    p.title = text(p, Theme.fonts.title, "TOP", 0, -14, 560, "CENTER")
-    Theme.setColor(p.title, Theme.gold)
+    p.title = text(p, Theme.fonts.title, "TOP", 0, -16, 560, "CENTER")
+    Theme.Value(p.title, true)
   end
   p:Hide()
   panels[name] = p
@@ -297,10 +293,8 @@ function Screens.NewFace(parent, w, h, withPlate)
 end
 
 function Screens.SetFaceSelected(f, on)
-  if on then
-    f.border:SetColorTexture(Theme.gold[1], Theme.gold[2], Theme.gold[3], 1)
-    f.border:Show()
-  elseif f.baseBorder then
+  Theme.Selected(f, on) -- thin gold outline and a soft glow
+  if f.baseBorder then
     f.border:SetColorTexture(f.baseBorder[1], f.baseBorder[2], f.baseBorder[3], 1)
     f.border:Show()
   else
@@ -424,8 +418,9 @@ local function makeColumn(p, x, actionLabel, onClick)
   c.desc:SetJustifyV("TOP")
   Theme.setColor(c.desc, Theme.parchment)
   c.cost = text(c, Theme.fonts.text, "BOTTOM", 0, 30, COL_W, "CENTER")
-  c.buy = button(c, actionLabel, COL_W - 6, 24, onClick)
-  c.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 0)
+  c.buy = button(c, actionLabel, COL_W - 8, 24, onClick, "primary")
+  c.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 4)
+  Theme.Raised(c) -- each offer is a raised tile
   reasonTip(c.buy)
   c.sold = text(c, Theme.fonts.title, "TOP", 0, -(FACE_H / 2 - 8), COL_W, "CENTER")
   c.sold:SetText("Sold")
@@ -473,7 +468,7 @@ local function buildShop()
 
   local hdr = text(p, Theme.fonts.text, "TOPLEFT", 16, -44, 180)
   hdr:SetText("Payout")
-  Theme.setColor(hdr, Theme.gold)
+  Theme.Label(hdr)
   p.payout = {}
   local rows = { "reward", "hands", "discards", "interest", "trinkets", "held", "total" }
   for i, key in ipairs(rows) do
@@ -489,10 +484,10 @@ local function buildShop()
 
   local cardsHdr = text(p, Theme.fonts.small, "TOPLEFT", 200, -46, 2 * COL_W + 8, "CENTER")
   cardsHdr:SetText("Cards")
-  Theme.setColor(cardsHdr, Theme.gold)
+  Theme.Label(cardsHdr)
   local packsHdr = text(p, Theme.fonts.small, "TOPLEFT", 200 + 2 * COL_W + 8 + 24, -46, 2 * COL_W + 8, "CENTER")
   packsHdr:SetText("Packs")
-  Theme.setColor(packsHdr, Theme.gold)
+  Theme.Label(packsHdr)
 
   p.offerCards, p.packOffers = {}, {}
   for i = 1, 2 do
@@ -526,10 +521,10 @@ local function buildShop()
       end
     end)
   end)
-  p.reroll:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 200, 20)
+  p.reroll:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 200, 16)
   reasonTip(p.reroll)
-  p.next = button(p, "Next Blind", 150, 28, nextBlind)
-  p.next:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -20, 20)
+  p.next = button(p, "Next Blind", 150, 28, nextBlind, "primary")
+  p.next:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -16, 16)
   addAbandon(p)
   return p
 end
@@ -648,15 +643,16 @@ local newRunClicked = endRun
 
 local function buildEnd()
   local p = makePanel("end", false)
-  p.head = text(p, Theme.fonts.big, "TOP", 0, -50, 560, "CENTER")
+  p.head = text(p, Theme.fonts.big, "TOP", 0, -48, 560, "CENTER")
   p.stage = text(p, Theme.fonts.title, "TOP", 0, -120, 560, "CENTER")
-  Theme.setColor(p.stage, Theme.parchment)
+  Theme.Value(p.stage, false)
   p.deck = text(p, Theme.fonts.text, "TOP", 0, -156, 560, "CENTER")
-  Theme.setColor(p.deck, Theme.parchment)
-  p.best = text(p, Theme.fonts.title, "TOP", 0, -190, 560, "CENTER")
-  Theme.setColor(p.best, Theme.gold)
-  p.new = button(p, "New Run", 160, 30, newRunClicked)
-  p.new:SetPoint("BOTTOM", p, "BOTTOM", 0, 30)
+  Theme.Label(p.deck)
+  p.best = text(p, Theme.fonts.title, "TOP", 0, -192, 560, "CENTER")
+  Theme.Value(p.best, true)
+  Theme.Rule(p, -104, 96) -- under the headline
+  p.new = button(p, "New Run", 160, 32, newRunClicked, "primary")
+  p.new:SetPoint("BOTTOM", p, "BOTTOM", 0, 32)
   return p
 end
 
@@ -681,15 +677,13 @@ local function buildPaused()
   f:EnableMouse(true)
   local dim = f:CreateTexture(nil, "BACKGROUND")
   dim:SetAllPoints()
-  dim:SetColorTexture(0, 0, 0, 0.75)
+  dim:SetColorTexture(Theme.bg[1], Theme.bg[2], Theme.bg[3], 0.82)
   local msg = f:CreateFontString(nil, "OVERLAY", Theme.fonts.big)
   msg:SetPoint("CENTER", f, "CENTER", 0, 20)
   msg:SetText("Queue popped!")
   Theme.setColor(msg, Theme.gold)
-  local resume = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  resume:SetSize(140, 30)
-  resume:SetPoint("CENTER", f, "CENTER", 0, -30)
-  resume:SetText("Resume")
+  local resume = Theme.NewButton(f, "Resume", 140, 32, "primary")
+  resume:SetPoint("CENTER", f, "CENTER", 0, -32)
   resume:SetScript("OnClick", function() Screens.HidePaused() end)
   f:Hide()
   pausedFrame = f
