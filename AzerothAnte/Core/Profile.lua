@@ -2,12 +2,31 @@ local _, ns = ...
 
 local Profile = {}
 
+local oldThresholds = { WARRIOR = 5, GOBLIN = 12, MONK = 18, WARLOCK = 24 }
+
+local function discoveredCount(profile)
+  local count = 0
+  for _, discovered in pairs(profile.discovered) do
+    if discovered == true then count = count + 1 end
+  end
+  return count
+end
+
 function Profile.get(db)
-  if type(db.profile) ~= "table" then db.profile = {} end
+  local existing = type(db.profile) == "table"
+  if not existing then db.profile = {} end
   local profile = db.profile
+  local migrateUnlocks = existing and type(profile.unlockedDecks) ~= "table"
   profile.version = 1
-  for _, key in ipairs({ "discovered", "stats", "seenUnlocks" }) do
+  for _, key in ipairs({ "discovered", "stats", "seenUnlocks", "counters", "achievements",
+    "bossesSeen", "unlockedDecks", "seenAchievements" }) do
     if type(profile[key]) ~= "table" then profile[key] = {} end
+  end
+  if migrateUnlocks then
+    local have = discoveredCount(profile)
+    for id, need in pairs(oldThresholds) do
+      if have >= need then profile.unlockedDecks[id] = true end
+    end
   end
   for _, stats in pairs(profile.stats) do
     stats.wins = stats.wins or 0
@@ -18,7 +37,7 @@ function Profile.get(db)
 end
 
 function Profile.discover(db, kind, id)
-  local data = ({ trinket = ns.Trinkets, tome = ns.Tomes, scroll = ns.Scrolls, relic = ns.Relics })[kind]
+  local data = ({ trinket = ns.Trinkets, tome = ns.Tomes, scroll = ns.Scrolls, relic = ns.Relics, voucher = ns.Vouchers })[kind]
   if not data or not data.def[id] then return false end
   local discovered = Profile.get(db).discovered
   local key = kind .. ":" .. id
@@ -28,15 +47,11 @@ function Profile.discover(db, kind, id)
 end
 
 function Profile.discoveredCount(db)
-  local count = 0
-  for _, discovered in pairs(Profile.get(db).discovered) do
-    if discovered == true then count = count + 1 end
-  end
-  return count
+  return discoveredCount(Profile.get(db))
 end
 
 function Profile.totalDiscoverable()
-  return #ns.Trinkets.order + #ns.Tomes.order + #ns.Scrolls.order + #ns.Relics.order
+  return #ns.Trinkets.order + #ns.Tomes.order + #ns.Scrolls.order + #ns.Relics.order + #ns.Vouchers.order
 end
 
 function Profile.isUnlocked(db, deckId)
@@ -44,7 +59,9 @@ function Profile.isUnlocked(db, deckId)
   local have = Profile.discoveredCount(db)
   if not deck then return false, have, 0 end
   local need = deck.unlock and deck.unlock.discovered or 0
-  return have >= need, have, need
+  local profile = Profile.get(db)
+  if have >= need then profile.unlockedDecks[deckId] = true end
+  return profile.unlockedDecks[deckId] == true, have, need
 end
 
 function Profile.newlyUnlocked(db)
@@ -70,6 +87,62 @@ function Profile.recordRun(db, run)
   deck.runs = deck.runs + 1
   if run.phase == "won" then deck.wins = deck.wins + 1 end
   deck.bestStage = math.max(deck.bestStage, run.stage)
+end
+
+function Profile.event(db, name, amount, run)
+  local profile, unlocked = Profile.get(db), {}
+  if name == "bossFought" and ns.Bosses.def[amount] then
+    profile.bossesSeen[amount] = true
+  end
+  for _, id in ipairs(ns.Achievements.order) do
+    local def = ns.Achievements.def[id]
+    if def.counter == name then
+      local have = profile.counters[name] or 0
+      -- Core emits current streak/held counts, not increments.
+      if name == "maxInterestStreak" or name == "editionTrinkets" then
+        profile.counters[name] = math.max(have, amount)
+      else
+        profile.counters[name] = have + amount
+      end
+    end
+    if not profile.achievements[id] then
+      local reached = def.counter and (profile.counters[def.counter] or 0) >= def.target
+      if reached or (def.check and def.check(profile, name, amount, run)) then
+        profile.achievements[id] = true
+        unlocked[#unlocked + 1] = id
+      end
+    end
+  end
+  return unlocked
+end
+
+function Profile.hasAchievement(db, id)
+  -- Shop uses a one-argument hook until UI binds a database-backed lookup.
+  if type(db) ~= "table" then return false end
+  return Profile.get(db).achievements[id] == true
+end
+
+function Profile.achievementProgress(db, id)
+  local profile = Profile.get(db)
+  local def = ns.Achievements.def[id]
+  if not def then return 0, 0 end
+  if def.counter then return profile.counters[def.counter] or 0, def.target end
+  if id == "RETCON" then return ns.Achievements.bossCount(profile), #ns.Bosses.pool + 1 end
+  return profile.achievements[id] and 1 or 0, 1
+end
+
+function Profile.newAchievements(db)
+  local profile, unlocked = Profile.get(db), {}
+  for _, id in ipairs(ns.Achievements.order) do
+    if profile.achievements[id] and not profile.seenAchievements[id] then
+      unlocked[#unlocked + 1] = id
+    end
+  end
+  return unlocked
+end
+
+function Profile.markAchievementSeen(db, id)
+  Profile.get(db).seenAchievements[id] = true
 end
 
 ns.Profile = Profile
