@@ -160,3 +160,79 @@ T.test("secret_contains", function()
   T.ok(flushHouse.FLUSH_HOUSE and flushHouse.FULL_HOUSE and flushHouse.FLUSH)
   T.ok(flushHouse.TWO_PAIR and flushHouse.THREE_KIND and flushHouse.PAIR)
 end)
+
+local ruleCases = {
+  { "four_fingers_flush_four_cards", { 2, 5, 9, 13, 3 }, { FOUR_FINGERS = true }, "FLUSH", { 1, 2, 3, 4 }, { "H", "H", "H", "H", "S" } },
+  { "four_fingers_straight_four_cards_only_played", { 5, 6, 7, 8 }, { FOUR_FINGERS = true }, "STRAIGHT", { 1, 2, 3, 4 } },
+  { "four_fingers_straight_flush", { 5, 6, 7, 8, 2 }, { FOUR_FINGERS = true }, "STRAIGHT_FLUSH", { 1, 2, 3, 4 }, { "H", "H", "H", "H", "S" } },
+  { "shortcut_gap_straight", { 2, 4, 6, 8, 10 }, { SHORTCUT = true }, "STRAIGHT", { 1, 2, 3, 4, 5 } },
+  { "shortcut_gap_too_big", { 2, 4, 6, 8, 11 }, { SHORTCUT = true }, "HIGH_CARD", { 5 } },
+  { "shortcut_ace_low", { 14, 2, 3, 5, 6 }, { SHORTCUT = true }, "STRAIGHT", { 1, 2, 3, 4, 5 } },
+  { "shortcut_ace_high", { 7, 9, 11, 13, 14 }, { SHORTCUT = true }, "STRAIGHT", { 1, 2, 3, 4, 5 } },
+  { "shortcut_no_wrap", { 12, 13, 14, 2, 3 }, { SHORTCUT = true }, "HIGH_CARD", { 3 } },
+  { "shortcut_needs_five", { 2, 4, 6, 8 }, { SHORTCUT = true }, "HIGH_CARD", { 4 } },
+  { "four_fingers_and_shortcut", { 3, 5, 7, 9, 13 }, { FOUR_FINGERS = true, SHORTCUT = true }, "STRAIGHT", { 1, 2, 3, 4 } },
+  { "smeared_flush", { 2, 5, 9, 13, 3 }, { SMEARED = true }, "FLUSH", { 1, 2, 3, 4, 5 }, { "H", "D", "H", "D", "H" } },
+  { "smeared_flush_without_rule", { 2, 5, 9, 13, 3 }, nil, "HIGH_CARD", { 4 }, { "H", "D", "H", "D", "H" } },
+  { "splash_all_score", { 7, 7, 2, 5, 9 }, { SPLASH = true }, "PAIR", { 1, 2, 3, 4, 5 } },
+  { "four_fingers_five_straight_score", { 8, 5, 7, 9, 6 }, { FOUR_FINGERS = true }, "STRAIGHT", { 1, 2, 3, 4, 5 } },
+  { "four_fingers_five_flush_score", { 2, 5, 9, 13, 3 }, { FOUR_FINGERS = true }, "FLUSH", { 1, 2, 3, 4, 5 }, H5 },
+  { "four_fingers_five_straight_flush_score", { 5, 6, 7, 8, 9 }, { FOUR_FINGERS = true }, "STRAIGHT_FLUSH", { 1, 2, 3, 4, 5 }, H5 },
+  { "four_fingers_pair_unchanged", { 7, 7, 2, 5, 9 }, { FOUR_FINGERS = true }, "PAIR", { 1, 2 } },
+  { "four_fingers_distinct_ranks", { 2, 3, 4, 4, 9 }, { FOUR_FINGERS = true }, "PAIR", { 3, 4 } },
+  { "four_fingers_duplicate_scores_once", { 2, 3, 4, 5, 5 }, { FOUR_FINGERS = true }, "STRAIGHT", { 1, 2, 3, 4 } },
+  { "four_fingers_needs_same_subset", { 2, 3, 4, 9, 5 }, { FOUR_FINGERS = true }, "FLUSH", { 1, 2, 3, 4 }, { "H", "H", "H", "H", "S" } },
+  { "four_fingers_shortcut_longest_run", { 2, 4, 5, 6, 8 }, { FOUR_FINGERS = true, SHORTCUT = true }, "STRAIGHT", { 1, 2, 3, 4, 5 } },
+  { "four_fingers_smeared_straight_flush", { 5, 6, 7, 8, 2 }, { FOUR_FINGERS = true, SMEARED = true }, "STRAIGHT_FLUSH", { 1, 2, 3, 4 }, { "H", "D", "H", "D", "S" } },
+}
+
+for _, case in ipairs(ruleCases) do
+  T.test(case[1], function()
+    local input = cards(case[2], case[6])
+    local handId, scoringIdx = ns.HandEval.evaluate(input, case[3])
+    T.eq(handId, case[4])
+    T.eq(scoringIdx, case[5])
+    T.eq(ns.HandEval.contains(input, case[3])[case[4]], true)
+  end)
+end
+
+T.test("nil_rules_unchanged", function()
+  for _, case in ipairs(cases) do
+    local input = cards(case[2], case[5])
+    for _, rules in ipairs({ {}, { FOUR_FINGERS = false, SHORTCUT = false, SMEARED = false, SPLASH = false } }) do
+      local handId, scoringIdx = ns.HandEval.evaluate(input, rules)
+      T.eq(handId, case[3], case[1])
+      T.eq(scoringIdx, case[4], case[1])
+      T.eq(ns.HandEval.contains(input, rules), ns.HandEval.contains(input), case[1])
+    end
+  end
+  local six = cards({ 2, 3, 4, 5, 6 }, H5)
+  six[6] = { rank = 7, suit = "H" }
+  T.eq((ns.HandEval.evaluate(six)), "HIGH_CARD")
+end)
+
+T.test("rule_hands_stone_never_qualifies_always_scores", function()
+  local rules = { FOUR_FINGERS = true, SHORTCUT = true, SMEARED = true }
+  local hand = cards({ 2, 4, 6 }, { "H", "D", "H" })
+  hand[4] = { rank = 8, suit = "D", enh = "STONE" }
+  local handId, scoringIdx = ns.HandEval.evaluate(hand, rules)
+  T.eq(handId, "HIGH_CARD")
+  T.eq(scoringIdx, { 3, 4 })
+  hand[5] = { rank = 8, suit = "D" }
+  handId, scoringIdx = ns.HandEval.evaluate(hand, rules)
+  T.eq(handId, "STRAIGHT_FLUSH")
+  T.eq(scoringIdx, { 1, 2, 3, 4, 5 })
+end)
+
+T.test("rule_hands_wild_and_splash", function()
+  local hand = cards({ 2, 5, 9, 13, 3 }, { "H", "D", "H", "S", "C" })
+  hand[4].enh = "WILD"
+  local rules = { FOUR_FINGERS = true, SMEARED = true }
+  local handId, scoringIdx = ns.HandEval.evaluate(hand, rules)
+  T.eq(handId, "FLUSH")
+  T.eq(scoringIdx, { 1, 2, 3, 4 })
+  rules.SPLASH = true
+  handId, scoringIdx = ns.HandEval.evaluate(hand, rules)
+  T.eq(handId, "FLUSH")
+  T.eq(scoringIdx, { 1, 2, 3, 4, 5 })
+end)

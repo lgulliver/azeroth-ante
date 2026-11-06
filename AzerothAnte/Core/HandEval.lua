@@ -2,8 +2,34 @@ local _, ns = ...
 
 local HandEval = {}
 
+-- Find the longest qualifying run, keeping one card per rank. Ace can start low.
+local function findStraight(cards, live, need, shortcut)
+  local byRank = {}
+  for _, i in ipairs(live) do
+    local rank = cards[i].rank
+    if not byRank[rank] then byRank[rank] = i end
+  end
+  byRank[1] = byRank[14]
+
+  local path, used, best, bestLength = {}, {}, nil, need - 1
+  local function search(rank)
+    local i = byRank[rank]
+    if not i or used[i] then return end
+    path[#path + 1], used[i] = i, true
+    if #path > bestLength then
+      best, bestLength = {}, #path
+      for _, index in ipairs(path) do best[index] = true end
+    end
+    if rank < 14 then search(rank + 1) end
+    if shortcut and rank < 13 then search(rank + 2) end
+    used[i], path[#path] = nil, nil
+  end
+  for rank = 1, 14 do search(rank) end
+  return best, bestLength
+end
+
 -- Stone cards never form part of a hand, so only the other cards are analysed.
-local function analyze(cards)
+local function analyze(cards, rules)
   local live = {}
   for i, card in ipairs(cards) do
     if not ns.Cards.isStone(card) then live[#live + 1] = i end
@@ -17,35 +43,33 @@ local function analyze(cards)
     if not highest or rank > cards[highest].rank then highest = i end
   end
 
-  local pairsCount, triple, four, five, unique = 0, false, false, false, 0
-  local minRank, maxRank = 14, 2
+  local pairsCount, triple, four, five = 0, false, false, false
   for rank, count in pairs(counts) do
-    unique = unique + 1
-    if rank < minRank then minRank = rank end
-    if rank > maxRank then maxRank = rank end
     if count >= 2 then pairsCount = pairsCount + 1 end
     if count >= 3 then triple = true end
     if count >= 4 then four = true end
     if count >= 5 then five = true end
   end
 
-  local straight, flush = false, false
-  if #live == 5 then
-    local wheel = counts[14] == 1 and counts[2] == 1 and counts[3] == 1
-      and counts[4] == 1 and counts[5] == 1
-    straight = unique == 5 and (maxRank - minRank == 4 or wheel)
-    -- A Wild card counts toward every suit, so one suit must fit all five.
+  local need = rules and rules.FOUR_FINGERS and 4 or 5
+  local straight, flush, straightFlush
+  if (rules and rules.FOUR_FINGERS and #live >= need) or #live == 5 then
+    straight = findStraight(cards, live, need, rules and rules.SHORTCUT)
+    local flushLength, straightFlushLength = 0, 0
     for _, suit in ipairs(ns.Cards.SUITS) do
-      local all = true
+      local suited = {}
       for _, i in ipairs(live) do
-        if not ns.Cards.hasSuit(cards[i], suit) then
-          all = false
-          break
-        end
+        if ns.Cards.hasSuit(cards[i], suit, rules) then suited[#suited + 1] = i end
       end
-      if all then
-        flush = true
-        break
+      if #suited >= need then
+        if #suited > flushLength then
+          flush, flushLength = {}, #suited
+          for _, i in ipairs(suited) do flush[i] = true end
+        end
+        local run, length = findStraight(cards, suited, need, rules and rules.SHORTCUT)
+        if run and length > straightFlushLength then
+          straightFlush, straightFlushLength = run, length
+        end
       end
     end
   end
@@ -59,19 +83,19 @@ local function analyze(cards)
   if triple and pairsCount >= 2 then contains.FULL_HOUSE = true end
   if four then contains.FOUR_KIND = true end
   if five then contains.FIVE_KIND = true end
-  if straight and flush then contains.STRAIGHT_FLUSH = true end
+  if straightFlush then contains.STRAIGHT_FLUSH = true end
   if flush and triple and pairsCount >= 2 then contains.FLUSH_HOUSE = true end
   if flush and five then contains.FLUSH_FIVE = true end
-  return contains, counts, highest
+  return contains, counts, highest, { STRAIGHT = straight, FLUSH = flush, STRAIGHT_FLUSH = straightFlush }
 end
 
-function HandEval.contains(cards)
-  local contains = analyze(cards)
+function HandEval.contains(cards, rules)
+  local contains = analyze(cards, rules)
   return contains
 end
 
-function HandEval.evaluate(cards)
-  local contains, counts, highest = analyze(cards)
+function HandEval.evaluate(cards, rules)
+  local contains, counts, highest, groups = analyze(cards, rules)
   local handId
   for i = #ns.Hands.order, 1, -1 do
     local id = ns.Hands.order[i]
@@ -86,10 +110,12 @@ function HandEval.evaluate(cards)
   local scoringIdx = {}
   for i, card in ipairs(cards) do
     local scores
-    if ns.Cards.isStone(card) then
+    if (rules and rules.SPLASH) or ns.Cards.isStone(card) then
       scores = true
     elseif handId == "HIGH_CARD" then
       scores = i == highest
+    elseif groups[handId] then
+      scores = groups[handId][i]
     elseif matchedCount[handId] then
       scores = counts[card.rank] == matchedCount[handId]
     else

@@ -94,3 +94,23 @@ T.test("cards_ranked_stone_reads_as_stone", function()
   ns.Cards.sort(list, "suit")
   T.ok(rawequal(list[3], stone))
 end)
+
+T.test("pareidolia_all_face", function()
+  local rules = { PAREIDOLIA = true }
+  T.eq(ns.Cards.isFace(card(2, "H"), rules), true)
+  T.eq(ns.Cards.isFace(card(14, "S"), rules), true)
+  T.eq(ns.Cards.isFace({ rank = 12, suit = "H", enh = "STONE" }, rules), false)
+  T.eq(ns.Cards.isFace(card(2, "H")), false)
+end)
+
+T.test("smeared_suit", function()
+  local rules = { SMEARED = true }
+  for _, pair in ipairs({ { "H", "D" }, { "D", "H" }, { "S", "C" }, { "C", "S" } }) do
+    T.eq(ns.Cards.hasSuit(card(2, pair[1]), pair[2], rules), true)
+    T.eq(ns.Cards.hasSuit(card(2, pair[1]), pair[2]), false)
+  end
+  T.eq(ns.Cards.hasSuit(card(2, "H"), "S", rules), false)
+  T.eq(ns.Cards.hasSuit(card(2, "C"), "D", rules), false)
+  T.eq(ns.Cards.hasSuit({ enh = "STONE", suit = "H" }, "D", rules), false)
+  T.eq(ns.Cards.hasSuit({ enh = "WILD", suit = "H" }, "S", rules), true)
+end)
