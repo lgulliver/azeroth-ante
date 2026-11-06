@@ -6,7 +6,7 @@ top-left origin). Shapes are point tests sampled on a 4x supersampled grid and
 averaged down for anti-aliasing. Suits are pure white with the shape in alpha so
 the UI can tint them with SetVertexColor.
 
-Usage: python3 tools/gen_media.py [--png-dir DIR]   (PNG previews are optional)
+Usage: python3 tools/gen_media.py [--png-dir DIR] [--only NAME_PREFIX]   (PNG previews are optional)
 """
 import math
 import os
@@ -731,6 +731,343 @@ NEW_JOBS.update({
 })
 
 
+# ------------------------------------------------------------ deck backs
+# Back_<DECK>: the CardBack silhouette and gold border, with a per-deck field,
+# a gold-ringed medallion and an emblem built from simple vector shapes.
+BCX, BCY = BACK_W / 2.0, BACK_H / 2.0
+INK = (12, 8, 8)
+
+
+def _frame(px, py):
+    """The shared silhouette and borders; None inside the border."""
+    w, h = BACK_W, BACK_H
+    if not _in_round_rect(px, py, w, h, CORNER):
+        return CLEAR
+    if not _in_round_rect(px, py, w, h, CORNER, 4.0):
+        return GOLD + (255,)
+    if _in_round_rect(px, py, w, h, CORNER, 7.0) and not _in_round_rect(px, py, w, h, CORNER, 8.0):
+        return GOLD_DARK + (255,)
+    return None
+
+
+def _rot(dx, dy, deg):
+    """Axis coordinates for a shape whose tip points `deg` clockwise from up."""
+    a = math.radians(deg)
+    return dx * math.sin(a) - dy * math.cos(a), dx * math.cos(a) + dy * math.sin(a)
+
+
+def _dagger(dx, dy, deg, g):
+    u, v = _rot(dx, dy, deg)
+    u += 8  # the daggers cross a little way up their blades
+    if -4 - g <= u <= 38 + g:  # blade, pointed
+        t = max(0.0, min(1.0, u / 38.0))
+        half = 5.5 * (1 - t ** 1.7) + g
+        if abs(v) <= half and (u <= 38 + g * 0.2 or g):
+            if g:
+                return INK
+            if abs(v) < 0.9 and 3 < u < 28:
+                return (120, 130, 150)
+            return (222, 228, 238) if v < 0 else (160, 170, 188)
+    if -8 - g <= u <= -3 + g and abs(v) <= 11 + g:  # crossguard
+        return _mix(GOLD, GOLD_DARK, abs(v) / 11.0) if not g else INK
+    if -26 - g <= u <= -7 and abs(v) <= 2.8 + g:  # handle
+        if g:
+            return INK
+        return (96, 40, 30) if int(u + 40) % 5 else (60, 22, 18)
+    if (u + 30) ** 2 + v ** 2 <= (4.2 + g) ** 2:  # pommel
+        return INK if g else GOLD
+    return None
+
+
+def rogue_emblem(dx, dy, g):
+    return _dagger(dx, dy, -42, g) or _dagger(dx, dy, 42, g)
+
+
+def _shield_hw(y, g):
+    if y < -24 - g:
+        return -1
+    if y <= 4:
+        return 30 + g
+    t = (y - 4) / (38.0 + g)
+    return (30 + g) * math.sqrt(max(0.0, 1 - t * t)) if t <= 1 else -1
+
+
+def warrior_emblem(dx, dy, g):
+    # sword in front of the shield
+    if -41 - g <= dy <= -3 + g:
+        t = max(0.0, min(1.0, (dy + 41) / 12.0))
+        half = (4.8 * t ** 0.7 if g == 0 else 4.8 * t ** 0.7 + g)
+        if abs(dx) <= half:
+            if g:
+                return INK
+            if abs(dx) < 0.8 and dy > -30:
+                return (110, 124, 150)
+            return (230, 236, 246) if dx < 0 else (165, 176, 196)
+    if -3 - g <= dy <= 1 + g and abs(dx) <= 15 + g:
+        return INK if g else _mix(GOLD, GOLD_DARK, abs(dx) / 15.0)
+    if 1 <= dy <= 20 + g and abs(dx) <= 2.8 + g:
+        return INK if g else ((96, 40, 30) if int(dy) % 5 else (60, 22, 18))
+    if dx ** 2 + (dy - 24) ** 2 <= (4.4 + g) ** 2:
+        return INK if g else GOLD
+    hw = _shield_hw(dy, g)
+    if abs(dx) <= hw:
+        if g:
+            return INK
+        if abs(dx) > _shield_hw(dy, -3.5) - 0.0 and _shield_hw(dy, -3.5) > 0 or _shield_hw(dy, -3.5) < 0:
+            return _mix(GOLD, GOLD_DARK, (dy + 24) / 70.0)
+        if dy < -14 and abs(dx) < 26 and dy > -20:  # chief bar
+            return (205, 214, 232)
+        return (34, 70, 142) if dx < 0 else (70, 112, 190)
+    return None
+
+
+def _coin_stack(dx, dy, cx, base, n, rx, ry, thick, g):
+    top = base - n * thick
+    x = dx - cx
+    if g:
+        rx, ry = rx + g, ry + g
+        top -= g
+        base += g
+    # top face
+    if (x / rx) ** 2 + ((dy - top) / ry) ** 2 <= 1:
+        if g:
+            return INK
+        d = (x / rx) ** 2 + ((dy - top) / ry) ** 2
+        if 0.55 <= d <= 0.72:
+            return GOLD_DARK
+        return _mix((255, 232, 130), (226, 176, 52), d)
+    if abs(x) <= rx and top <= dy <= base or (x / rx) ** 2 + ((dy - base) / ry) ** 2 <= 1:
+        if g:
+            return INK
+        k = (base - dy) / float(thick)
+        edge = abs(k - round(k)) < 0.12
+        shade = 0.72 + 0.28 * (1 - abs(x) / rx)
+        c = (150, 112, 30) if edge else (214, 168, 46)
+        return tuple(_clamp(v * shade) for v in c)
+    return None
+
+
+def goblin_emblem(dx, dy, g):
+    for cx, base, n in ((0, 32, 6), (-22, 28, 3), (21, 29, 4)):
+        c = _coin_stack(dx, dy, cx, base, n, 11.5 if cx == 0 else 10.0, 4.2, 4.6, g)
+        if c:
+            return c
+    if not g:  # a sparkle above the stacks
+        for sx, sy, size in ((14, -26, 7.0), (-18, -14, 5.0)):
+            if abs(dx - sx) ** 0.6 + abs(dy - sy) ** 0.6 <= size ** 0.6:
+                return (255, 246, 190)
+    return None
+
+
+def monk_emblem(dx, dy, g):
+    r = math.hypot(dx, dy)
+    if r > 31 + g:
+        return None
+    if g:
+        return INK
+    if r >= 28.5:
+        return GOLD
+    if r <= 4.5:
+        return GOLD
+    ang = math.atan2(dy, dx) / (2 * math.pi)
+    k = (ang * 3 + r / 28.0 * 0.85) % 1.0
+    if k < 0.5:
+        return _mix((120, 226, 190), (200, 255, 230), r / 28.0)
+    return _mix((16, 84, 74), (10, 52, 50), r / 28.0)
+
+
+def _seg(dx, dy, x0, y0, x1, y1):
+    return _seg_dist(dx, dy, x0, y0, x1, y1)
+
+
+def _sigil_dist(dx, dy):
+    r = math.hypot(dx, dy)
+    d = abs(r - 38.5) - 0.9
+    for sign in (0, 1):
+        pts = [(28 * math.cos(math.radians(a + 60 * sign)), 28 * math.sin(math.radians(a + 60 * sign)))
+               for a in (-90, 30, 150)]
+        for i in range(3):
+            a, b = pts[i], pts[(i + 1) % 3]
+            d = min(d, _seg(dx, dy, a[0], a[1], b[0], b[1]) - 0.8)
+    if 28 <= r <= 37:  # rune ticks around the rim
+        ang = math.atan2(dy, dx)
+        k = int(round(ang / (math.pi / 6.0)))
+        a = k * math.pi / 6.0
+        ux, uy = math.cos(a), math.sin(a)
+        d = min(d, _seg(dx, dy, ux * 31, uy * 31, ux * 36.5, uy * 36.5) - 0.7)
+        px_, py_ = -uy, ux
+        m = k % 3
+        if m == 0:
+            d = min(d, _seg(dx, dy, ux * 33.5 - px_ * 2.2, uy * 33.5 - py_ * 2.2, ux * 33.5 + px_ * 2.2, uy * 33.5 + py_ * 2.2) - 0.6)
+        elif m == 1:
+            d = min(d, _seg(dx, dy, ux * 31, uy * 31, ux * 34 + px_ * 2.6, uy * 34 + py_ * 2.6) - 0.6)
+    return d
+
+
+def warlock_emblem(dx, dy, g):
+    if g:
+        return None
+    if abs(dx) / 8.0 + abs(dy) / 11.0 <= 1:  # central gem
+        return _mix((255, 245, 160), (120, 255, 110), (abs(dx) / 8.0 + abs(dy) / 11.0))
+    d = _sigil_dist(dx, dy)
+    if d <= 0.0:
+        return (150, 255, 120)
+    return None
+
+
+def _disc_radial(inner, outer, extra=None):
+    def disc(dx, dy, r):
+        c = _mix(inner, outer, r / 43.5)
+        return extra(dx, dy, r, c) if extra else c
+    return disc
+
+
+def _warlock_disc(dx, dy, r):
+    c = _mix((70, 26, 110), (26, 8, 48), r / 43.5)
+    d = _sigil_dist(dx, dy)
+    return _mix(c, (70, 230, 90), math.exp(-max(d, 0) / 4.5) * 0.55)
+
+
+def _monk_disc(dx, dy, r, c):
+    ang = math.atan2(dy, dx)
+    if 35.0 <= r <= 42.0:  # ring of beads
+        a = (ang / (2 * math.pi) * 12 + 0.5) % 1.0
+        ba = (math.floor(ang / (2 * math.pi) * 12) + 0.5) * 2 * math.pi / 12
+        if math.hypot(dx - 38.5 * math.cos(ba), dy - 38.5 * math.sin(ba)) <= 2.4:
+            return _mix(c, (190, 250, 225), 0.8)
+    return c
+
+
+def _goblin_disc(dx, dy, r, c):
+    if r > 38 and (int(math.floor(dx / 7.0)) + int(math.floor(dy / 7.0))) % 2 == 0:
+        return _shade(c, 0.88)
+    return c
+
+
+def _field_rogue(px, py):
+    c = _mix((150, 28, 40), (62, 8, 16), math.hypot(px - BCX, py - BCY) / 90.0)
+    if ((px + py) % 15.0) < 1.3:
+        c = _shade(c, 0.78)
+    return c
+
+
+def _field_warrior(px, py):
+    c = _mix((54, 92, 150), (16, 30, 62), math.hypot(px - BCX, py - BCY) / 90.0)
+    if ((abs(px - BCX) + py) % 14.0) < 1.4:
+        c = _mix(c, (150, 176, 214), 0.28)
+    return c
+
+
+def _field_goblin(px, py):
+    c = _mix((50, 112, 52), (14, 44, 22), math.hypot(px - BCX, py - BCY) / 90.0)
+    gx, gy = px / 12.0, py / 12.0
+    row = int(gy)
+    fx = (gx + (0.5 if row % 2 else 0.0)) % 1.0
+    if (fx - 0.5) ** 2 + ((gy % 1.0) - 0.5) ** 2 < 0.035:
+        c = _mix(c, GOLD, 0.65)
+    return c
+
+
+def _field_monk(px, py):
+    r = math.hypot(px - BCX, py - BCY)
+    c = _mix((30, 130, 108), (8, 48, 46), r / 90.0)
+    if (r % 9.0) < 1.1:
+        c = _mix(c, (130, 220, 190), 0.22)
+    return c
+
+
+def _field_warlock(px, py):
+    r = math.hypot(px - BCX, py - BCY)
+    c = _mix((74, 26, 112), (22, 8, 40), r / 90.0)
+    n = _vnoise(px, py, 14.0, 7)
+    c = _mix(c, (40, 130, 70), max(0.0, n - 0.55) * 0.9)
+    if _hash(int(px), int(py), 3) > 0.985:
+        c = (130, 255, 130)
+    return c
+
+
+def _ornament(px, py):
+    for cy in (23.0, BACK_H - 23.0):
+        d = abs(px - BCX) / 7.0 + abs(py - cy) / 7.0
+        if d <= 1.0:
+            return INK if d < 0.35 else GOLD
+        if abs(py - cy) <= 1.0 and 12 <= abs(px - BCX) <= 26:
+            return GOLD_DARK
+    return None
+
+
+def make_back(field, disc, emblem):
+    def fn(px, py):
+        c = _frame(px, py)
+        if c is not None:
+            return c
+        dx, dy = px - BCX, py - BCY
+        r = math.hypot(dx, dy)
+        if r < 43.5:
+            e = emblem(dx, dy, 0)
+            if e:
+                return _rgb(e)
+            if emblem(dx, dy, 1.5):
+                return _rgb(INK)
+            return _rgb(disc(dx, dy, r))
+        if 46.0 <= r < 48.5:
+            return _rgb(_mix(GOLD, GOLD_DARK, (r - 46.0) / 2.5 * 0.5))
+        if 43.5 <= r < 44.5:
+            return _rgb(GOLD_DARK)
+        if r < 46.0:
+            return _rgb(INK)
+        o = _ornament(px, py)
+        return _rgb(o if o else field(px, py))
+    return fn
+
+
+BACKS = {
+    "Back_ROGUE": make_back(_field_rogue, _disc_radial((120, 22, 32), (48, 6, 12)), rogue_emblem),
+    "Back_WARRIOR": make_back(_field_warrior, _disc_radial((70, 106, 168), (22, 40, 82)), warrior_emblem),
+    "Back_GOBLIN": make_back(_field_goblin, _disc_radial((60, 128, 60), (20, 62, 30), _goblin_disc), goblin_emblem),
+    "Back_MONK": make_back(_field_monk, _disc_radial((26, 118, 98), (10, 56, 52), _monk_disc), monk_emblem),
+    "Back_WARLOCK": make_back(_field_warlock, _warlock_disc, warlock_emblem),
+}
+
+
+def square_back(fn):
+    """The back centred (160x224, 5:7) in a 256x256 canvas with a clear margin. The carousel
+    rotates it a few degrees, and SetRotation only turns a square texture rigidly."""
+    k = 160.0 / BACK_W  # 224 / 179 is the same ratio
+
+    def sample(px, py):
+        x, y = (px - 48.0) / k, (py - 16.0) / k
+        if x < 0 or y < 0 or x >= BACK_W or y >= BACK_H:
+            return CLEAR
+        return fn(x, y)
+    return sample
+
+
+# --------------------------------------------------------------- padlock
+def _lock_body(px, py, g):
+    return _in_round_rect(px - 12 + g, py - 28 + g, 40 + 2 * g, 30 + 2 * g, 5.0 + g)
+
+
+def _lock_shackle(px, py, g):
+    d = math.hypot(px - 32, py - 28)
+    if py <= 28:
+        return 9.5 - g <= d <= 15 + g
+    return py <= 34 and (17 - g <= px <= 22.5 + g or 41.5 - g <= px <= 47 + g)
+
+
+def padlock(px, py):
+    """A gold padlock with a steel shackle and a dark keyhole, outlined for any backdrop."""
+    if _lock_body(px, py, 0):
+        if math.hypot(px - 32, py - 40) <= 4.2 or (30 <= px <= 34 and 41 <= py <= 51):
+            return _rgb(INK)
+        return _rgb(_mix((238, 198, 80), (160, 118, 36), (py - 28) / 30.0))
+    if _lock_shackle(px, py, 0):
+        return _rgb(_mix((226, 232, 242), (140, 150, 170), (px - 17) / 30.0))
+    if _lock_body(px, py, 1.8) or _lock_shackle(px, py, 1.8):
+        return _rgb(INK)
+    return CLEAR
+
+
 # ---------------------------------------------------------------- output
 def render(width, height, fn):
     """Supersample fn(sample_x, sample_y) -> (r,g,b,a) and average to RGBA bytes.
@@ -805,6 +1142,7 @@ def main(argv):
     if "--png-dir" in argv:
         png_dir = argv[argv.index("--png-dir") + 1]
         os.makedirs(png_dir, exist_ok=True)
+    only = argv[argv.index("--only") + 1] if "--only" in argv else ""
     os.makedirs(MEDIA, exist_ok=True)
     jobs = [(name, 64, 64, render_suit(fn)) for name, fn in SUITS.items()]
     jobs.append(("CardBack", BACK_W, CANVAS_H, render(BACK_W, CANVAS_H, top_only(card_back, BACK_H))))
@@ -812,6 +1150,12 @@ def main(argv):
         jobs.append((name, FACE_W, CANVAS_H, render(FACE_W, CANVAS_H, top_only(fn, FACE_H))))
     for kind in SEALS:
         jobs.append(("Seal_" + kind, SEAL_SIZE, SEAL_SIZE, render(SEAL_SIZE, SEAL_SIZE, seal_fn(kind))))
+    for name, fn in BACKS.items():
+        jobs.append((name, BACK_W, CANVAS_H, render(BACK_W, CANVAS_H, top_only(fn, BACK_H))))
+    for name, fn in BACKS.items():
+        jobs.append((name.replace("Back_", "BackSq_"), 256, 256, render(256, 256, square_back(fn))))
+    jobs.append(("Lock", 64, 64, render(64, 64, padlock)))
+    jobs = [j for j in jobs if j[0].startswith(only)]
     for name, w, h, rgba in jobs:
         write_tga(os.path.join(MEDIA, name + ".tga"), w, h, rgba)
         print("wrote %s.tga (%dx%d)" % (name, w, h))

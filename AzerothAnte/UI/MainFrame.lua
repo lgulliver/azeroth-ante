@@ -183,6 +183,11 @@ function Main.Render(run, force)
     if (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy()) then return end
   end
   ns.UI.Sidebar.Update(run, 0, 0)
+  -- The deck-select screen has no items to show.
+  local selecting = not (run and (run.phase == "blind" or run.phase == "play" or run.phase == "shop"
+    or run.phase == "won" or run.phase == "lost"))
+  Main.trinketRow:SetShown(not selecting)
+  Main.consumableRow:SetShown(not selecting)
   ns.UI.ConsumableRow.Update(run) -- first: it sets the width the trinket row may use
   ns.UI.TrinketRow.Update(run)
   local Screens = ns.UI.Screens

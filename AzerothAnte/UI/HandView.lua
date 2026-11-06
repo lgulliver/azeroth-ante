@@ -266,6 +266,7 @@ function HandView.Update(run, animate)
     HandView.run = run
   end
 
+  if HandView.deck then HandView.deck:SetTexture(CardWidget.BackPath(run and run.deckId)) end
   local hand = run and run.hand or {}
   local inHand = {}
   for _, card in ipairs(hand) do inHand[card] = true end
@@ -495,7 +496,7 @@ function HandView.Build(m)
   local deck = m.playArea:CreateTexture(nil, "ARTWORK")
   deck:SetSize(DECK_W, DECK_H)
   deck:SetPoint("RIGHT", m.playArea, "RIGHT", -DECK_INSET, 0)
-  deck:SetTexture("Interface\\AddOns\\AzerothAnte\\Media\\CardBack")
+  deck:SetTexture(CardWidget.BackPath())
   deck:SetTexCoord(0, 1, 0, Theme.cardV)
   HandView.deck = deck
 

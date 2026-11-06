@@ -158,46 +158,16 @@ end
 
 local function startRun(deckId)
   if blocked() then return end
+  if AzerothAnteDB then ns.Profile.get(AzerothAnteDB).lastDeck = deckId end
   local run = ns.Run.new(newSeed(), deckId)
   main().SetRun(run) -- renders the blind screen and clears the old hand
   persist()
 end
 
 local function buildNewRun()
-  local p = makePanel("newrun", true)
-  p.title:SetText("Choose your deck")
-  local tileW, tileH, gap = 138, 220, 8
-  local x0 = (p:GetWidth() > 0 and p:GetWidth() or 618) / 2 - (4 * tileW + 3 * gap) / 2
-  p.tiles = {}
-  for i, id in ipairs(ns.Decks.order) do
-    local def = ns.Decks.def[id]
-    local t = CreateFrame("Button", nil, p, "BackdropTemplate")
-    t:SetSize(tileW, tileH)
-    t:SetPoint("TOPLEFT", p, "TOPLEFT", x0 + (i - 1) * (tileW + gap), -56)
-    t:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1 })
-    t:SetBackdropColor(0.16, 0.13, 0.1, 1)
-    t:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
-    local name = text(t, Theme.fonts.title, "TOP", 0, -14, tileW - 16, "CENTER")
-    name:SetText(def.name)
-    Theme.setColor(name, Theme.gold)
-    local desc = text(t, Theme.fonts.small, "TOP", 0, -48, tileW - 20, "CENTER")
-    desc:SetText(def.desc)
-    desc:SetHeight(60)
-    desc:SetJustifyV("TOP")
-    Theme.setColor(desc, Theme.parchment)
-    local stats = text(t, Theme.fonts.text, "BOTTOM", 0, 20, tileW - 16, "CENTER")
-    stats:SetText("Hands: " .. def.hands .. "\nDiscards: " .. def.discards .. "\nGold: " .. def.gold)
-    t:SetScript("OnEnter", function(self) self:SetBackdropBorderColor(1, 0.82, 0, 1) end)
-    t:SetScript("OnLeave", function(self)
-      self:SetBackdropColor(0.16, 0.13, 0.1, 1)
-      self:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
-    end)
-    t:SetScript("OnMouseDown", function(self) self:SetBackdropColor(0.3, 0.24, 0.12, 1) end)
-    t:SetScript("OnMouseUp", function(self) self:SetBackdropColor(0.16, 0.13, 0.1, 1) end)
-    t:SetScript("OnClick", function() startRun(id) end)
-    p.tiles[i] = t
-  end
-  return p
+  return ns.UI.DeckSelect.Build({
+    makePanel = makePanel, button = button, reasonTip = reasonTip, setReason = setReason, start = startRun,
+  })
 end
 
 ---------------------------------------------------------------------------
@@ -564,7 +534,7 @@ local function buildShop()
   hdr:SetText("Payout")
   Theme.setColor(hdr, Theme.gold)
   p.payout = {}
-  local rows = { "reward", "hands", "interest", "trinkets", "held", "total" }
+  local rows = { "reward", "hands", "discards", "interest", "trinkets", "held", "total" }
   for i, key in ipairs(rows) do
     local y = -68 - (i - 1) * 22
     local label = text(p, key == "total" and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 16, y, 120)
@@ -647,17 +617,33 @@ end
 
 local function refreshShop(p, run)
   local pay = run.lastPayout or {}
+  local deck = ns.Decks.def[run.deckId] or {}
+  local interestLabel = "Interest"
+  if deck.noInterest then interestLabel = "Interest (none: " .. (deck.name or ""):gsub(" Deck$", "") .. ")" end
   local lines = {
     reward = { "Blind reward", pay.reward },
-    hands = { "Hands left (" .. (pay.hands or 0) .. " x 1g)", pay.hands },
-    interest = { "Interest", pay.interest },
+    hands = { "Hands left (" .. (run.handsLeft or 0) .. " x " .. (deck.goldPerHand or 1) .. "g)", pay.hands },
+    discards = { "Discards left (" .. (run.discardsLeft or 0) .. " x " .. (deck.goldPerDiscard or 0) .. "g)", pay.discards },
+    interest = { interestLabel, pay.interest },
     trinkets = { "Trinkets", pay.trinkets },
     held = { "Held Gold cards", pay.held },
     total = { "Total", pay.total },
   }
-  for key, row in pairs(p.payout) do
-    row.label:SetText(lines[key][1])
-    row.value:SetText("+" .. (lines[key][2] or 0) .. "g")
+  local y = -68
+  for _, key in ipairs({ "reward", "hands", "discards", "interest", "trinkets", "held", "total" }) do
+    local row = p.payout[key]
+    local show = key ~= "discards" or (pay.discards or 0) > 0
+    row.label:SetShown(show)
+    row.value:SetShown(show)
+    if show then
+      row.label:SetText(lines[key][1])
+      row.value:SetText("+" .. (lines[key][2] or 0) .. "g")
+      row.label:ClearAllPoints()
+      row.value:ClearAllPoints()
+      row.label:SetPoint("TOPLEFT", p, "TOPLEFT", 16, y)
+      row.value:SetPoint("TOPLEFT", p, "TOPLEFT", 130, y)
+      y = y - 22
+    end
   end
 
   local shop = run.shop or { cards = {}, packs = {}, rerollCost = 0 }
@@ -793,10 +779,17 @@ end
 function Screens.Track(run)
   local r = run and run.lastResult
   if r and r.total and r.total > (run.bestHand or 0) then run.bestHand = r.total end
+  -- A finished run counts once: the flag travels with the saved run, so a reload
+  -- of a won or lost save never records it again. Abandoning never records.
+  if run and (run.phase == "won" or run.phase == "lost") and not run.recorded and AzerothAnteDB then
+    run.recorded = true
+    ns.Profile.recordRun(AzerothAnteDB, run)
+    persist()
+  end
 end
 
 local PANEL_OF = {
-  newrun = { "newrun", buildNewRun },
+  newrun = { "newrun", buildNewRun, function() ns.UI.DeckSelect.Refresh() end },
   blind = { "blind", buildBlind, refreshBlind },
   shop = { "shop", buildShop, refreshShop },
   won = { "end", buildEnd, refreshEnd },
@@ -833,7 +826,7 @@ function Screens.Show(name, run)
 
   local key = entry[1]
   local p = panels[key] or entry[2]()
-  if entry[3] and run then entry[3](p, run) end
+  if entry[3] and (run or name == "newrun") then entry[3](p, run) end
   ns.UI.TrinketRow.SetSellMode(name == "shop", onSell)
   if current == name then return end
   current = name

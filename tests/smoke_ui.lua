@@ -110,17 +110,100 @@ local function run(w)
     stub.advance(1)
   end
 
+  -- Picks a deck in the carousel (unlocking it in the profile first) and presses Play.
+  local function startDeck(id)
+    local profile = ns.Profile.get(env.AzerothAnteDB)
+    local need = ns.Decks.def[id].unlock and ns.Decks.def[id].unlock.discovered or 0
+    for i = ns.Profile.discoveredCount(env.AzerothAnteDB) + 1, need do profile.discovered["test:" .. i] = true end
+    local p = panel("carousel")
+    ns.UI.DeckSelect.Select(id, true)
+    click(p.play, "Play " .. id)
+  end
+
   -- 1. Open the window.
   open()
   check(Main.frame:IsShown(), "window not shown after /ante")
-  check(visible("tiles"), "newrun screen not visible")
-  step("1 slash opens window on the newrun screen")
+  check(visible("carousel"), "deck-select screen not visible")
+  step("1 slash opens window on the deck-select screen")
 
-  -- 2. Deck tile, then Start Blind.
-  local newrun = panel("tiles")
-  click(newrun.tiles[1], "deck tile 1")
+  -- 1b. The carousel: ROGUE centred on a fresh profile, arrows, locks, sidebar totals.
+  local DS = ns.UI.DeckSelect
+  local CardWidget = ns.UI.CardWidget
+  do
+    local p = panel("carousel")
+    local sb = Main.sidebar
+    eq(DS.Selected(), "ROGUE", "ROGUE is centred on a fresh profile")
+    local function cardArt(id) return DS.Card(id).art:GetTexture() or "" end
+    check(cardArt("ROGUE"):find("BackSq_ROGUE", 1, true), "the centre card shows the Rogue back")
+    check(math.abs(DS.Card("ROGUE"):GetWidth() - CardWidget.WIDTH * 1.35) < 0.5, "centre card is 1.35x a playing card")
+    check(math.abs(DS.Card("WARRIOR"):GetWidth() - CardWidget.WIDTH * 0.8) < 0.5, "neighbours are 0.8x")
+    check(DS.Card("WARRIOR"):IsShown() and DS.Card("WARLOCK"):IsShown(), "both neighbours peek")
+    check(not DS.Card("GOBLIN"):IsShown(), "decks two away are hidden")
+    eq(p.name:GetText(), "Rogue Deck", "deck name")
+    eq(p.desc:GetText(), "+1 discard every round", "rule text")
+    eq(p.stats:GetText(), "4 hands \194\183 4 discards \194\183 $4", "deck numbers")
+    eq(p.best:GetText(), "Best: Stage 0 \194\183 Wins: 0", "profile stats for the deck")
+    check(p.play:IsEnabled(), "Rogue is playable")
+    check(not p.progress:IsShown(), "no progress bar on an unlocked deck")
+    check(not DS.Card("ROGUE").lock:IsShown(), "no padlock on the open deck")
+    -- Sidebar: profile totals, no round stats; rows hidden.
+    eq(sb.profileRuns:GetText(), "Runs: 0", "sidebar runs")
+    eq(sb.profileWins:GetText(), "Wins: 0", "sidebar wins")
+    eq(sb.profileBest:GetText(), "Best stage: 0", "sidebar best stage")
+    eq(sb.profileDecks:GetText(), "Decks unlocked: 1/5", "sidebar decks unlocked")
+    eq(sb.profileFound:GetText(), "Discovered: 0/72", "sidebar discovered")
+    check(not sb.targetLabel:IsShown() and not sb.scoreLabel:IsShown() and not sb.chipsBox:IsShown()
+      and not sb.multBox:IsShown() and not sb.hands:IsShown() and not sb.gold:IsShown(), "round stats hidden")
+    check(not sb.deckButton:IsShown(), "Deck button hidden on the select screen")
+    check(not Main.trinketRow:IsShown() and not Main.consumableRow:IsShown(), "item rows hidden")
+
+    -- Arrows slide with a tween and wrap.
+    click(p.nextBtn, "next arrow")
+    eq(DS.Selected(), "WARRIOR", "next arrow selects WARRIOR")
+    stub.advance(0.1)
+    local mid = DS.Card("WARRIOR"):GetWidth()
+    check(mid > CardWidget.WIDTH * 0.8 + 1 and mid < CardWidget.WIDTH * 1.35 - 1, "the slide is mid-tween at 0.1s (" .. mid .. ")")
+    stub.advance(0.3)
+    check(math.abs(DS.Card("WARRIOR"):GetWidth() - CardWidget.WIDTH * 1.35) < 0.5, "slide settled")
+    check(DS.Card("WARRIOR").lock:IsShown() and DS.Card("WARRIOR").art:IsDesaturated(), "locked deck: padlock and desaturated art")
+    check(not p.play:IsEnabled(), "locked deck: Play disabled")
+    check(p.play.reason and p.play.reason:find("Discover 5 items to unlock (0/5)", 1, true), "locked deck: reason")
+    p.play._scripts.OnEnter(p.play)
+    check(stub.tooltip:IsShown() and stub.tooltip._tipText:find("Discover 5", 1, true), "reason tooltip on hover")
+    p.play._scripts.OnLeave(p.play)
+    eq(p.desc:GetText(), "Discover 5 items to unlock (0/5)", "unlock text replaces the rule")
+    check(p.progress:IsShown(), "progress bar on a locked deck")
+    p.play:Click()
+    check(Main.run == nil, "a disabled Play does not start a run")
+    click(p.prevBtn, "prev arrow")
+    click(p.prevBtn, "prev arrow (wrap)")
+    stub.advance(0.5)
+    eq(DS.Selected(), "WARLOCK", "prev wraps around to WARLOCK")
+    eq(p.desc:GetText(), "Discover 24 items to unlock (0/24)", "locked text for Warlock")
+    click(p.nextBtn, "next arrow (wrap)")
+    stub.advance(0.5)
+    eq(DS.Selected(), "ROGUE", "next wraps back to ROGUE")
+    -- Clicking a peeking deck slides to it.
+    click(DS.Card("WARRIOR"), "peeking WARRIOR")
+    eq(DS.Selected(), "WARRIOR", "clicking the right neighbour selects it")
+    stub.advance(0.5)
+    click(DS.Card("ROGUE"), "peeking ROGUE")
+    stub.advance(0.5)
+    eq(DS.Selected(), "ROGUE", "clicking the left neighbour selects it")
+  end
+  step("1b deck-select carousel, locks, arrows and sidebar totals")
+
+  -- 2. Play on the chosen deck, then Start Blind.
+  local newrun = panel("carousel")
+  click(newrun.play, "Play")
   stub.advance(1)
-  eq(Main.run.phase, "blind", "phase after deck tile")
+  eq(Main.run.deckId, "ROGUE", "Play starts a run with the chosen deck")
+  eq(env.AzerothAnteDB.profile.lastDeck, "ROGUE", "the last-played deck is stored")
+  check(Main.sidebar.targetLabel:IsShown() and Main.sidebar.chipsBox:IsShown() and Main.sidebar.deckButton:IsShown(), "round stats return in a run")
+  check(not Main.sidebar.profileRuns:IsShown(), "profile totals hide in a run")
+  check(Main.trinketRow:IsShown() and Main.consumableRow:IsShown(), "item rows return in a run")
+  check(HandView.deck:GetTexture():find("Back_ROGUE", 1, true), "the deck pile uses the deck's back")
+  eq(Main.run.phase, "blind", "phase after Play")
   check(visible("preview"), "blind screen not visible")
   click(panel("preview").start, "Start Blind")
   stub.advance(3)
@@ -1219,14 +1302,14 @@ local function run(w)
   eq(panel("head").head:GetText(), "Defeated", "end screen headline")
   click(panel("head").new, "New Run")
   stub.advance(1)
-  check(visible("tiles"), "newrun screen after New Run")
+  check(visible("carousel"), "newrun screen after New Run")
   check(env.AzerothAnteDB.run == nil, "save cleared by New Run")
   step("8 lose path and New Run")
 
   -- 8b. A hand and deck that run out lose the blind at once, with the board unlocked.
   do
     local function newBlind()
-      click(panel("tiles").tiles[1], "deck tile 1 (8b)")
+      startDeck("ROGUE")
       stub.advance(1)
       click(panel("preview").start, "Start Blind (8b)")
       stub.advance(3)
@@ -1266,12 +1349,12 @@ local function run(w)
     check(not HandView.IsBusy(), "nothing stays busy after the consumable loss")
     click(panel("head").new, "New Run (8b consumable)")
     stub.advance(1)
-    check(visible("tiles"), "newrun screen after the 8b losses")
+    check(visible("carousel"), "newrun screen after the 8b losses")
   end
   step("8b empty hand and deck lose the blind without sticking")
 
   -- 9. Hide mid-tally.
-  click(panel("tiles").tiles[2], "deck tile 2")
+  startDeck("WARRIOR")
   stub.advance(1)
   click(panel("preview").start, "Start Blind")
   stub.advance(3)
@@ -1334,7 +1417,7 @@ local function run(w)
   click(abandon, "Abandon Run (confirm)")
   stub.advance(1)
   check(env.AzerothAnteDB.run == nil, "abandon clears the save")
-  check(visible("tiles"), "abandon returns to the new-run screen")
+  check(visible("carousel"), "abandon returns to the new-run screen")
   step("9c abandon run")
 
   local SMOKE_SEED = tonumber(os.getenv("SMOKE_SEED")) or 424242
@@ -1552,7 +1635,7 @@ local function run(w)
     -- Pin the seed so the whole run is reproducible.
     local realNew = ns.Run.new
     ns.Run.new = function(_, deckId) return realNew(SMOKE_SEED, deckId) end
-    click(panel("tiles").tiles[1], "deck tile 1")
+    startDeck("ROGUE")
     stub.advance(1)
     while beaten < 6 and Main.run.phase ~= "lost" and Main.run.phase ~= "won" do
       playBlind()
@@ -1575,8 +1658,207 @@ local function run(w)
   end
   step("10 bot drives a full run through the UI")
 
+  -- 11. Deck-select unlocks, run recording and the Monk payout, each in a fresh world.
+  local extraWorlds = {}
+  local function boot(db)
+    local w2 = newWorld(db)
+    extraWorlds[#extraWorlds + 1] = w2
+    local m = w2.ns.UI.Main
+    local function open2(t)
+      w2.env.SlashCmdList.AZEROTHANTE()
+      w2.stub.advance(t or 1)
+    end
+    local function panel2(field)
+      for _, c in ipairs(m.content._children) do
+        if c[field] then return c end
+      end
+    end
+    return w2, open2, panel2, m
+  end
+
+  do -- 11a. The unlock flourish
+    local db = {}
+    local w2, open2, panel2, m = boot(db)
+    local ns2, stub2 = w2.ns, w2.stub
+    local DS2 = ns2.UI.DeckSelect
+    open2()
+    eq(DS2.Selected(), "ROGUE", "fresh profile centres ROGUE")
+    check(not DS2.Flourishing(), "the starter deck gets no flourish")
+    check(ns2.Profile.get(db).seenUnlocks.ROGUE, "the starter deck is marked seen silently")
+    m.Hide()
+    local prof = ns2.Profile.get(db)
+    for i = 1, 5 do prof.discovered["test:" .. i] = true end
+    local seen = {}
+    local realMark = ns2.Profile.markSeen
+    ns2.Profile.markSeen = function(d, id)
+      seen[#seen + 1] = id
+      return realMark(d, id)
+    end
+    w2.env.SlashCmdList.AZEROTHANTE()
+    stub2.advance(0.2)
+    eq(DS2.Selected(), "WARRIOR", "reopening centres the newly unlocked deck")
+    eq(DS2.Flourishing(), "WARRIOR", "the unlock flourish plays for WARRIOR")
+    local p2 = panel2("carousel")
+    check(p2.unlockedText:IsShown() and p2.unlockedText:GetText() == "Unlocked!", "the Unlocked! text shows")
+    check(DS2.Card("WARRIOR").lock:IsShown(), "the padlock is still up at the start")
+    eq(#seen, 0, "markSeen waits for the flourish to finish")
+    stub2.advance(0.5)
+    check(DS2.Card("WARRIOR").lock:GetAlpha() < 1, "the padlock fades")
+    stub2.advance(2.5)
+    check(not DS2.Flourishing(), "the flourish ends")
+    eq(seen[1], "WARRIOR", "markSeen called for WARRIOR")
+    check(not DS2.Card("WARRIOR").lock:IsShown(), "the padlock is gone")
+    check(not DS2.Card("WARRIOR").art:IsDesaturated(), "the art saturates")
+    check(not p2.unlockedText:IsShown(), "the Unlocked! text is gone")
+    check(p2.play:IsEnabled(), "WARRIOR is playable")
+    m.Hide()
+    open2()
+    eq(#seen, 1, "no second flourish for a seen deck")
+    -- Several unlocks play one at a time.
+    m.Hide()
+    for i = 6, 24 do prof.discovered["test:" .. i] = true end
+    w2.env.SlashCmdList.AZEROTHANTE()
+    stub2.advance(0.2)
+    eq(DS2.Flourishing(), "GOBLIN", "first of several")
+    stub2.advance(2.7)
+    eq(DS2.Flourishing(), "MONK", "then the next one")
+    eq(DS2.Selected(), "MONK", "the carousel follows to the next unlock")
+    stub2.advance(10)
+    check(not DS2.Flourishing(), "all flourishes done")
+    eq(table.concat(seen, ","), "WARRIOR,GOBLIN,MONK,WARLOCK", "each unlock is marked seen once, in order")
+    eq(#ns2.Profile.newlyUnlocked(db), 0, "nothing left to announce")
+    -- Closing mid-flourish still marks the deck seen.
+    ns2.Profile.get(db).seenUnlocks.WARLOCK = nil
+    m.Hide()
+    w2.env.SlashCmdList.AZEROTHANTE()
+    stub2.advance(0.3)
+    eq(DS2.Flourishing(), "WARLOCK", "replay for an unseen deck")
+    m.Hide()
+    check(not DS2.Flourishing() and ns2.Profile.get(db).seenUnlocks.WARLOCK, "closing the window ends the flourish and marks it seen")
+    ns2.Profile.markSeen = realMark
+  end
+  step("11a unlock flourish centres, plays, marks seen, queues")
+
+  do -- 11b. Run recording
+    local db = {}
+    local w2, open2, panel2, m = boot(db)
+    local ns2, stub2 = w2.ns, w2.stub
+    open2()
+    panel2("carousel").play:Click()
+    stub2.advance(1)
+    local run2 = m.run
+    run2.phase, run2.stage = "lost", 3
+    m.Render(run2, true)
+    stub2.advance(1)
+    local stats = ns2.Profile.get(db).stats
+    eq(stats.ROGUE.runs, 1, "a lost run is recorded")
+    eq(stats.ROGUE.bestStage, 3, "best stage recorded")
+    eq(run2.recorded, true, "the run carries recorded = true")
+    m.Render(run2, true)
+    m.Render(run2, true)
+    eq(stats.ROGUE.runs, 1, "re-rendering does not record twice")
+    check(db.run and db.run.recorded == true, "the flag is saved with the run")
+    -- Reload the lost save: not counted again.
+    local db3 = deepCopy(db)
+    local w3, _, panel3, m3 = boot(db3)
+    eq(m3.run and m3.run.phase, "lost", "the lost run reloads")
+    eq(w3.ns.Profile.get(db3).stats.ROGUE.runs, 1, "a reload does not record the run again")
+    -- A lost save from before recording (no flag) is counted once, then not again.
+    local db4 = deepCopy(db)
+    db4.run.recorded = nil
+    db4.profile.stats = {}
+    local w4, _, _, m4 = boot(db4)
+    eq(w4.ns.Profile.get(db4).stats.ROGUE.runs, 1, "an unrecorded finished save is recorded on load")
+    m4.Render(m4.run, true)
+    eq(w4.ns.Profile.get(db4).stats.ROGUE.runs, 1, "and only once")
+    -- Wins count, New Run clears, abandon does not record.
+    w3.env.SlashCmdList.AZEROTHANTE()
+    w3.stub.advance(1)
+    local won = w3.ns.Run.new(5, "ROGUE")
+    won.phase, won.stage = "won", 8
+    m3.SetRun(won)
+    eq(w3.ns.Profile.get(db3).stats.ROGUE.wins, 1, "a won run is recorded")
+    eq(w3.ns.Profile.get(db3).stats.ROGUE.runs, 2, "runs counts both")
+    click(panel3("head").new, "New Run")
+    w3.stub.advance(1)
+    panel3("carousel").play:Click()
+    w3.stub.advance(1)
+    local ab = panel3("preview").abandon
+    click(ab, "Abandon")
+    click(ab, "Abandon (confirm)")
+    w3.stub.advance(1)
+    eq(w3.ns.Profile.get(db3).stats.ROGUE.runs, 2, "abandoning a run does not record it")
+  end
+  step("11b a finished run records once, also across reloads; abandon does not")
+
+  do -- 11c. Discovery binding is crash-proof
+    local db = {}
+    local w2 = boot(db)
+    local ns2 = w2.ns
+    check(type(ns2.Profile.onObtain) == "function", "onObtain is bound")
+    ns2.Profile.onObtain("trinket", "BLOODLUST")
+    eq(ns2.Profile.discoveredCount(db), 1, "obtaining an item discovers it")
+    local realDiscover = ns2.Profile.discover
+    ns2.Profile.discover = function() error("boom") end
+    ns2.Profile.onObtain("trinket", "HEARTHSTONE")
+    ns2.Profile.discover = realDiscover
+    w2.env.AzerothAnteDB = nil
+    ns2.Profile.onObtain("trinket", "HEARTHSTONE")
+    w2.env.AzerothAnteDB = db
+    eq(ns2.Profile.discoveredCount(db), 1, "errors and a missing DB are swallowed")
+  end
+  step("11c onObtain survives errors and a missing DB")
+
+  do -- 11d. Monk payout rows add up to Total
+    local db = { profile = { discovered = {} } }
+    for i = 1, 18 do db.profile.discovered["test:" .. i] = true end
+    local w2, open2, panel2, m = boot(db)
+    local ns2, stub2 = w2.ns, w2.stub
+    open2()
+    ns2.UI.DeckSelect.Select("MONK", true)
+    panel2("carousel").play:Click()
+    stub2.advance(1)
+    panel2("preview").start:Click()
+    stub2.advance(3)
+    local run2 = m.run
+    eq(run2.deckId, "MONK", "Monk run")
+    run2.handsLeft, run2.discardsLeft, run2.gold = 2, 3, 29
+    ns2.Run.winBlind(run2)
+    m.Render(run2, true)
+    stub2.advance(1)
+    local shop = panel2("offerCards")
+    local function rowSum(p)
+      local sum = 0
+      for key, row in pairs(p.payout) do
+        if key ~= "total" and row.label:IsShown() then sum = sum + tonumber(row.value:GetText():match("%d+")) end
+      end
+      return sum, tonumber(p.payout.total.value:GetText():match("%d+"))
+    end
+    eq(shop.payout.hands.label:GetText(), "Hands left (2 x 2g)", "Monk hands rate")
+    eq(shop.payout.discards.label:GetText(), "Discards left (3 x 1g)", "Monk discards row")
+    check(shop.payout.discards.label:IsShown(), "discards row shown when it pays")
+    check(shop.payout.interest.label:GetText():find("none", 1, true), "interest row says none for Monk")
+    local sum, total = rowSum(shop)
+    eq(sum, total, "visible payout rows sum to Total (Monk)")
+    eq(total, run2.lastPayout.total, "Total matches the run")
+    -- A deck with interest and no per-discard pay.
+    local run3 = ns2.Run.new(9, "ROGUE")
+    m.SetRun(run3)
+    ns2.Run.startBlind(run3)
+    run3.handsLeft, run3.discardsLeft, run3.gold = 2, 3, 29
+    ns2.Run.winBlind(run3)
+    m.Render(run3, true)
+    stub2.advance(1)
+    check(not shop.payout.discards.label:IsShown(), "no discards row when it pays nothing")
+    eq(shop.payout.hands.label:GetText(), "Hands left (2 x 1g)", "default hands rate")
+    eq(shop.payout.interest.label:GetText(), "Interest", "interest row for other decks")
+    sum, total = rowSum(shop)
+    eq(sum, total, "visible payout rows sum to Total (Rogue)")
+  end
+  step("11d payout rows for Monk add up")
+
   -- Globals created by the addon files.
-  for _, world in ipairs({ w1st, w }) do
+  for _, world in ipairs({ w1st, w, unpack(extraWorlds) }) do
     for name in pairs(world.newGlobals) do
       check(ALLOWED_GLOBALS[name], "addon leaked global: " .. name)
     end

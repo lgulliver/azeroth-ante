@@ -149,6 +149,13 @@ function M.install(env)
   function methods.SetTexture(self, t) self._texture = t end
   function methods.GetTexture(self) return self._texture end
 
+  function methods.SetDesaturated(self, on) self._desat = on and 1 or 0 end
+  function methods.SetDesaturation(self, v) self._desat = v end
+  function methods.IsDesaturated(self) return (self._desat or 0) > 0.5 end
+  function methods.GetDesaturation(self) return self._desat or 0 end
+  function methods.SetRotation(self, r) self._rot = r end
+  function methods.GetRotation(self) return self._rot or 0 end
+
   function methods.SetText(self, t) self._text = t end
   function methods.GetText(self) return self._text end
 
