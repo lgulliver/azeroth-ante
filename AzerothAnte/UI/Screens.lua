@@ -554,7 +554,7 @@ end
 ---------------------------------------------------------------------------
 -- The voucher tile: one coupon per shop visit, under the payout.
 
-local VW, VH, VX, VY = 176, 164, 12, -226
+local VW, VH, VX, VY = 176, 156, 12, -226
 local SOLD_IN_DELAY = 0.6
 
 local function voucherArt(def)
@@ -665,6 +665,7 @@ local function refreshVoucher(p, run)
   local offer = run.shopVoucher
   local def = offer and ns.Vouchers.def[offer.id]
   if not def then
+    v.soldBox.text:SetText(offer == nil and "No voucher this stage" or "Sold out this stage")
     v.content:Hide()
     v.soldBox:Show()
     if not Tween.IsActive(v.soldBox) then v.soldBox:SetAlpha(1) end
@@ -695,7 +696,8 @@ local function refreshVoucher(p, run)
   Theme.setColor(v.price, afford and Theme.gold or RED)
   local ok = afford and not blockedByPack and run.phase == "shop"
   if ok then v.buy:Enable() else v.buy:Disable() end
-  setReason(v.buy, (not ok) and (blockedByPack and BUY_ERRORS.pack or BUY_ERRORS.gold) or nil)
+  local why = blockedByPack and BUY_ERRORS.pack or (not afford and BUY_ERRORS.gold) or "Only in the shop"
+  setReason(v.buy, (not ok) and why or nil)
 end
 
 local function buildShop()
