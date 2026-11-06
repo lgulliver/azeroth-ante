@@ -43,14 +43,14 @@ on the character-select AddOns screen until you set the right number.
 5. Beat three blinds per stage across eight stages. You lose when you run out of
    hands, or when your hand and deck are both empty with the blind still unbeaten.
 
-**Trinkets** come in 143 kinds (common, uncommon and rare): every non-legendary Balatro joker except the two that need skip tags. They score left to right, so order
-matters: drag a trinket left or right in the trinket row to reorder it. Engineering Schematic copies the
+**Trinkets** come in 143 kinds (common, uncommon and rare): every non-legendary Balatro joker except the two that need skip tags.
+They score left to right, so order matters: drag a trinket left or right in the trinket row to reorder it. Engineering Schematic copies the
 trinket to its right and Mind Control copies the leftmost one; rule trinkets can't be copied.
 Hover a trinket for its live values and sell price. You can sell trinkets during a blind as well as
 in the shop; a bigger hand size draws cards at once, a smaller one applies from the next deal, and
 the counts of hands and discards change at once.
 
-Trinkets can also change and create cards (Midas, Vampire, Hiker, DNA, Certificate and Marble),
+Trinkets can also change and create cards (Gilded Mask, Vampiric Embrace, Pilgrim's Bounty, Gnomish Cloning Device, Letter of Commendation and Stoneform),
 create consumables, and disable a boss's effect (Gladiator's Medallion).
 
 **Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.
@@ -122,9 +122,11 @@ Wave 2 (117 trinkets) win rates at 200 runs and seed 1, with `BASE_TARGETS` retu
 MONK 28.0%, WARLOCK 10.5%. All sit inside the intended 8-45% band. The bot never goes into debt,
 even with Credit Card.
 
-Wave 3 (143 trinkets) win rates at 200 runs and seed 1, with the same `BASE_TARGETS`: ROGUE 14.0%,
-WARRIOR 21.0%, GOBLIN 20.0%, MONK 20.5%, WARLOCK 5.0%. WARLOCK sits below the intended 8-45% band;
-the targets are unchanged pending a balance decision.
+Wave 3 (143 trinkets) win rates at 200 runs and seed 1, with the same `BASE_TARGETS`: ROGUE 13.5%,
+WARRIOR 22.5%, GOBLIN 20.5%, MONK 22.0%, WARLOCK 5.5%. The bot scores trinket offers as rarity plus 3
+for any scoring hook, and skips rule, interest and round-end trinkets while a scoring one is affordable
+(before that change: ROGUE 14.0%, WARRIOR 21.0%, GOBLIN 20.0%, MONK 20.5%, WARLOCK 5.0%). WARLOCK
+still sits below the intended 8-45% band; the targets are unchanged pending a balance decision.
 
 ## In-game test checklist
 

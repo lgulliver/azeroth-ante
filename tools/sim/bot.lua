@@ -6,11 +6,25 @@ return function(ns)
   local bot = {}
 
   -- Every purchase below checks price <= gold itself: the bot never goes into debt, even with Credit Card.
-  -- Trinkets are bought by rarity (rare over uncommon over common); the bot never reorders them.
+  -- Trinkets are scored: rarity (1/2/3) plus 3 for any scoring hook; the bot never reorders them.
   local RARITY_WEIGHT = { common = 1, uncommon = 2, rare = 3 }
+  local SCORING_HOOKS = { "onHand", "onCard", "before", "retrigger", "onHeld", "heldRetrigger",
+    "otherTrinket", "copies" }
+  local function isScoring(def)
+    for _, hook in ipairs(SCORING_HOOKS) do
+      if def[hook] then return true end
+    end
+    return false
+  end
   local function trinketWeight(offer)
     local def = ns.Trinkets.def[offer.id]
-    return def and RARITY_WEIGHT[def.rarity] or 0
+    if not def then return 0 end
+    return (RARITY_WEIGHT[def.rarity] or 0) + (isScoring(def) and 3 or 0)
+  end
+  -- Rule, interest and round-end payout trinkets only; skipped while a scoring one is affordable.
+  local function isEconomyOnly(offer)
+    local def = ns.Trinkets.def[offer.id]
+    return def ~= nil and not isScoring(def) and (def.rule or def.interestBonus or def.onRoundEnd) ~= nil
   end
 
   -- Scrolls worth using on the highest-rank cards, best first.
@@ -187,14 +201,23 @@ return function(ns)
 
   local function shop(run)
     useConsumables(run, nil)
-    -- Trinkets, rarest first.
+    -- Trinkets, highest score first.
     local progress = true
     while progress do
       progress = false
       local bestI, bestWeight = nil, 0
+      local function affordable(offer)
+        return offer and offer.type == "trinket" and offer.cost <= run.gold
+          and #run.trinkets < Run.trinketSlots(run)
+      end
+      local scoringAvailable = false
+      for _, offer in ipairs(run.shop.cards) do
+        if affordable(offer) and not isEconomyOnly(offer) and isScoring(ns.Trinkets.def[offer.id]) then
+          scoringAvailable = true
+        end
+      end
       for i, offer in ipairs(run.shop.cards) do
-        if offer and offer.type == "trinket" and offer.cost <= run.gold
-          and #run.trinkets < Run.trinketSlots(run) then
+        if affordable(offer) and not (scoringAvailable and isEconomyOnly(offer)) then
           local weight = trinketWeight(offer)
           if weight > bestWeight then bestI, bestWeight = i, weight end
         end
