@@ -275,6 +275,7 @@ function Scoring.score(ctx)
   emit({ kind = "total", total = total })
 
   -- After hooks decay or destroy; only the trinket itself (not a copy) can be destroyed.
+  ctx.bossTriggered = bossTriggered
   engine.each(trinkets, function(slot, inst, def, isCopy)
     local effect = def.after and def.after(ctx, inst, isCopy)
     if not effect then return end

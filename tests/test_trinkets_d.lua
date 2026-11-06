@@ -232,7 +232,7 @@ H.test("d_copy_guards_and_scaling", function()
   T.eq(run.trinkets[2].state.x, 1.25); T.eq(H.score(run, single()).mult, 1.5625)
   run = H.run { trinkets = { "SCHEMATIC", "PILGRIM" } }
   local c = H.card(2)
-  T.eq(H.score(run, { c }).cardsAfter[c.id].bonusChips, 5)
+  T.eq(H.score(run, { c }).cardsAfter[c.id].bonusChips, 10)
   run = H.run { trinkets = { "SCHEMATIC", "VAMPIRIC" } }
   local r = H.score(run, single(2, "BONUS"))
   near(r.trinketsAfter[2].state.x, 1.1); near(r.mult, 1.21)
@@ -254,4 +254,195 @@ H.test("d_creation_copies_and_capacity", function()
   run = H.run { trinkets = { "PEDDLER" }, gold = 4 }
   run.maxConsumables = 0
   play(run, single()); T.eq(#run.consumables, 0)
+end)
+
+H.test("chronomancy_requires_scoring_ace", function()
+  local run = H.run { trinkets = { "CHRONOMANCY", "SLEIGHT_HAND" } }
+  local cards = { H.card(5), H.card(6, "H"), H.card(7), H.card(8, "H"), H.card(14) }
+  local r = H.score(run, cards)
+  T.eq(r.handId, "STRAIGHT")
+  T.eq(#created(r, "createConsumable"), 0)
+end)
+H.test("GLAD_MEDALLION_effect", function()
+  local run = H.run { trinkets = { "GLAD_MEDALLION" } }
+  run.blind, run.bosses[1] = 3, "HOGGER"
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(run.bossDisabled, true); T.eq(ns.Run.activeBoss(run), nil)
+  local msg
+  for _, e in ipairs(run.lifecycleEvents) do if e.kind == "trinketMsg" then msg = e.text end end
+  T.eq(msg, "Boss disabled!")
+end)
+H.test("luchador_only_in_boss", function()
+  for _, phase in ipairs({ "play", "shop", "blind" }) do
+    for blind = 1, 3 do
+      local run = H.run { trinkets = { "GLAD_MEDALLION" } }
+      run.phase, run.blind = phase, blind
+      local def = assert(ns.Trinkets.def.GLAD_MEDALLION)
+      T.eq(def.onSelfSold(run, run.trinkets[1]), phase == "play" and blind == 3
+        and { disableBoss = true, msg = "Boss disabled!" } or nil)
+    end
+  end
+end)
+H.test("SANDSTORM_effect", function()
+  local run = H.run { trinkets = { "SANDSTORM" } }
+  run.startDeckSize = 3
+  for n = 0, 4 do
+    run.deck = {}
+    for i = 1, n do run.deck[i] = H.card(2) end
+    T.eq(H.score(run, single()).mult, 1 + 4 * math.max(0, 3 - n))
+  end
+end)
+H.test("DREAMWALKER_effect", function()
+  for _, loaded in ipairs({ false, true }) do
+    local ids = { "DREAMWALKER" }
+    if loaded then ids[2] = "LOADED_DICE" end
+    local run = H.run { trinkets = ids }
+    run.rng = ns.RNG.new(70000)
+    local expected = { s = run.rng.s }
+    ns.RNG.next(expected)
+    ns.TrinketEngine.fire(run, "onPackOpened", { kind = "celestial" })
+    T.eq(#run.consumables, loaded and 1 or 0)
+    if loaded then T.eq(run.consumables[1].kind, "scroll") else T.eq(run.rng.s, expected.s) end
+  end
+  local run = H.run { trinkets = { "SCHEMATIC", "DREAMWALKER", "LOADED_DICE" } }
+  ns.TrinketEngine.fire(run, "onPackOpened", {})
+  T.eq(#run.consumables, 2)
+  ns.TrinketEngine.fire(run, "onPackOpened", {})
+  T.eq(#run.consumables, 2)
+end)
+H.test("SEER_effect", function()
+  local run = H.run { trinkets = { "SEER" } }
+  T.eq(H.score(run, single()).mult, 1)
+  run.usage.scroll, run.usage.tome = 7, 100
+  T.eq(H.score(run, single()).mult, 8)
+  T.eq(run.usage.scroll, 7)
+end)
+H.test("EARTHEN_RING_effect", function()
+  local run = H.run { trinkets = { "EARTHEN_RING" } }
+  run.deck = { H.card(2, "H", "STONE"), H.card(3, "D", "STONE"), H.card(4) }
+  T.eq(H.score(run, single()).chips, 57)
+  run.deck = {}; T.eq(H.score(run, single()).chips, 7)
+end)
+H.test("FORTUNE_CAT_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "FORTUNE_CAT" } }
+  local r = H.score(run, single(2, "LUCKY"), nil, { rng = ns.RNG.new(1) })
+  T.eq(r.luckyTriggers, 1)
+  T.eq(r.trinketsAfter[2].state.x, 1.25)
+  near(r.mult, 21 * 1.25 * 1.25)
+  T.eq(run.trinkets[2].state.x, 1)
+  r = H.score(run, single(2, "LUCKY"), nil, { rng = ns.RNG.new(100000) })
+  T.eq(r.luckyTriggers, 0); T.eq(r.trinketsAfter[2].state.x, 1)
+end)
+H.test("GOLDEN_TICKET_effect", function()
+  local run = H.run { trinkets = { "GOLDEN_TICKET", "ECHO_DOOM" } }
+  T.eq(H.score(run, single(2, "GOLD")).gold, 12)
+  T.eq(H.score(run, single()).gold, 0)
+  T.eq(H.score(run, { H.card(2, "S", "GOLD"), H.card(14) }).gold, 0)
+  T.eq(H.score(run, single(2, "GOLD"), nil, { bossId = "VANCLEEF" }).gold, 0)
+end)
+H.test("COMMENDATION_effect", function()
+  local run = H.run { trinkets = { "COMMENDATION" } }
+  ns.Run.startBlind(run)
+  T.eq(#run.deck, 53); T.eq(#run.hand, ns.Deck.handSize(run) + 1)
+  local c = run.deck[53]
+  T.ok(c.rank >= 2 and c.rank <= 14); T.ok(ns.Cards.SUIT_NAMES[c.suit])
+  T.ok(({ GOLD = true, RED = true, BLUE = true, PURPLE = true })[c.seal])
+  T.eq(c.enh, nil); T.eq(c.ed, nil)
+  local n = #run.deck
+  ns.Run.discard(run, { 1 }); T.eq(#run.deck, n)
+end)
+H.test("certificate_card_permanent", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "COMMENDATION", "PHANTASM" } }
+  ns.Run.startBlind(run)
+  T.eq(#run.deck, 54); T.eq(run.trinkets[3].state.x, 1.5)
+  local c = run.deck[53]
+  T.ok(c == ns.Deck.find(run, c.id)); T.ok(run.deck[54].id ~= c.id)
+  run.blind = 2; ns.Run.startBlind(run)
+  T.eq(#run.deck, 56); T.ok(ns.Deck.find(run, c.id) == c)
+end)
+H.test("GLASS_CANNON_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "GLASS_CANNON" } }
+  T.eq(H.score(run, single()).mult, 1)
+  run.deck = { H.card(2, "S", "GLASS"), H.card(3), H.card(4, "H", "GLASS") }
+  local ids = { run.deck[1].id, run.deck[2].id, run.deck[3].id }
+  for _, id in ipairs(ids) do ns.Deck.destroy(run, id) end
+  ns.TrinketEngine.flushCards(run)
+  T.eq(run.trinkets[2].state.x, 2.5)
+  T.eq(H.score(run, single()).mult, 6.25)
+  ns.TrinketEngine.flushCards(run); T.eq(run.trinkets[2].state.x, 2.5)
+end)
+H.test("glass_joker_counts_breaks", function()
+  local run = H.run { trinkets = { "GLASS_CANNON" } }
+  run.rng = ns.RNG.new(1)
+  local r = play(run, single(2, "GLASS"))
+  T.eq(#r.destroyed, 1); T.eq(#run.deck, 0)
+  T.eq(r.mult, 2); T.eq(run.trinkets[1].state.x, 1.75)
+end)
+H.test("ARENA_CHAMPION_effect", function()
+  local run = H.run { trinkets = { "ARENA_CHAMPION" } }
+  for _, bossId in ipairs({ "HOGGER", "RIVENDARE" }) do
+    local r = H.score(run, single(12), nil, { bossId = bossId })
+    T.eq(r.bossTriggered, true); T.eq(r.gold, 8)
+  end
+end)
+H.test("matador_only_when_triggered", function()
+  local run = H.run { trinkets = { "ARENA_CHAMPION" } }
+  for _, bossId in ipairs({ "HOGGER", "MUTANUS", "HEROD", "ONYXIA", "RAGNAROS" }) do
+    local r = H.score(run, single(2), { H.card(12, "H", "STEEL") }, { bossId = bossId })
+    T.eq(r.bossTriggered, false); T.eq(r.gold, 0)
+  end
+  T.eq(H.score(run, single()).gold, 0)
+  local r = H.score(run, { H.card(2), H.card(2, "H"), H.card(12) }, nil, { bossId = "HOGGER" })
+  T.eq(r.gold, 0)
+  run = H.run { trinkets = { "SCHEMATIC", "ARENA_CHAMPION" } }
+  T.eq(H.score(run, single(12), nil, { bossId = "HOGGER" }).gold, 16)
+  run.blind, run.bosses[1] = 3, "HOGGER"
+  ns.Run.disableBoss(run); T.eq(H.score(run, single(12)).gold, 0)
+end)
+H.test("MAGE_TOWER_effect", function()
+  local run = H.run { trinkets = { "MAGE_TOWER" } }
+  run.usage.tomeIds = { PAIR = true, FLUSH = true }
+  ns.Run.winBlind(run)
+  T.eq(run.lastPayout.trinkets, 2)
+  T.eq(run.lastPayout.trinketLines[1].gold, 2)
+end)
+H.test("satellite_unique_tomes", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "MAGE_TOWER" } }
+  local def = assert(ns.Trinkets.def.MAGE_TOWER)
+  T.eq(def.onRoundEnd(run, run.trinkets[2]), 0)
+  run.usage.tome, run.usage.scroll = 20, 30
+  run.usage.tomeIds = { PAIR = true, FLUSH = true }
+  T.eq(def.onRoundEnd(run, run.trinkets[2]), 2)
+  ns.Run.winBlind(run); T.eq(run.lastPayout.trinkets, 2)
+end)
+H.test("MASTER_RIDING_effect", function()
+  local run = H.run { trinkets = { "MASTER_RIDING" } }
+  for _, n in ipairs({ 15, 16, 17 }) do
+    run.deck = {}
+    for i = 1, n do run.deck[i] = H.card(2, "S", i % 2 == 0 and "STONE" or "BONUS") end
+    run.deck[n + 1] = H.card(3, "H", nil, "FOIL", "RED")
+    T.eq(H.score(run, single()).mult, n >= 16 and 3 or 1)
+  end
+end)
+H.test("INSCRIPTIONIST_effect", function()
+  for _, room in ipairs({ 0, 1, 2 }) do
+    local run = H.run { trinkets = { "SCHEMATIC", "INSCRIPTIONIST" } }
+    run.maxConsumables = room
+    ns.Run.startBlind(run)
+    T.eq(#run.consumables, room)
+    for _, item in ipairs(run.consumables) do T.eq(item.kind, "scroll") end
+  end
+end)
+H.test("d_part_b_pool_and_copy_gates", function()
+  for id, enh in pairs({ EARTHEN_RING = "STONE", FORTUNE_CAT = "LUCKY", GOLDEN_TICKET = "GOLD", GLASS_CANNON = "GLASS" }) do
+    local run = H.run()
+    T.ok(ns.Trinkets.def[id], id)
+    T.eq(ns.Trinkets.inPool(run, id), false)
+    run.deck[1].enh = enh
+    T.eq(ns.Trinkets.inPool(run, id), true)
+  end
+  for _, id in ipairs({ "GLAD_MEDALLION", "MAGE_TOWER" }) do
+    local run = H.run { trinkets = { "SCHEMATIC", id } }
+    T.eq(ns.TrinketEngine.source(run.trinkets, 1), nil)
+  end
 end)

@@ -52,8 +52,9 @@ T.test("trinkets_complete", function()
     T.ok(VALID_RARITY[def.rarity], id .. ": bad rarity")
     T.ok(type(def.cost) == "number", id .. ": cost not a number")
     T.ok(def.onCard or def.onHand or def.onRoundEnd or def.rule or def.retrigger
-      or def.heldRetrigger or def.onHeld or def.before or def.otherTrinket or def.copies
+      or def.heldRetrigger or def.onHeld or def.before or def.after or def.otherTrinket or def.copies
       or def.onBlindSelect or def.onDiscard or def.roundUpdate or def.onPackSkipped
+      or def.onPackOpened or def.onFirstDraw
       or def.onShopReroll or def.onSell or def.onSelfSold or def.onLose or def.onBossDefeated
       or def.handSize or def.hands or def.discards or def.interestBonus, id .. ": no effect")
   end
