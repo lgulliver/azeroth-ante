@@ -194,7 +194,7 @@ T.test("boss_rules", function()
 end)
 
 T.test("decks_values", function()
-  T.eq(ns.Decks.order, { "ADVENTURER", "WARRIOR", "ROGUE", "GOBLIN" })
+  T.eq(ns.Decks.order, { "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK" })
   local d = ns.Decks.def
   T.eq(d.ADVENTURER.hands, 4)
   T.eq(d.ADVENTURER.discards, 3)
@@ -207,7 +207,7 @@ T.test("decks_values", function()
   T.eq(d.ROGUE.gold, 4)
   T.eq(d.GOBLIN.hands, 4)
   T.eq(d.GOBLIN.discards, 3)
-  T.eq(d.GOBLIN.gold, 10)
+  T.eq(d.GOBLIN.gold, 14)
   for _, id in ipairs(ns.Decks.order) do
     T.eq(d[id].id, id)
     T.ok(d[id].name and d[id].desc, id .. ": missing name or desc")

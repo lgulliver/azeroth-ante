@@ -17,6 +17,7 @@ end
 function Consumables.add(run, item)
   if #run.consumables >= run.maxConsumables then return false end
   run.consumables[#run.consumables + 1] = item
+  if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain(item.kind, item.id) end
   return true
 end
 
@@ -175,14 +176,19 @@ function Consumables.apply(run, item, cards)
     changed = {}, destroyed = {}, created = {}, added = {}, gold = 0,
     levelled = {}, trinkets = {},
   }
-  local touched = {}
+  local touched, owned = {}, {}
+  for _, trinket in ipairs(run.trinkets) do owned[trinket] = true end
   local api = buildApi(run, outcome, touched)
   if item.kind == "tome" then
     api.level(def.handId)
   else
     def.use(run, cards or {}, api)
   end
+  if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain(item.kind, item.id) end
   for i, trinket in ipairs(run.trinkets) do
+    if not owned[trinket] and ns.Profile and ns.Profile.onObtain then
+      ns.Profile.onObtain("trinket", trinket.id)
+    end
     for _, mark in ipairs(touched) do
       if mark == trinket then outcome.trinkets[#outcome.trinkets + 1] = i end
     end

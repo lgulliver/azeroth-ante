@@ -71,6 +71,7 @@ function Shop.buy(run, i)
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
     run.trinkets[#run.trinkets + 1] = { id = item.id, ed = item.ed }
+    if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
   else
     if not ns.Consumables.add(run, { kind = item.type, id = item.id }) then
       return false, "slots"

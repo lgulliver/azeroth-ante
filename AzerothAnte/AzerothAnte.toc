@@ -22,6 +22,7 @@ Core\Packs.lua
 Core\Shop.lua
 Core\Run.lua
 Core\Save.lua
+Core\Profile.lua
 Core\QueueState.lua
 UI\Theme.lua
 UI\MainFrame.lua

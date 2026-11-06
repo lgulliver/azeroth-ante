@@ -34,7 +34,8 @@ function Run.new(seed, deckId)
 end
 
 function Run.trinketSlots(run)
-  local slots = run.maxTrinkets
+  local deck = ns.Decks.def[run.deckId]
+  local slots = run.maxTrinkets + (deck.extraTrinketSlots or 0)
   for _, trinket in ipairs(run.trinkets) do
     if trinket.ed == "NEGATIVE" then slots = slots + 1 end
   end
@@ -177,9 +178,11 @@ function Run.discard(run, idx)
 end
 
 function Run.winBlind(run)
+  local deck = ns.Decks.def[run.deckId]
   local payout = {
-    reward = ({ 3, 4, 5 })[run.blind], hands = run.handsLeft,
-    interest = math.min(5, math.floor(run.gold / 5)), trinkets = 0, held = 0,
+    reward = ({ 3, 4, 5 })[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),
+    discards = run.discardsLeft * (deck.goldPerDiscard or 0),
+    interest = deck.noInterest and 0 or math.min(5, math.floor(run.gold / 5)), trinkets = 0, held = 0,
   }
   for _, trinket in ipairs(run.trinkets) do
     local def = ns.Trinkets.def[trinket.id]
@@ -200,7 +203,7 @@ function Run.winBlind(run)
       end
     end
   end
-  payout.total = payout.reward + payout.hands + payout.interest + payout.trinkets + payout.held
+  payout.total = payout.reward + payout.hands + payout.discards + payout.interest + payout.trinkets + payout.held
   run.lastPayout = payout
   run.gold = run.gold + payout.total
   if run.stage == 8 and run.blind == 3 then
