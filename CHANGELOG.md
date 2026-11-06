@@ -4,6 +4,8 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-06
+
 ### Added
 - Releases now ship for Retail as well as Forever: a plain `.zip` asset for Retail alongside the `-forever.zip`, and the CurseForge file is tagged with the Retail patches from the TOC.
 
