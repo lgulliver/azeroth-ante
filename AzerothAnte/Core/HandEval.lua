@@ -51,7 +51,7 @@ local function analyze(cards, rules)
   end
 
   local pairsCount, triple, four, five = 0, false, false, false
-  for rank, count in pairs(counts) do
+  for _, count in pairs(counts) do
     if count >= 2 then pairsCount = pairsCount + 1 end
     if count >= 3 then triple = true end
     if count >= 4 then four = true end

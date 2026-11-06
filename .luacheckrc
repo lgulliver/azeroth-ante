@@ -1,5 +1,7 @@
 std = "lua51"
 max_line_length = false
+-- WoW callbacks and hook stubs have fixed signatures, so unused arguments are expected.
+unused_args = false
 
 -- Globals the addon assigns to.
 globals = {
