@@ -10,7 +10,6 @@ local SELL_GAP = 22            -- room under the trinket row for the sell button
 local PANEL_LEVEL, PAUSE_LEVEL = 600, 900
 local RED = { 1, 0.25, 0.2 }
 local GREY = { 0.6, 0.6, 0.6 }
-local BLIND_NAMES = { "Small Blind", "Big Blind" }
 local BUY_ERRORS = { gold = "Not enough gold", slots = "Slots full", gone = "Sold out", pack = "Finish the open pack first" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local FLAT = "Interface\\Buttons\\WHITE8x8"
@@ -80,15 +79,6 @@ end
 local function setReason(b, reason)
   b.reason = reason
   if not reason and GameTooltip:GetOwner() == b then GameTooltip:Hide() end
-end
-
-local function box(parent, w, h)
-  local f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  f:SetSize(w, h)
-  f:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1 })
-  f:SetBackdropColor(0.15, 0.12, 0.1, 0.9)
-  f:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
-  return f
 end
 
 -- Clears the save and returns to the deck-selection screen.
@@ -173,14 +163,6 @@ end
 ---------------------------------------------------------------------------
 -- Blind
 
-local function blindName(run, blind)
-  if blind == 3 then
-    local boss = ns.Bosses.def[run.bosses[run.stage]]
-    return boss and boss.name or "Boss Blind"
-  end
-  return BLIND_NAMES[blind]
-end
-
 local function startBlind()
   local run = main().run
   if not run or run.phase ~= "blind" then return end
@@ -191,55 +173,14 @@ local function startBlind()
 end
 
 local function buildBlind()
-  local p = makePanel("blind", true)
-  p.stage = text(p, Theme.fonts.text, "TOP", 0, -42, 560, "CENTER")
-  Theme.setColor(p.stage, Theme.parchment)
-  p.label = text(p, Theme.fonts.big, "TOP", 0, -66, 560, "CENTER")
-  Theme.setColor(p.label, Theme.gold)
-  local tl = text(p, Theme.fonts.small, "TOP", 0, -106, 560, "CENTER")
-  tl:SetText("Score at least")
-  p.target = text(p, Theme.fonts.big, "TOP", 0, -122, 560, "CENTER")
-  p.rule = text(p, Theme.fonts.text, "TOP", 0, -156, 480, "CENTER")
-  p.rule:SetHeight(34)
-  p.rule:SetJustifyV("TOP")
-  Theme.setColor(p.rule, Theme.parchment)
-
-  p.preview = {}
-  local w, gap = 170, 10
-  local x0 = 618 / 2 - (3 * w + 2 * gap) / 2
-  for i = 1, 3 do
-    local b = box(p, w, 56)
-    b:SetPoint("TOPLEFT", p, "TOPLEFT", x0 + (i - 1) * (w + gap), -206)
-    b.name = text(b, Theme.fonts.small, "TOP", 0, -10, w - 12, "CENTER")
-    b.score = text(b, Theme.fonts.text, "TOP", 0, -30, w - 12, "CENTER")
-    p.preview[i] = b
-  end
-
-  p.start = button(p, "Start Blind", 160, 30, startBlind)
-  p.start:SetPoint("BOTTOM", p, "BOTTOM", 0, 20)
-  addAbandon(p)
-  return p
+  return ns.UI.BlindSelect.Build({
+    makePanel = makePanel, button = button, reasonTip = reasonTip, setReason = setReason,
+    addAbandon = addAbandon, start = startBlind,
+  })
 end
 
 local function refreshBlind(p, run)
-  p.title:SetText("Next Blind")
-  p.stage:SetText("Stage " .. run.stage .. " / 8")
-  p.label:SetText(blindName(run, run.blind))
-  local bossId = ns.Run.bossId(run)
-  local boss = bossId and ns.Bosses.def[bossId]
-  p.target:SetText(tostring(ns.Run.target(run.stage, run.blind, bossId)))
-  p.rule:SetText(boss and boss.desc or "")
-  for i = 1, 3 do
-    local b = p.preview[i]
-    local id = run.bosses[run.stage]
-    b.name:SetText(blindName(run, i))
-    b.score:SetText(tostring(ns.Run.target(run.stage, i, i == 3 and id or nil)))
-    local on = i == run.blind
-    local c = on and Theme.gold or { 0.4, 0.33, 0.2 }
-    b:SetBackdropBorderColor(c[1], c[2], c[3], 1)
-    Theme.setColor(b.name, on and Theme.gold or GREY)
-    Theme.setColor(b.score, on and Theme.gold or GREY)
-  end
+  ns.UI.BlindSelect.Refresh(p, run)
 end
 
 ---------------------------------------------------------------------------
@@ -818,6 +759,7 @@ function Screens.Show(name, run)
       ns.UI.TrinketRow.SetSellMode(false)
       m.buttons:Show()
       m.handArea:Show()
+      ns.UI.HandView.SetDeckShown(true)
       current = "play"
       ns.UI.EditionFX.Wake() -- the hand's shimmer resumes
     end
@@ -825,6 +767,7 @@ function Screens.Show(name, run)
   end
 
   local key = entry[1]
+  local previous = current
   local p = panels[key] or entry[2]()
   if entry[3] and (run or name == "newrun") then entry[3](p, run) end
   ns.UI.TrinketRow.SetSellMode(name == "shop", onSell)
@@ -839,10 +782,13 @@ function Screens.Show(name, run)
   m.buttons:Hide()
   -- The stale play hand sits under the panel: hidden, it neither shimmers nor takes clicks.
   m.handArea:Hide()
+  ns.UI.HandView.SetDeckShown(false) -- and so does the deck pile on the play area
   ns.UI.EditionFX.Wake()
   p:SetAlpha(0)
   p:Show()
   Tween.To(p, { alpha = 1 }, FADE)
+  -- The blind panels animate in; coming back from the shop they also settle.
+  if name == "blind" then ns.UI.BlindSelect.Enter(p, run, previous == "shop") end
 end
 
 ns.UI.Screens = Screens

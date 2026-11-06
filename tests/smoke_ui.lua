@@ -199,7 +199,7 @@ local function run(w)
   stub.advance(1)
   eq(Main.run.deckId, "ROGUE", "Play starts a run with the chosen deck")
   eq(env.AzerothAnteDB.profile.lastDeck, "ROGUE", "the last-played deck is stored")
-  check(Main.sidebar.targetLabel:IsShown() and Main.sidebar.chipsBox:IsShown() and Main.sidebar.deckButton:IsShown(), "round stats return in a run")
+  check(Main.sidebar.gold:IsShown() and Main.sidebar.deckButton:IsShown(), "run info returns in a run")
   check(not Main.sidebar.profileRuns:IsShown(), "profile totals hide in a run")
   check(Main.trinketRow:IsShown() and Main.consumableRow:IsShown(), "item rows return in a run")
   check(HandView.deck:GetTexture():find("Back_ROGUE", 1, true), "the deck pile uses the deck's back")
@@ -207,9 +207,109 @@ local function run(w)
   eq(CardWidget.BackPath("NOPE"):match("[^\\]+$"), "CardBack", "an unknown deck keeps the plain back")
   eq(Main.run.phase, "blind", "phase after Play")
   check(visible("preview"), "blind screen not visible")
-  click(panel("preview").start, "Start Blind")
+
+  -- 2-pre. The Balatro-style blind screen: three panels, states, rewards, boss rule, sidebar, stray card.
+  do
+    local bs = panel("preview")
+    local Tw = ns.UI.Tween
+    local function countText(t)
+      local n = 0
+      for _, f in ipairs(stub.frames) do
+        if f._text == t and f:IsVisible() then n = n + 1 end
+      end
+      return n
+    end
+    local function dollars(t) return select(2, t:gsub("%$", "")) end
+    -- mid-entrance: staggered, the last panel has not started yet
+    stub.advance(0.05)
+    check(Tw.Count() > 0 or bs.panels[1]:GetAlpha() == 1, "entrance tweens run")
+    stub.advance(1)
+    eq(Tw.Count(), 0, "panels finished animating in, nothing left running")
+    eq(#bs.panels, 3, "three blind panels")
+    local run0 = Main.run
+    run0.bosses[run0.stage] = "MUTANUS"
+    Main.Render(run0, true)
+    local want = { "CURRENT", "UPCOMING", "UPCOMING" }
+    for i = 1, 3 do
+      eq(bs.panels[i].state, want[i], "panel " .. i .. " state before blind 1")
+      eq(bs.panels[i].tag:GetText(), want[i], "panel " .. i .. " tag text")
+    end
+    eq(countText("Stage 1 of 8"), 1, "the stage header shows once")
+    eq(countText("Score at least"), 3, "one Score at least per panel, no centred duplicate")
+    eq(countText("Start Blind"), 0, "the bottom Start Blind button is gone")
+    eq(countText("Next Blind"), 0, "no Next Blind title")
+    check(bs.panels[1].play:IsVisible() and bs.panels[1].play:IsEnabled(), "current Play is live")
+    check(not (bs.panels[2].play:IsVisible() and bs.panels[2].play:IsEnabled()), "upcoming Play is disabled or hidden")
+    check(not (bs.panels[3].play:IsVisible() and bs.panels[3].play:IsEnabled()), "boss Play is disabled or hidden")
+    eq(bs.panels[1].target:GetText(), tostring(ns.Run.target(1, 1)), "small target")
+    eq(bs.panels[2].target:GetText(), tostring(ns.Run.target(1, 2)), "big target")
+    eq(bs.panels[3].target:GetText(), tostring(ns.Run.target(1, 3, "MUTANUS")), "Mutanus target matches Run.target")
+    eq(dollars(bs.panels[1].reward:GetText()), 3, "small reward $$$")
+    eq(dollars(bs.panels[2].reward:GetText()), 4, "big reward $$$$")
+    eq(dollars(bs.panels[3].reward:GetText()), 5, "boss reward $$$$$")
+    eq(bs.panels[3].name:GetText(), "Mutanus the Devourer", "boss name")
+    eq(bs.panels[3].rule:GetText(), ns.Bosses.def.MUTANUS.desc, "the boss rule text is shown")
+    eq(bs.panels[1].rule:GetText(), "", "small blind has no rule")
+    check(bs.panels[3].rule:IsVisible(), "boss rule is visible")
+    check(bs.panels[3].isBoss and not bs.panels[1].isBoss, "only the third panel is the boss")
+    check(bs.panels[3].chip:GetTexture():find("Chip_BOSS", 1, true), "boss chip texture")
+    check(bs.panels[1].chip:GetTexture():find("Chip_SMALL", 1, true), "small chip texture")
+    check(bs.panels[2].chip:GetTexture():find("Chip_BIG", 1, true), "big chip texture")
+    check(bs.panels[3].chip._vertex and bs.panels[3].chip._vertex[2] ~= bs.panels[3].chip._vertex[1], "boss chip is tinted")
+    local function lift(b) return select(5, b:GetPoint(1)) end
+    eq(lift(bs.panels[1]) - lift(bs.panels[2]), 10, "the current panel is lifted 10px")
+    check(bs.panels[1].glow:IsShown() and not bs.panels[2].glow:IsShown(), "only the current panel glows")
+    check(not bs.panels[1].stamp:IsShown(), "no DEFEATED stamp before beating anything")
+    -- sidebar: run info, no 0x0 boxes
+    local sb = Main.sidebar
+    check(not sb.chipsBox:IsShown() and not sb.multBox:IsShown() and not sb.xMark:IsShown(), "no 0 x 0 boxes on the blind screen")
+    check(not sb.blindName:IsShown() and not sb.target:IsShown() and not sb.score:IsShown()
+      and not sb.scoreLabel:IsShown() and not sb.targetLabel:IsShown(), "no duplicate blind, target or round score in the sidebar")
+    check(sb.deckName:IsShown() and sb.deckName:GetText() == "Rogue Deck", "sidebar shows the deck name")
+    check(sb.deckIcon:IsShown() and sb.deckIcon:GetTexture():find("Back_ROGUE", 1, true), "sidebar shows the deck's back icon")
+    eq(sb.hands:GetText(), "Hands: 4", "hands for the upcoming blind")
+    eq(sb.discards:GetText(), "Discards: 4", "discards for the upcoming blind")
+    eq(sb.gold:GetText(), "Gold: 4", "gold")
+    eq(sb.stage:GetText(), "Stage 1 / 8", "stage line")
+    check(sb.deckButton:IsShown(), "Deck button stays")
+    -- the stray deck pile is hidden outside play
+    check(not HandView.deck:IsShown(), "the stray deck pile is hidden on the blind screen")
+    -- empty trinket and consumable slots share one subtle look: no grey squares, no dragon icons
+    do
+      local t1, c1 = Main.trinketRow.slots[1], Main.consumableRow.slots[1]
+      check(t1.empty:IsShown() and t1.empty.isEmptySlot, "empty trinket slot shows the empty look")
+      check(not t1.icon:IsShown(), "no empty-slot icon in an empty trinket slot")
+      check(c1.empty:IsShown() and c1.empty.isEmptySlot, "empty consumable slot shows the empty look")
+      check(not c1.art:IsShown() and not c1.icon:IsShown(), "no art or icon in an empty consumable slot")
+      check(ns.UI.Theme.emptySlotEdgeAlpha > 0 and ns.UI.Theme.emptySlotEdgeAlpha <= 0.35, "the outline is low alpha")
+    end
+    -- boss overrides in the sidebar (look ahead at the boss blind)
+    run0.blind = 3
+    Main.Render(run0, true)
+    eq(sb.discards:GetText(), "Discards: 0", "Mutanus: no discards shown in the sidebar")
+    run0.bosses[run0.stage] = "ONYXIA"
+    Main.Render(run0, true)
+    eq(sb.hands:GetText(), "Hands: 1", "Onyxia: one hand shown in the sidebar")
+    eq(bs.panels[3].state, "CURRENT", "third panel current at blind 3")
+    eq(bs.panels[1].state, "DEFEATED", "first panel defeated at blind 3")
+    check(bs.panels[1].stamp:IsShown(), "stamp on a defeated panel")
+    check(not bs.panels[1].play:IsShown(), "no Play on a defeated panel")
+    eq(bs.panels[3].rule:GetText(), ns.Bosses.def.ONYXIA.desc, "boss rule follows the boss")
+    run0.blind = 1
+    run0.bosses[run0.stage] = "MUTANUS"
+    Main.Render(run0, true)
+  end
+  step("2-pre blind select panels, states, rewards, boss rule, sidebar info, stray pile")
+  click(panel("preview").start, "Play (current blind)")
   stub.advance(3)
-  eq(Main.run.phase, "play", "phase after Start Blind")
+  eq(Main.run.phase, "play", "phase after Play")
+  check(HandView.deck:IsShown(), "the deck pile shows in play")
+  do
+    local sb = Main.sidebar
+    check(sb.chipsBox:IsShown() and sb.multBox:IsShown() and sb.target:IsShown() and sb.score:IsShown(), "round stats in play")
+    check(not sb.deckName:IsShown() and not sb.deckIcon:IsShown(), "deck name and icon are blind-screen only")
+    eq(sb.stage:GetText(), "Stage 1 / 8 - Blind 1 / 3", "play keeps the stage and blind line")
+  end
   do
     local w = handWidgets()[1]
     w:SetFaceUp(false)
@@ -1212,6 +1312,30 @@ local function run(w)
   check(run.gold < gold, "the first click on Reroll still rerolls")
   check(not panel("use"):IsShown(), "and the same click closed the popover")
   click(shop.next, "Next Blind")
+  do -- the panels animate in and the new current one settles, the beaten one is stamped
+    local bs = panel("preview")
+    local Tw = ns.UI.Tween
+    eq(run.blind, 2, "second blind next")
+    check(Tw.Count() > 0, "the entrance animation is running")
+    stub.advance(0.03)
+    check(bs.panels[3]:GetAlpha() < 0.01, "the last panel has not faded in yet (staggered)")
+    stub.advance(0.1)
+    local a1, a3 = bs.panels[1]:GetAlpha(), bs.panels[3]:GetAlpha()
+    check(a1 > 0.3 and a1 < 1 and a3 < a1, "mid-entrance: fading in, staggered (" .. a1 .. ", " .. a3 .. ")")
+    check(not HandView.IsBusy() and not ns.UI.Tally.IsBusy(), "animation is not a busy hang")
+    stub.advance(0.2)
+    check(Tw.IsActive(bs.panels[2].body) or bs.panels[2].body:GetScale() > 1, "the new current panel pops")
+    check(bs.panels[1].stamp:IsShown(), "the beaten blind shows its DEFEATED stamp")
+    check(Tw.IsActive(bs.panels[1].stamp) or bs.panels[1].stamp:GetScale() ~= 1, "the stamp lands with a pop")
+    stub.advance(1)
+    eq(Tw.Count(), 0, "all panel tweens have finished")
+    local st = {}
+    for i = 1, 3 do st[i] = bs.panels[i].state end
+    eq(table.concat(st, ","), "DEFEATED,CURRENT,UPCOMING", "after beating blind 1")
+    eq(bs.panels[1].stamp:GetScale(), 1, "stamp settled")
+    eq(bs.panels[2].body:GetScale(), 1, "settle pop finished")
+    check(bs.panels[2].play:IsEnabled() and bs.panels[2].play:IsVisible(), "the current Play is clickable once its panel is in")
+  end
   stub.advance(1)
   eq(run.phase, "blind", "phase after Next Blind")
   check(visible("preview"), "blind screen visible after shop")

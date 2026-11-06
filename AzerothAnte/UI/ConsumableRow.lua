@@ -7,7 +7,6 @@ local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
 local FRAMES = { scroll = "Consumable_Scroll", tome = "Consumable_Tome", relic = "Consumable_Relic" }
 local KIND_NAMES = { scroll = "Scroll", tome = "Tome", relic = "Relic" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
-local EMPTY_COLOR = { 0.12, 0.1, 0.08, 0.7 }
 local MAX_SLOTS = 5
 local SLOT_W, SLOT_H, SLOT_GAP = 44, 62, 6   -- 5:7, like a card
 local ICON_SIZE = 26
@@ -113,9 +112,7 @@ local function makeSlot(i)
   holder:SetSize(SLOT_W, SLOT_H)
   holder:SetPoint("CENTER", slot, "CENTER")
   slot.holder = holder
-  slot.empty = holder:CreateTexture(nil, "BACKGROUND")
-  slot.empty:SetAllPoints()
-  slot.empty:SetColorTexture(EMPTY_COLOR[1], EMPTY_COLOR[2], EMPTY_COLOR[3], EMPTY_COLOR[4])
+  slot.empty = Theme.EmptySlot(holder)
   slot.art = holder:CreateTexture(nil, "ARTWORK")
   slot.art:SetAllPoints()
   slot.art:SetTexCoord(0, 1, 0, Theme.cardV)

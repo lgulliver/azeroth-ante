@@ -6,7 +6,6 @@ local TrinketRow = {}
 local MIN_SLOTS = 5 -- slots built up front; Run.trinketSlots grows it (Negative trinkets)
 local SLOT_SIZE = 44
 local SLOT_GAP = 8
-local EMPTY_ICON = "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
 local SELL_W, SELL_H = 44, 18 -- as wide as a slot, so sell buttons never overlap
 
 local sellMode, onSell = false, nil
@@ -60,10 +59,10 @@ local function makeSlot(frame, i)
   slot.holder = CreateFrame("Frame", nil, slot)
   slot.holder:SetSize(SLOT_SIZE, SLOT_SIZE)
   slot.holder:SetPoint("CENTER", slot, "CENTER")
+  slot.empty = Theme.EmptySlot(slot.holder)
   slot.icon = slot.holder:CreateTexture(nil, "ARTWORK")
   slot.icon:SetAllPoints()
-  slot.icon:SetTexture(EMPTY_ICON)
-  slot.icon:SetAlpha(0.4)
+  slot.icon:Hide()
   local sell = CreateFrame("Button", nil, slot, "UIPanelButtonTemplate")
   sell:SetSize(SELL_W, SELL_H)
   sell:SetPoint("TOP", slot, "BOTTOM", 0, -1)
@@ -110,13 +109,9 @@ function TrinketRow.Update(run)
     local def = entry and ns.Trinkets.def[entry.id]
     slot.def = def
     slot.trinket = entry
-    if def then
-      slot.icon:SetTexture(def.icon)
-      slot.icon:SetAlpha(1)
-    else
-      slot.icon:SetTexture(EMPTY_ICON)
-      slot.icon:SetAlpha(0.4)
-    end
+    slot.empty:SetShown(not def)
+    slot.icon:SetShown(def ~= nil)
+    if def then slot.icon:SetTexture(def.icon) end
     ns.UI.EditionFX.Attach(slot.holder, def and entry.ed or nil)
   end
   refreshSell()

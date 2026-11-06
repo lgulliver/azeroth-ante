@@ -492,6 +492,12 @@ end
 ---------------------------------------------------------------------------
 
 -- Wires the buttons and creates the deck image. Called once from Main.Create.
+-- The deck pile belongs to the play screen; the other screens hide it (it would
+-- show through their panels as a stray card).
+function HandView.SetDeckShown(shown)
+  if HandView.deck then HandView.deck:SetShown(shown and true or false) end
+end
+
 function HandView.Build(m)
   local deck = m.playArea:CreateTexture(nil, "ARTWORK")
   deck:SetSize(DECK_W, DECK_H)
