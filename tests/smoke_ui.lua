@@ -1690,7 +1690,7 @@ local function run(w)
     local PackView, DeckView = ns.UI.PackView, ns.UI.DeckView
     local bot = dofile("tools/sim/bot.lua")(ns)
     local started = os.clock()
-    local used = { consumables = 0, picks = 0, packs = 0, deck = 0, checked = 0 }
+    local used = { consumables = 0, picks = 0, packs = 0, deck = 0, checked = 0, vouchers = 0 }
     -- Real saves, counted through a wrapper (Screens saves via ns.Save.store).
     local storeCalls, realStore = 0, ns.Save.store
     ns.Save.store = function(...)
@@ -1785,6 +1785,7 @@ local function run(w)
       -- a Scroll and a trinket are always there to click, whatever the RNG dealt.
       if first then -- make sure the first shop has something of everything to click
         r.gold = 100
+        r.shopVoucher = { id = "GRABBER", cost = 10 } -- seeded so a voucher is always reachable
         r.shop.cards = {
           { type = "scroll", id = "GREED", cost = 3 }, -- untargeted: usable in the shop
           { type = "trinket", id = "BLOODLUST", cost = 4 },
@@ -1797,6 +1798,16 @@ local function run(w)
         click(panel("offerCards").offerCards[1].buy, "buy Greed")
         settle("buy Greed")
         eq(Main.run.consumables[1] and Main.run.consumables[1].id, "GREED", "bought Greed")
+        -- And a voucher, via the tile's own Buy button.
+        local goldBefore = Main.run.gold
+        local tile = panel("voucher").voucher
+        check(tile.buy:IsEnabled(), "voucher Buy is enabled")
+        click(tile.buy, "buy voucher")
+        settle("buy voucher")
+        check(Main.run.vouchers.GRABBER, "the voucher was bought")
+        eq(Main.run.gold, goldBefore - 10, "the voucher cost its price")
+        eq(Main.run.shopVoucher, false, "the voucher is sold out")
+        used.vouchers = 1
       end
       useConsumables(nil, "shop")
       if first then check(used.consumables >= 1, "the seeded shop's Scroll was used") end
@@ -1910,6 +1921,7 @@ local function run(w)
     check(used.consumables >= 1, "a consumable was used through the UI")
     check(used.packs >= 1 and used.picks >= 1, "a pack was opened and picked from")
     check(used.deck >= 1, "the deck view was used")
+    check(used.vouchers >= 1 and Main.run.vouchers.GRABBER, "a voucher was bought through the UI")
     check(used.checked > 10 and storeCalls >= used.checked, "the run saved after every checked action")
     ns.Save.store = realStore
     ns.Run.new = realNew
@@ -2314,7 +2326,7 @@ local function run(w)
     ns2.Run.nextBlind(run)
     m.Render(run, true)
     stub2.advance(1)
-    check(visible("preview"), "blind screen")
+    check(panel2("preview") and panel2("preview"):IsVisible(), "blind screen")
     bp = panel2("preview")
     boss = bp.panels[3]
     check(not boss.reroll:IsShown(), "still no boss reroll")
