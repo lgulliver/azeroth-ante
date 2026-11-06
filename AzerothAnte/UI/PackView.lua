@@ -404,7 +404,6 @@ local function layoutChoices(pack, fresh)
     local entry = entries[c]
     if entry and entry.item ~= item then
       releaseEntry(c)
-      entry = nil
     end
     if item then
       n = n + 1
@@ -536,7 +535,6 @@ local function doPick()
     return
   end
   local c = selectedChoice
-  local item = pack.choices[c]
   local entry = entries[c]
   local idx = PackView.Selected()
   busy = true

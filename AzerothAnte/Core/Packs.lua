@@ -76,7 +76,7 @@ function Packs.open(run, i)
   end
   local relicPool = {}
   if offer.type == "ARCANA" and ns.Vouchers.omenGlobe(run) then
-    for i, id in ipairs(ns.Relics.order) do relicPool[i] = id end
+    for k, id in ipairs(ns.Relics.order) do relicPool[k] = id end
   end
   local telescope
   if offer.type == "CELESTIAL" and ns.Vouchers.telescope(run) then
@@ -92,8 +92,8 @@ function Packs.open(run, i)
       item = { kind = "relic", id = table.remove(relicPool, ns.RNG.int(run.rng, 1, #relicPool)) }
     elseif c == 1 and telescope then
       item = { kind = "tome", id = telescope }
-      for i, id in ipairs(pool) do
-        if id == telescope then table.remove(pool, i); break end
+      for k, id in ipairs(pool) do
+        if id == telescope then table.remove(pool, k); break end
       end
     elseif kind then
       if #pool > 0 then

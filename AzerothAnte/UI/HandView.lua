@@ -201,8 +201,8 @@ function HandView.RefreshButtons()
   local run = HandView.run
   local sel = HandView.Selected()
   local playOk, playWhy, discOk, discWhy
-  local busy = HandView.IsBusy()
-  if busy then
+  local locked = HandView.IsBusy()
+  if locked then
     playOk, playWhy = false, "Resolving the hand..."
     discOk, discWhy = false, playWhy
   elseif not run then
@@ -214,8 +214,8 @@ function HandView.RefreshButtons()
   end
   setButton(buttons.play, playOk, playWhy)
   setButton(buttons.discard, discOk, discWhy)
-  local sortOk = (not busy) and run ~= nil and #list > 1
-  local sortWhy = busy and "Resolving the hand..." or "Nothing to sort."
+  local sortOk = (not locked) and run ~= nil and #list > 1
+  local sortWhy = locked and "Resolving the hand..." or "Nothing to sort."
   setButton(buttons.sortRank, sortOk, sortWhy)
   setButton(buttons.sortSuit, sortOk, sortWhy)
   updatePreview()
@@ -483,8 +483,8 @@ local function doPlay()
 
   local arrived = afterAll(#widgets, function()
     if myGen ~= gen then return end
-    local ok, err = pcall(HandView.OnPlayed, result, widgets, doneOnce, info)
-    if not ok then
+    local played, err = pcall(HandView.OnPlayed, result, widgets, doneOnce, info)
+    if not played then
       geterrorhandler()(err)
       doneOnce() -- a broken hook must not leave the board locked
     end
