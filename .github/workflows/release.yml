@@ -17,7 +17,9 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       # Builds AzerothAnte-<version>-forever.zip. The "-forever" suffix is how WowUp
       # matches a GitHub release asset to the Forever client.
@@ -34,6 +36,7 @@ jobs:
 
           mkdir -p dist
           cp -r AzerothAnte dist/AzerothAnte
+          cp LICENSE dist/AzerothAnte/LICENSE
 
           # The TOC lists Retail and Forever interfaces (120100, 120105, 16001).
           # Forever's is the five-digit one: 16001 -> game patch 1.60.1
@@ -45,9 +48,10 @@ jobs:
           fi
           patch=$(printf "%d.%d.%d" $((interface / 10000)) $((interface / 100 % 100)) $((interface % 100)))
 
+          # Any hyphenated tag is a pre-release, so it never ships to CurseForge as a release.
           case "$version" in
             *alpha*) stability=alpha ;;
-            *beta* | *rc*) stability=beta ;;
+            *-*) stability=beta ;;
             *) stability=release ;;
           esac
 
@@ -69,8 +73,13 @@ jobs:
         run: |
           flags=""
           case "$VERSION" in *-*) flags="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" "$ZIP" \
-            --title "$GITHUB_REF_NAME" --generate-notes $flags
+          # A re-run replaces the asset on the existing release instead of failing.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ZIP" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$ZIP" \
+              --title "$GITHUB_REF_NAME" --generate-notes $flags
+          fi
           gh release view "$GITHUB_REF_NAME" --json body --jq .body > "$NOTES_FILE"
 
       - name: Upload to CurseForge
