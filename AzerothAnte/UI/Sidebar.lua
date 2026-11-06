@@ -60,6 +60,18 @@ function Sidebar.Build(frame)
   x:SetPoint("LEFT", frame.chipsBox, "RIGHT", 0, 0)
   x:SetPoint("RIGHT", frame.multBox, "LEFT", 0, 0)
   x:SetText("X")
+  frame.xMark = x
+
+  -- Profile totals, shown instead of the round stats on the deck-select screen.
+  frame.profileTitle = fontString(frame, Theme.fonts.title, "TOPLEFT", m, -m, w)
+  frame.profileTitle:SetText("Your profile")
+  Theme.setColor(frame.profileTitle, Theme.gold)
+  local y = -52
+  for _, key in ipairs({ "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound" }) do
+    frame[key] = fontString(frame, Theme.fonts.text, "TOPLEFT", m, y, w)
+    Theme.setColor(frame[key], Theme.parchment)
+    y = y - 26
+  end
 
   frame.hands = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -250, w)
   frame.discards = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -272, w)
@@ -76,6 +88,26 @@ function Sidebar.Build(frame)
     ns.UI.DeckView.Toggle(ns.UI.Main and ns.UI.Main.run)
   end)
   frame.deckButton = deck
+end
+
+-- The round stats show during a run; the profile totals show on the deck-select screen.
+local ROUND_WIDGETS = { "blindName", "bossRule", "targetLabel", "target", "scoreLabel", "score", "chipsBox",
+  "multBox", "xMark", "handName", "hands", "discards", "gold", "stage", "deckButton" }
+local PROFILE_WIDGETS = { "profileTitle", "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound" }
+
+local function showGroup(frame, names, shown)
+  for _, key in ipairs(names) do
+    if frame[key] then frame[key]:SetShown(shown) end
+  end
+end
+
+local function showProfile(frame)
+  local t = ns.UI.DeckSelect.Totals()
+  frame.profileRuns:SetText("Runs: " .. t.runs)
+  frame.profileWins:SetText("Wins: " .. t.wins)
+  frame.profileBest:SetText("Best stage: " .. t.best)
+  frame.profileDecks:SetText("Decks unlocked: " .. t.decks .. "/" .. t.totalDecks)
+  frame.profileFound:SetText("Discovered: " .. t.found .. "/" .. t.totalFound)
 end
 
 -- chips and mult are optional (shown as 0 when nil), for live scoring display.
@@ -98,8 +130,13 @@ function Sidebar.Update(run, chips, mult)
     frame.targetLabel:SetText("Score at least")
     frame.deckButton:SetText("Deck (0)")
     ns.UI.DeckView.Hide()
+    showGroup(frame, ROUND_WIDGETS, false)
+    showGroup(frame, PROFILE_WIDGETS, true)
+    showProfile(frame)
     return
   end
+  showGroup(frame, ROUND_WIDGETS, true)
+  showGroup(frame, PROFILE_WIDGETS, false)
 
   local bossId = ns.Run.bossId(run)
   local boss = bossId and ns.Bosses.def[bossId]

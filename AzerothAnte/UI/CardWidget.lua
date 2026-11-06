@@ -47,6 +47,13 @@ CardWidget.LIFT_SELECTED = LIFT_SELECTED
 CardWidget.INKS = { deep = INK_DEEP, steel = INK_STEEL, light = INK_LIGHT }
 CardWidget.INDEX_INSET = INDEX_INSET
 
+-- The back texture for a deck: its own Back_<ID>, else the plain CardBack
+-- (ADVENTURER, an unknown deck or no run).
+function CardWidget.BackPath(deckId)
+  if deckId and deckId ~= "ADVENTURER" and ns.Decks.def[deckId] then return MEDIA .. "Back_" .. deckId end
+  return MEDIA .. "CardBack"
+end
+
 -- A widget is a Button (the fixed hit area, tweened for layout) holding a
 -- `body` (tweened for hover/selection lift) holding a `face` (scale pop). The
 -- hit area never moves with the lift, so hovering cannot flicker.
@@ -177,7 +184,13 @@ function Methods.SetDebuffed(w, debuffed)
 end
 
 function Methods.SetFaceUp(w, up)
-  if up then w.back:Hide() else w.back:Show() end
+  if up then
+    w.back:Hide()
+  else
+    local run = ns.UI.Main and ns.UI.Main.run
+    w.back:SetTexture(CardWidget.BackPath(run and run.deckId))
+    w.back:Show()
+  end
   ns.UI.EditionFX.SetShown(w.face, up and true or false)
 end
 
