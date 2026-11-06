@@ -369,6 +369,7 @@ local function complete(s)
   s.completed = true
   if state == s then state = nil end
   stop()
+  ns.UI.ConsumableRow.ClearPending()
   s.done()
 end
 
@@ -406,6 +407,7 @@ end
 local function abandon()
   state = nil
   stop()
+  ns.UI.ConsumableRow.ClearPending()
 end
 
 local function onUpdate(_, dt)
@@ -486,9 +488,15 @@ function Tally.Play(result, playedWidgets, done, info)
     at = at + step
   end
   -- What the hand changed or made comes after `total`, each step at most EXTRA apart.
-  local xstep = math.min(step, EXTRA)
+  local extras = planExtras(run, result, playedWidgets or {}, HandView.HeldWidgets(), info)
+  local xstep = math.min(step, EXTRA, 1.5 / math.max(1, #extras)) -- many made cards never add more than about 1.5s
+  local made = {}
+  for _, e in ipairs(extras) do
+    if e.kind == "consumableMade" then made[#made + 1] = e.item end
+  end
+  ns.UI.ConsumableRow.MarkPending(made) -- hidden until their own pop
   at = lastAt + step
-  for _, e in ipairs(planExtras(run, result, playedWidgets or {}, HandView.HeldWidgets(), info)) do
+  for _, e in ipairs(extras) do
     steps[#steps + 1] = { at = at, event = e }
     lastAt = at
     at = at + xstep

@@ -258,7 +258,7 @@ end
 
 local function onCardClick(w)
   local run = HandView.run
-  if busy or not run or run.phase ~= "play" then return end
+  if HandView.IsBusy() or not run or run.phase ~= "play" then return end
   if w.selected then
     w:SetSelected(false)
   else
