@@ -27,18 +27,23 @@ function Cards.chipValue(card)
   return card.rank
 end
 
-function Cards.isFace(card)
+function Cards.isFace(card, rules)
   if Cards.isStone(card) then return false end
-  return card.rank >= 11 and card.rank <= 13
+  return (rules and rules.PAREIDOLIA) or (card.rank >= 11 and card.rank <= 13)
 end
 
 function Cards.isStone(card)
   return card.enh == "STONE"
 end
 
-function Cards.hasSuit(card, suit)
+function Cards.hasSuit(card, suit, rules)
   if Cards.isStone(card) then return false end
-  return card.enh == "WILD" or card.suit == suit
+  if card.enh == "WILD" or card.suit == suit then return true end
+  if rules and rules.SMEARED then
+    local colors = { H = "red", D = "red", S = "black", C = "black" }
+    return colors[card.suit] ~= nil and colors[card.suit] == colors[suit]
+  end
+  return false
 end
 
 -- mode "rank": rank desc, then suit. mode "suit": suit, then rank desc.
