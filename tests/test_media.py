@@ -36,6 +36,7 @@ for _chip in CHIPS:
 
 EXPECTED["UI_Gradient.tga"] = (16, 64)
 EXPECTED["UI_Shadow.tga"] = (64, 64)
+EXPECTED["Icon.tga"] = (64, 64)
 
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0

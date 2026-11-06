@@ -7,6 +7,7 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 ### Added
 - CI: luacheck lint, the unit, UI smoke (30 seeds), syntax and media test suites, and a tag-driven release workflow that builds the `-forever` zip, publishes a GitHub release and uploads to CurseForge. Wago imports releases through a GitHub webhook.
 - MIT licence, contributing guide, issue and pull request templates.
+- Addon icon in the addon list, and the same art as the README logo.
 
 ## [0.6.0] - 2026-11-06
 
