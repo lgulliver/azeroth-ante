@@ -1,7 +1,7 @@
 local _, ns = ...
 
 -- Stages 1-7 each draw 7 distinct ids from pool. FINAL is stage 8.
--- debuff(card) -> bool: a debuffed card scores no chips and no trinket effects.
+-- debuff(card, rules) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count): a debuffed card scores no chips and no trinket effects.
 local Bosses = {}
 
 Bosses.pool = {
@@ -14,22 +14,22 @@ Bosses.def = {
   HOGGER = {
     id = "HOGGER", name = "Hogger", targetMult = 2,
     desc = "Face cards are debuffed.",
-    debuff = function(card) return ns.Cards.isFace(card) end,
+    debuff = function(card, rules) return ns.Cards.isFace(card, rules) and true or false end,
   },
   VANCLEEF = {
     id = "VANCLEEF", name = "Edwin VanCleef", targetMult = 2,
     desc = "Spades are debuffed.",
-    debuff = function(card) return ns.Cards.hasSuit(card, "S") end,
+    debuff = function(card, rules) return ns.Cards.hasSuit(card, "S", rules) end,
   },
   ARUGAL = {
     id = "ARUGAL", name = "Archmage Arugal", targetMult = 2,
     desc = "Hearts are debuffed.",
-    debuff = function(card) return ns.Cards.hasSuit(card, "H") end,
+    debuff = function(card, rules) return ns.Cards.hasSuit(card, "H", rules) end,
   },
   VAELASTRASZ = {
     id = "VAELASTRASZ", name = "Vaelastrasz the Corrupt", targetMult = 2,
     desc = "Diamonds are debuffed.",
-    debuff = function(card) return ns.Cards.hasSuit(card, "D") end,
+    debuff = function(card, rules) return ns.Cards.hasSuit(card, "D", rules) end,
   },
   MUTANUS = {
     id = "MUTANUS", name = "Mutanus the Devourer", targetMult = 2,

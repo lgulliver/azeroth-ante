@@ -223,9 +223,10 @@ function Run.discard(run, idx)
   local outcome = { created = {} }
   if ns.Consumables then
     local boss = ns.Bosses.def[Run.bossId(run) or ""]
+    local rules = ns.TrinketRules.set(run.trinkets)
     for _, index in ipairs(idx) do
       local card = run.hand[index]
-      local debuffed = boss and boss.debuff and boss.debuff(card)
+      local debuffed = boss and boss.debuff and boss.debuff(card, rules)
       if card.seal == "PURPLE" and not debuffed and #run.consumables < ns.Consumables.slots(run) then
         local item = ns.Consumables.random(run, "scroll")
         ns.Consumables.add(run, item)
@@ -264,8 +265,9 @@ function Run.winBlind(run)
     end
   end)
   local boss = ns.Bosses.def[Run.bossId(run)]
+  local rules = ns.TrinketRules.set(run.trinkets)
   for _, card in ipairs(run.hand) do
-    if not (boss and boss.debuff and boss.debuff(card)) then
+    if not (boss and boss.debuff and boss.debuff(card, rules)) then
       if card.enh == "GOLD" then
         payout.held = payout.held + ((card.seal == "RED") and 6 or 3)
       end

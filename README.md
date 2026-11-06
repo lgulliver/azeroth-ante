@@ -44,8 +44,8 @@ on the character-select AddOns screen until you set the right number.
    hands, or when your hand and deck are both empty with the blind still unbeaten.
 
 **Trinkets** come in 80 kinds (common, uncommon and rare). They score left to right, so order
-matters: drag a trinket left or right in the trinket row to reorder it. Blueprint copies the
-trinket to its right and Brainstorm copies the leftmost one; rule trinkets can't be copied.
+matters: drag a trinket left or right in the trinket row to reorder it. Engineering Schematic copies the
+trinket to its right and Mind Control copies the leftmost one; rule trinkets can't be copied.
 Hover a trinket for its live values and sell price.
 
 **Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.

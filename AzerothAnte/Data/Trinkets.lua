@@ -27,6 +27,29 @@ function Trinkets.create(run, id, ed, paid)
   return instance
 end
 
+-- A copy that keeps the original's state (Relic of Rebirth). Unlike create it never calls init,
+-- so a Zandalari Idol keeps its card and no RNG is drawn.
+local function deepCopy(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, x in pairs(v) do out[k] = deepCopy(x) end
+  return out
+end
+
+function Trinkets.duplicate(run, instance, ed)
+  local copy = { id = instance.id, ed = ed, paid = nil, sellBonus = instance.sellBonus or 0,
+    state = deepCopy(instance.state or {}), uid = run.nextTrinketUid }
+  run.nextTrinketUid = run.nextTrinketUid + 1
+  return copy
+end
+
+-- Description with "{N}" tokens replaced by N times the owner's probability multiplier
+-- (Loaded Dice), so "{1} in 2" reads "2 in 2" with one owned.
+function Trinkets.describe(def, run)
+  local trinkets = run and run.trinkets
+  return ((def.desc or ""):gsub("{(%d+)}", function(n) return tostring(ns.Prob.odds(trinkets, tonumber(n))) end))
+end
+
 function Trinkets.inPool(run, id)
   local def = Trinkets.def[id]
   if def and def.inPool then return def.inPool(run) and true or false end

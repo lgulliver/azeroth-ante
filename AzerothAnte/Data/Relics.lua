@@ -231,7 +231,7 @@ local def = {
     use = function(run, _, api)
       local trinkets = api.trinkets()
       local chosen = ns.RNG.pick(api.rng, trinkets)
-      local copy = ns.Trinkets.create(run, chosen.id, chosen.ed ~= "NEGATIVE" and chosen.ed or nil)
+      local copy = ns.Trinkets.duplicate(run, chosen, chosen.ed ~= "NEGATIVE" and chosen.ed or nil)
       for i = #trinkets, 1, -1 do
         if trinkets[i] ~= chosen then table.remove(trinkets, i) end
       end

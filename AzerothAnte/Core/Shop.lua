@@ -168,7 +168,9 @@ end
 function Shop.sellValue(trinket)
   local cost = trinket.paid
   if cost == nil then
-    cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
+    local def = ns.Trinkets.def[trinket.id]
+    -- An id dropped from the game still sells, for the floor.
+    cost = def and (def.cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)) or 0
   end
   return math.max(1, math.floor(cost / 2)) + (trinket.sellBonus or 0)
 end
