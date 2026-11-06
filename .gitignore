@@ -1,2 +1,7 @@
 .superpowers/
 __pycache__/
+.claude/
+.remember/
+dist/
+*.swp
+.DS_Store
