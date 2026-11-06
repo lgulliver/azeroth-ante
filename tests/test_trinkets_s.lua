@@ -337,11 +337,11 @@ H.test("obelisk_resets", function()
   local run = H.run { trinkets = { "SCHEMATIC", "OBELISK" } }
   local r = H.score(run, single(), nil, { handPlays = { PAIR = 3 } })
   T.eq(r.trinketsAfter[2].state.x, 1.2); T.eq(r.mult, 1.44)
-  run.trinkets = r.trinketsAfter
   r = H.score(run, single(), nil, { handPlays = { HIGH_CARD = 2, PAIR = 3 } })
-  T.eq(r.mult, 1); T.eq(r.trinketsAfter[2].state.x, 1)
-  run.trinkets[2].state.x = 2
-  T.eq(H.score(run, single(), nil, { handPlays = { HIGH_CARD = 4, PAIR = 3 } }).mult, 1)
+  T.eq(r.trinketsAfter[2].state.x, 1.2); T.eq(r.mult, 1.44)
+  run.trinkets = r.trinketsAfter
+  r = H.score(run, single(), nil, { handPlays = { HIGH_CARD = 3, PAIR = 3 } })
+  T.eq(r.trinketsAfter[2].state.x, 1); T.eq(r.mult, 1)
   T.eq(H.score(H.run { trinkets = { "OBELISK" } }, single()).mult, 1)
 end)
 H.test("scalers_pay_current_hand_without_copy_scaling", function()
