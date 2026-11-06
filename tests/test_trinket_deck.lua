@@ -274,3 +274,14 @@ H.test("v5_mid_shop_save_migrates", function()
   T.eq(loaded.startDeckSize, 52)
   T.eq(loaded.handsPlayedRound, 0)
 end)
+
+T.test("bot_prefers_scoring_common_over_economy_rare", function()
+  local bot = dofile("tools/sim/bot.lua")(ns)
+  T.ok(ns.Trinkets.def.ARCANE_INTELLECT.onHand, "fixture must be a scoring trinket")
+  -- A stand-in economy rare (interest only), removed again afterwards.
+  ns.Trinkets.def.TEST_ECON_RARE = { id = "TEST_ECON_RARE", rarity = "rare", interestBonus = 1 }
+  local scoring = bot.trinketWeight({ id = "ARCANE_INTELLECT" })
+  local econ = bot.trinketWeight({ id = "TEST_ECON_RARE" })
+  ns.Trinkets.def.TEST_ECON_RARE = nil
+  T.ok(scoring > econ, "scoring common " .. scoring .. " vs economy rare " .. econ)
+end)
