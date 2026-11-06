@@ -94,7 +94,7 @@ local function fill(row, id)
   row.done = done
   row.name:SetText(def.name)
   row.cond:SetText(def.desc)
-  row.unlocks:SetText((done and "Unlocked: " or "Unlocks: ") .. ns.Vouchers.def[def.unlocks].desc)
+  row.unlocks:SetText((done and "Unlocked: " or "Unlocks: ") .. ns.Vouchers.def[def.unlocks].name)
   local text = (BEST[id] and "best: " or "") .. math.min(shown, need) .. " / " .. need
   if need == 1 and not def.counter then text = done and "Done" or "Not yet" end
   row.count:SetText(text)

@@ -2187,7 +2187,7 @@ local function run(w)
     eq(#av.rows, 16, "16 rows")
     for _, row in ipairs(av.rows) do
       check(row.name:GetText() and row.cond:GetText() and row.count:GetText(), "row has name, condition and progress")
-      check(row.unlocks:GetText():find("Unlocks: ", 1, true), "locked row names what it unlocks")
+      eq(row.unlocks:GetText(), "Unlocks: " .. ns2.Vouchers.def[row.id].name, "locked row names the voucher it unlocks")
     end
     check(av.rows[1].count:GetText():find("0 / 2500", 1, true), "progress shows have / need")
     for _, row in ipairs(av.rows) do
@@ -2227,20 +2227,23 @@ local function run(w)
 
     -- A discount shows the discounted price with the original struck through.
     run.vouchers.CLEARANCE_SALE = true
-    run.shopVoucher = { id = offer.id }
-    if offer.id == "CLEARANCE_SALE" then run.vouchers.CLEARANCE_SALE = nil end
+    run.shopVoucher = { id = "OVERSTOCK", cost = 10 }
+    offer, def = run.shopVoucher, ns2.Vouchers.def.OVERSTOCK
     m.Render(run, true)
     local discount = ns2.Vouchers.price(run, def.cost)
-    if run.vouchers.CLEARANCE_SALE then
-      eq(discount, 8, "25% off 10")
-      eq(v.price:GetText(), "8g", "discounted price")
-      eq(v.orig:GetText(), "10g", "original price")
-      check(v.orig:IsShown() and v.strike:IsShown(), "original is struck through")
-      for i = 1, 2 do
-        local item = run.shop.cards[i]
-        if item then eq(shop.offerCards[i].cost:GetText(), item.cost .. "g", "card price label is the discounted price") end
+    eq(discount, 8, "25% off 10")
+    eq(v.price:GetText(), "8g", "discounted price")
+    eq(v.orig:GetText(), "10g", "original price")
+    check(v.orig:IsShown() and v.strike:IsShown(), "original is struck through")
+    local priced = 0
+    for i = 1, 2 do
+      local item = run.shop.cards[i]
+      if item then
+        priced = priced + 1
+        eq(shop.offerCards[i].cost:GetText(), item.cost .. "g", "card price label is the discounted price")
       end
     end
+    check(priced > 0, "a card was priced")
 
     -- A reroll keeps the voucher; the pack gate and gold gate give reasons.
     local before = run.shopVoucher
@@ -2262,13 +2265,18 @@ local function run(w)
     stub2.advance(2)
     check(not v.ghost:IsShown() and not v.content:IsShown(), "the coupon fades away")
     check(v.soldBox:IsShown() and v.soldBox:GetAlpha() == 1, "Sold out this stage shows")
+    run.shopVoucher = nil
+    m.Render(run, true)
+    eq(v.soldBox.text:GetText(), "No voucher this stage", "nil offer says so")
+    run.shopVoucher = false
+    m.Render(run, true)
     eq(v.soldBox.text:GetText(), "Sold out this stage", "sold text")
     -- The sidebar row lists it, with a tooltip.
     local owned = {}
     for _, icon in ipairs(m.sidebar.voucherIcons) do
       if icon:IsShown() then owned[#owned + 1] = icon end
     end
-    eq(#owned, run.vouchers.CLEARANCE_SALE and offer.id ~= "CLEARANCE_SALE" and 2 or 1, "owned icons")
+    eq(#owned, 2, "owned icons")
     local icon
     for _, i in ipairs(owned) do if i.id == offer.id then icon = i end end
     check(icon, "an icon for the bought voucher")
