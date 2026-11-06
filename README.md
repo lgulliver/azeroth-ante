@@ -127,7 +127,7 @@ same `BASE_TARGETS`: ROGUE 19.0%, WARRIOR 26.5%, GOBLIN 20.9%, MONK 23.3%, WARLO
 swing a lot (WARLOCK ranged 4.0% to 11.0%, ROGUE 13.5% to 24.5%), so judge by the mean. The bot scores
 trinket offers as rarity plus 3 for any scoring hook, and skips rule, interest and round-end trinkets while a
 scoring one is affordable. Four decks sit inside the intended 8-45% band; WARLOCK's mean of 7.4% is just
-below it. The targets are unchanged pending a balance decision.
+below it, and is accepted on purpose: Warlock unlocks last, so it is meant to be the hardest deck.
 
 ## In-game test checklist
 
