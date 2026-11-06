@@ -255,13 +255,11 @@ function Sidebar.Update(run, chips, mult)
     layoutRows(frame, "blind")
     showGroup(frame, BLIND_WIDGETS, true)
     local deck = ns.Decks.def[run.deckId]
-    local bossId = run.bosses and run.bosses[run.stage]
-    local boss = run.blind == 3 and bossId and ns.Bosses.def[bossId] or nil
     frame.deckName:SetText(deck and deck.name or "")
     frame.deckIcon:SetTexture(ns.UI.CardWidget.BackPath(run.deckId))
     -- Hands and discards the upcoming blind will start with (a boss may override them).
-    frame.hands:SetText("Hands: " .. tostring((boss and boss.hands) or (deck and deck.hands) or 0))
-    frame.discards:SetText("Discards: " .. tostring(boss and boss.discards or (deck and deck.discards) or 0))
+    frame.hands:SetText("Hands: " .. ns.Run.blindHands(run))
+    frame.discards:SetText("Discards: " .. ns.Run.blindDiscards(run))
     frame.gold:SetText("Gold: " .. tostring(run.gold or 0))
     frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8")
     frame.deckButton:SetText("Deck (" .. #(run.deck or {}) .. ")")

@@ -180,6 +180,29 @@ T.test("v2_save_migrates", function()
   T.eq(ns.Run.play(loaded, { 1 }), ns.Run.play(control, { 1 }))
 end)
 
+T.test("v2_save_in_shop_gets_a_voucher", function()
+  local run = ns.Run.new(7, "ROGUE")
+  ns.Run.startBlind(run)
+  ns.Run.winBlind(run)
+  T.eq(run.phase, "shop")
+  run.shopVoucher = nil
+  local db = {}
+  ns.Save.store(db, run)
+  db.version = 2
+  local loaded = ns.Save.load(db)
+  T.ok(type(loaded.shopVoucher) == "table" and ns.Vouchers.def[loaded.shopVoucher.id] ~= nil, "a voucher was rolled")
+  -- Outside the shop it stays unset, and an existing offer is kept.
+  local play = ns.Run.new(7, "ROGUE")
+  ns.Run.startBlind(play)
+  ns.Save.store(db, play)
+  db.version = 2
+  T.eq(ns.Save.load(db).shopVoucher, nil)
+  run.shopVoucher = false
+  ns.Save.store(db, run)
+  db.version = 2
+  T.eq(ns.Save.load(db).shopVoucher, false)
+end)
+
 T.test("v3_save_preserves_voucher_state", function()
   local run = ns.Run.new(7, "ROGUE")
   run.vouchers.BLANK = true
