@@ -23,9 +23,10 @@ local settle               -- { uid, x, scale }: the slot just dropped, which Up
 local function Tween() return ns.UI.Tween end -- loads after this file
 
 local function locked()
-  local HandView, Tally = ns.UI.HandView, ns.UI.Tally
-  return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy())
+  local HandView, Tally, LC = ns.UI.HandView, ns.UI.Tally, ns.UI.Lifecycle
+  return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy()) or (LC and LC.IsBusy()) or false
 end
+local lastLocked = false -- what the sell buttons last showed, so a change of state refreshes them
 
 local function slotX(i) return (i - 1) * pitch end
 
@@ -58,16 +59,19 @@ local function showTooltip(slot)
   GameTooltip:Show()
 end
 
--- Shows an "Ng" sell button under each owned trinket while sell mode is on.
+-- Shows an "Ng" sell button under each owned trinket while sell mode is on; they are
+-- disabled while a hand resolves or lifecycle events play.
 local function refreshSell()
   local frame = ns.UI.Main and ns.UI.Main.trinketRow
   if not frame or not frame.slots then return end
+  lastLocked = locked()
   for i = 1, #frame.slots do
     local slot = frame.slots[i]
     if sellMode and slot.def and slot:IsShown() and not (press and press.active) then
       slot.sell.price = ns.Shop.sellValue(slot.trinket)
       slot.sell:SetText(slot.sell.price .. "g")
       slot.sell.trinketId = slot.def.id -- identity captured at render time
+      if lastLocked then slot.sell:Disable() else slot.sell:Enable() end
       slot.sell:Show()
     else
       slot.sell:Hide()
@@ -250,6 +254,10 @@ function TrinketRow.Build(frame)
   frame:SetScript("OnHide", function()
     GameTooltip:Hide()
     if press then endPress(press) end
+  end)
+  -- Sell buttons follow the lock (a hand starting or ending does not re-render the row).
+  frame:SetScript("OnUpdate", function()
+    if sellMode and locked() ~= lastLocked then refreshSell() end
   end)
   for i = 1, MIN_SLOTS do makeSlot(frame, i) end
 end

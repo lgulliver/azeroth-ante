@@ -3,6 +3,7 @@ local _, ns = ...
 local Theme = ns.UI.Theme
 local Sidebar = {}
 
+local RED = { 1, 0.25, 0.2 }
 local BLIND_NAMES = { "Small Blind", "Big Blind" }
 local ICON_W, ICON_H = 40, math.floor(40 * 7 / 5 + 0.5) -- a card back, 5:7
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
@@ -220,6 +221,18 @@ local function showProfile(frame)
   frame.achievementsButton:SetText("Achievements (" .. have .. " / " .. total .. ")")
 end
 
+-- Gold below zero (Credit Card) reads "-Ng" in red.
+local function setGold(frame, gold)
+  gold = gold or 0
+  if gold < 0 then
+    frame.gold:SetText("Gold: " .. gold .. "g")
+    Theme.setColor(frame.gold, RED)
+  else
+    frame.gold:SetText("Gold: " .. gold)
+    Theme.Value(frame.gold, true)
+  end
+end
+
 -- chips and mult are optional (shown as 0 when nil), for live scoring display.
 function Sidebar.Update(run, chips, mult)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
@@ -260,7 +273,7 @@ function Sidebar.Update(run, chips, mult)
     -- Hands and discards the upcoming blind will start with (a boss may override them).
     frame.hands:SetText("Hands: " .. ns.Run.blindHands(run))
     frame.discards:SetText("Discards: " .. ns.Run.blindDiscards(run))
-    frame.gold:SetText("Gold: " .. tostring(run.gold or 0))
+    setGold(frame, run.gold)
     frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8")
     frame.deckButton:SetText("Deck (" .. #(run.deck or {}) .. ")")
     ns.UI.DeckView.Refresh(run)
@@ -293,7 +306,7 @@ function Sidebar.Update(run, chips, mult)
   frame.handName:SetText("")
   frame.hands:SetText("Hands: " .. tostring(run.handsLeft or 0))
   frame.discards:SetText("Discards: " .. tostring(run.discardsLeft or 0))
-  frame.gold:SetText("Gold: " .. tostring(run.gold or 0))
+  setGold(frame, run.gold)
   frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8 - Blind " .. tostring(run.blind or 1) .. " / 3")
   frame.deckButton:SetText("Deck (" .. #(run.deck or {}) .. ")")
   ns.UI.DeckView.Refresh(run)

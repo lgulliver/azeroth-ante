@@ -43,6 +43,7 @@ UI\DeckView.lua
 UI\HandView.lua
 UI\Outcome.lua
 UI\Tally.lua
+UI\Lifecycle.lua
 UI\DeckSelect.lua
 UI\AchievementsView.lua
 UI\Toast.lua

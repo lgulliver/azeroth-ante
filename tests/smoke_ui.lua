@@ -2467,6 +2467,312 @@ local function run(w)
       eq(n, 2, "two paying trinkets give two lines")
     end
     step("round_end_lines")
+
+    -- Lifecycle and economy UI (wave 2). Stub trinkets stand in for the real ones; each world is
+    -- discarded afterwards, and the stubs are removed from its registry anyway.
+    local function stubDef(ns2, def)
+      def.name, def.rarity, def.cost = def.name or def.id, "common", def.cost or 4
+      def.icon = def.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+      ns2.Trinkets.add(def)
+    end
+    local function unstub(ns2, defs)
+      for _, def in ipairs(defs) do
+        ns2.Trinkets.def[def.id] = nil
+        for i, o in ipairs(ns2.Trinkets.order) do
+          if o == def.id then table.remove(ns2.Trinkets.order, i) break end
+        end
+      end
+    end
+    -- A fresh world with a run in `phase` ("blind" or "play") owning `ids` (stub `defs` registered first).
+    local function lifeBoard(ids, phase, defs)
+      local w2, open2, panel2, m = boot({})
+      local ns2, stub2 = w2.ns, w2.stub
+      for _, def in ipairs(defs or {}) do stubDef(ns2, def) end
+      open2()
+      local r = ns2.Run.new(SMOKE_SEED, "ROGUE")
+      for _, id in ipairs(ids) do r.trinkets[#r.trinkets + 1] = ns2.Trinkets.create(r, id) end
+      if phase == "play" then
+        ns2.Run.startBlind(r)
+        r.target = 1e9
+      end
+      m.SetRun(r)
+      stub2.advance(3)
+      return w2, panel2, m, r
+    end
+    local function handCount(m)
+      local n = 0
+      for _, c in ipairs(m.handArea._children) do
+        if c.card and not c.released and c:IsShown() then n = n + 1 end
+      end
+      return n
+    end
+    local function overlayOf(m)
+      for _, c in ipairs(m.content._children) do
+        if c.lifecycleOverlay and c:IsShown() then return c end
+      end
+    end
+    local SMALLHAND = { id = "S_SMALLHAND", handSize = -2 } -- selling it grows the hand
+    local function killer()
+      return { id = "S_KILLER", onBlindSelect = function(run)
+        return { msg = "Boom!", destroyTrinket = run.trinkets[2].uid, createTrinkets = { rarity = "common", n = 2 } }
+      end }
+    end
+
+    do -- sell_trinket_mid_blind
+      local defs = { SMALLHAND }
+      local w2, panel2, m, r = lifeBoard({ "S_SMALLHAND", "FLIGHT_PATH" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      eq(#r.hand, 6, "the hand starts at the stub's smaller size")
+      eq(handCount(m), 6, "six card widgets")
+      local slot1 = m.trinketRow.slots[1]
+      check(slot1.sell:IsVisible(), "sell buttons show in a blind")
+      local gold, uid2 = r.gold, r.trinkets[2].uid
+      click(slot1.sell, "sell in a blind")
+      stub2.advance(1)
+      check(r.gold > gold, "selling in a blind refunds gold")
+      eq(#r.trinkets, 1, "one trinket left")
+      eq(m.trinketRow.slots[1].def.id, "FLIGHT_PATH", "the row closed the gap")
+      eq(m.trinketRow.slots[1].trinket.uid, uid2, "the survivor is the same instance")
+      check(m.trinketRow.slots[2].def == nil, "the sold slot is gone")
+      eq(#r.hand, 8, "the hand refilled to the new size")
+      eq(handCount(m), 8, "the hand view shows eight cards")
+      eq(m.sidebar.gold:GetText(), "Gold: " .. r.gold, "the sidebar shows the new gold")
+      check(m.trinketRow.slots[1].sell:IsVisible(), "sell stays available after a sell")
+      unstub(ns2, defs)
+    end
+    step("sell_trinket_mid_blind")
+
+    do -- sell_locked_during_tally
+      local w2, panel2, m, r = lifeBoard({ "FLIGHT_PATH", "SCHEMATIC" }, "play")
+      local stub2, ns2 = w2.stub, w2.ns
+      local slots = m.trinketRow.slots
+      check(slots[1].sell:IsEnabled(), "sell is live while idle")
+      startTally(w2, panel2, m)
+      stub2.advance(0.05)
+      check(not slots[1].sell:IsEnabled(), "sell is disabled during the tally")
+      slots[1].sell:Click()
+      slots[1].sell._scripts.OnClick(slots[1].sell)
+      eq(#r.trinkets, 2, "a click during the tally sells nothing")
+      local waited = 0
+      while ns2.UI.Tally.IsBusy() and waited < 20 do
+        stub2.advance(0.1)
+        waited = waited + 0.1
+      end
+      stub2.advance(1)
+      check(slots[1].sell:IsEnabled(), "sell is live again after the tally")
+      click(slots[1].sell, "sell after the tally")
+      stub2.advance(1)
+      eq(#r.trinkets, 1, "and sells")
+    end
+    step("sell_locked_during_tally")
+
+    do -- blind_select_destroy_and_create
+      local defs = { killer() }
+      local w2, panel2, m, r = lifeBoard({ "S_KILLER", "FLIGHT_PATH" }, "blind", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      local LC = ns2.UI.Lifecycle
+      check(LC and not LC.IsBusy(), "the lifecycle player exists and is idle")
+      local victim = r.trinkets[2].uid
+      click(panel2("preview").start, "Start Blind")
+      eq(r.phase, "play", "the blind started")
+      eq(#r.trinkets, 3, "the engine destroyed one and created two")
+      check(LC.IsBusy(), "the events are playing")
+      local row = m.trinketRow
+      eq(row.slots[2].trinket.uid, victim, "the destroyed trinket is still shown while it melts")
+      local seenBoom, minAlpha, minScale, waited = false, 1, 1, 0
+      while LC.IsBusy() and waited < 5 do
+        stub2.advance(0.03)
+        waited = waited + 0.03
+        seenBoom = seenBoom or stub2.findText("Boom!") ~= nil
+        for i = 1, 3 do
+          if row.slots[i].trinket and row.slots[i].trinket.uid == victim then
+            minAlpha = math.min(minAlpha, row.slots[i].holder:GetAlpha())
+          end
+          if row.slots[i].trinket and i >= 2 and row.slots[i].trinket.uid ~= victim then
+            minScale = math.min(minScale, row.slots[i].holder:GetScale())
+          end
+        end
+      end
+      check(waited < 2, "the queue drains in about queue length x 0.25s: " .. waited)
+      check(seenBoom, "the message floated")
+      check(minAlpha < 1, "the destroyed slot faded")
+      check(minScale < 1, "a created slot popped in")
+      stub2.advance(0.5)
+      eq(row.slots[1].def.id, "S_KILLER", "the killer stays in slot 1")
+      check(row.slots[2].def and row.slots[3].def, "two new trinkets fill slots 2 and 3")
+      check(row.slots[2].trinket.uid ~= victim and row.slots[3].trinket.uid ~= victim, "the victim is gone")
+      for i = 1, 3 do
+        eq(row.slots[i].holder:GetAlpha(), 1, "slot " .. i .. " is fully visible")
+        eq(row.slots[i].holder:GetScale(), 1, "slot " .. i .. " is full size")
+        check(row.slots[i].trinket == r.trinkets[i], "slot " .. i .. " shows the live instance")
+      end
+      eq(#r.lifecycleEvents, 0, "the events were drained")
+      eq(handCount(m), #r.hand, "the hand is dealt")
+      check(m.handArea:IsShown(), "the play screen is up")
+      unstub(ns2, defs)
+    end
+    step("blind_select_destroy_and_create")
+
+    do -- lifecycle_click_speeds_up
+      local defs = { killer() }
+      local w2, panel2, m = lifeBoard({ "S_KILLER", "FLIGHT_PATH" }, "blind", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      click(panel2("preview").start, "Start Blind")
+      stub2.advance(0.1)
+      check(ns2.UI.Lifecycle.IsBusy(), "still playing")
+      local ov = overlayOf(m)
+      check(ov, "a click catcher covers the table while events play")
+      ov:Click()
+      stub2.advance(0.4)
+      check(not ns2.UI.Lifecycle.IsBusy(), "a click speeds the queue up")
+      unstub(ns2, defs)
+    end
+    step("lifecycle_click_speeds_up")
+
+    do -- saved_payout_line
+      local defs = { { id = "S_BONES", onLose = function(run)
+        if run.score * 4 >= run.target then return { save = true, destroySelf = true, msg = "Saved!" } end
+      end } }
+      local w2, panel2, m, r = lifeBoard({ "S_BONES" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      r.target, r.score, r.hand, r.pile = 300, 80, {}, {}
+      ns2.Run.checkHand(r)
+      eq(r.phase, "shop", "Bones saved the blind")
+      m.Render(r, true)
+      stub2.advance(1)
+      local shop = panel2("offerCards")
+      eq(shop.payout.reward.label:GetText(), "Saved by S_BONES", "the reward line names the saver")
+      check(not shop.payout.reward.value:IsShown(), "and shows no reward amount")
+      local sum = 0
+      for key, row in pairs(shop.payout) do
+        if key ~= "total" and row.label:IsShown() and row.value:IsShown() then
+          sum = sum + tonumber(row.value:GetText():match("%d+"))
+        end
+      end
+      eq(sum, tonumber(shop.payout.total.value:GetText():match("%d+")), "the other lines still add up to Total")
+      unstub(ns2, defs)
+      -- A normal win keeps the ordinary line.
+      local w3, panel3, m3, r3 = lifeBoard({}, "play")
+      w3.ns.Run.winBlind(r3)
+      m3.Render(r3, true)
+      w3.stub.advance(1)
+      eq(panel3("offerCards").payout.reward.label:GetText(), "Blind reward", "a normal win says Blind reward")
+      check(panel3("offerCards").payout.reward.value:IsShown(), "with its amount")
+    end
+    step("saved_payout_line")
+
+    do -- free_reroll_label
+      local defs = { { id = "S_CHAOS", rule = "CHAOS", cost = 4 } }
+      local w2, panel2, m, r = lifeBoard({ "S_CHAOS" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      ns2.Run.winBlind(r)
+      m.Render(r, true)
+      stub2.advance(1)
+      local shop = panel2("offerCards")
+      eq(r.shop.freeRerolls, 1, "Chaos gives a free reroll")
+      r.gold = 0
+      m.Render(r, true)
+      stub2.advance(0.5)
+      eq(shop.reroll:GetText(), "Reroll (free)", "the button says free")
+      check(shop.reroll:IsEnabled(), "a free reroll works with no gold")
+      click(shop.reroll, "free reroll")
+      stub2.advance(1)
+      eq(r.shop.freeRerolls, 0, "the free reroll was used")
+      eq(r.gold, 0, "and cost nothing")
+      check(shop.reroll:GetText() ~= "Reroll (free)", "the label reverts")
+      check(not shop.reroll:IsEnabled(), "a paid reroll needs gold")
+      unstub(ns2, defs)
+    end
+    step("free_reroll_label")
+
+    do -- negative_gold_display
+      local defs = { { id = "S_CC", rule = "CREDIT_CARD", cost = 4 } }
+      local w2, panel2, m, r = lifeBoard({ "S_CC" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      ns2.Run.winBlind(r)
+      m.Render(r, true)
+      stub2.advance(1)
+      local shop = panel2("offerCards")
+      r.gold = 2
+      r.shop.cards[1] = { type = "card", rank = 7, suit = "S", cost = 5, baseCost = 5 }
+      r.shop.cards[2] = { type = "card", rank = 8, suit = "S", cost = 0, baseCost = 0 }
+      m.Render(r, true)
+      stub2.advance(0.5)
+      check(shop.offerCards[1].buy:IsEnabled(), "Credit Card lets a 5g buy go through at 2g")
+      check(shop.offerCards[2].buy:IsEnabled(), "a 0g offer is always affordable")
+      click(shop.offerCards[1].buy, "overdraw")
+      stub2.advance(1)
+      eq(r.gold, -3, "the buy overdrew")
+      eq(m.sidebar.gold:GetText(), "Gold: -3g", "negative gold shows as -Ng")
+      local c = m.sidebar.gold._textColor
+      check(c and c[1] > 0.9 and c[2] < 0.4 and c[3] < 0.4, "in red")
+      r.gold = 7
+      m.Render(r, true)
+      eq(m.sidebar.gold:GetText(), "Gold: 7", "positive gold is plain again")
+      local c2 = m.sidebar.gold._textColor
+      check(c2 and not (c2[2] < 0.4), "and not red")
+      -- Without the card the same buy is blocked.
+      r.trinkets = {}
+      r.gold = 2
+      r.shop.cards[1] = { type = "card", rank = 9, suit = "S", cost = 5, baseCost = 5 }
+      m.Render(r, true)
+      stub2.advance(0.5)
+      check(not shop.offerCards[1].buy:IsEnabled(), "no Credit Card, no overdraft")
+      unstub(ns2, defs)
+    end
+    step("negative_gold_display")
+
+    do -- discard_and_play_drain
+      local defs = {
+        { id = "S_DISC", onDiscard = function() return { msg = "Swish!", destroySelf = true } end },
+        { id = "S_SAVE", onLose = function() return { save = true, destroySelf = true, msg = "Saved!" } end },
+      }
+      local function firstCard(m)
+        local ws = {}
+        for _, c in ipairs(m.handArea._children) do
+          if c.card and not c.released and c:IsShown() then ws[#ws + 1] = c end
+        end
+        table.sort(ws, function(a, b) return a._points[1][4] < b._points[1][4] end)
+        return ws[1]
+      end
+      -- A discard plays onDiscard's events, then the row ends correct.
+      local w2, panel2, m, r = lifeBoard({ "S_DISC", "FLIGHT_PATH" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      firstCard(m):Click()
+      m.buttons.discard:Click()
+      local seen, waited = false, 0
+      while (ns2.UI.HandView.IsBusy()) and waited < 10 do
+        stub2.advance(0.05)
+        waited = waited + 0.05
+        seen = seen or stub2.findText("Swish!") ~= nil
+      end
+      stub2.advance(0.5)
+      check(seen, "onDiscard's message floated")
+      check(not ns2.UI.HandView.IsBusy(), "the board is unlocked again")
+      eq(#r.trinkets, 1, "the discarder melted away")
+      eq(m.trinketRow.slots[1].def.id, "FLIGHT_PATH", "the row closed the gap")
+      eq(#r.lifecycleEvents, 0, "events drained")
+      -- A hand that would lose the blind is saved: the save plays after the tally, then the shop.
+      local w3, panel3, m3, r3 = lifeBoard({ "S_SAVE" }, "play", defs)
+      local stub3, ns3 = w3.stub, w3.ns
+      r3.handsLeft = 1
+      firstCard(m3):Click()
+      m3.buttons.play:Click()
+      local savedSeen, waited3 = false, 0
+      while waited3 < 15 and not (r3.phase == "shop" and not ns3.UI.HandView.IsBusy() and not ns3.UI.Tally.IsBusy()) do
+        stub3.advance(0.05)
+        waited3 = waited3 + 0.05
+        savedSeen = savedSeen or stub3.findText("Saved!") ~= nil
+      end
+      stub3.advance(1)
+      eq(r3.phase, "shop", "the blind was saved")
+      check(savedSeen, "the save message floated")
+      check(not ns3.UI.Lifecycle.IsBusy(), "nothing is left playing")
+      eq(panel3("offerCards").payout.reward.label:GetText(), "Saved by S_SAVE", "the payout names the saver")
+      eq(#r3.trinkets, 0, "the saviour is spent")
+      eq(m3.trinketRow.slots[1].def, nil, "and gone from the row")
+    end
+    step("discard_and_play_drain")
   end
 
   do -- 11e. A client without SetRotation / SetDesaturation still gets a working carousel

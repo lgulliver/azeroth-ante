@@ -33,8 +33,10 @@ function HandView.AfterAction()
   if ns.UI.OnRunChanged then ns.UI.OnRunChanged() end
 end
 
+-- Busy while a hand resolves or lifecycle events play (the table is locked for both).
 function HandView.IsBusy()
-  return busy
+  local LC = ns.UI.Lifecycle
+  return busy or (LC ~= nil and LC.IsBusy())
 end
 
 -- Locks input for an action that animates outside the hand (a consumable use).
@@ -183,6 +185,7 @@ function HandView.RefreshButtons()
   local run = HandView.run
   local sel = HandView.Selected()
   local playOk, playWhy, discOk, discWhy
+  local busy = HandView.IsBusy()
   if busy then
     playOk, playWhy = false, "Resolving the hand..."
     discOk, discWhy = false, playWhy
@@ -375,7 +378,7 @@ end
 
 local function doPlay()
   local run = HandView.run
-  if busy or not run then return end
+  if HandView.IsBusy() or not run then return end
   closeRow()
   local sel = HandView.Selected()
   if not ns.Run.canPlay(run, sel) then return end
@@ -391,7 +394,8 @@ local function doPlay()
     return
   end
 
-  local function done()
+  -- After the tally: hooks the hand fired (a save, a melt, a round-end message) play before the render.
+  local function settled()
     if myGen ~= gen or not busy then return end
     releaseHeld()
     busy = false
@@ -411,6 +415,10 @@ local function doPlay()
       end
     end
     HandView.AfterAction()
+  end
+  local function done()
+    if myGen ~= gen or not busy then return end
+    ns.UI.Lifecycle.Drain(run, settled)
   end
   local called = false
   local function doneOnce()
@@ -441,7 +449,7 @@ end
 
 local function doDiscard()
   local run = HandView.run
-  if busy or not run then return end
+  if HandView.IsBusy() or not run then return end
   closeRow()
   local sel = HandView.Selected()
   if not ns.Run.canDiscard(run, sel) then return end
@@ -457,14 +465,25 @@ local function doDiscard()
     return
   end
 
-  local arrived = afterAll(#widgets, function()
+  -- onDiscard hooks may have melted or made trinkets: the events play while the cards fly, and the
+  -- row re-renders once both are done.
+  local events = run.lifecycleEvents and #run.lifecycleEvents > 0
+  local function settled()
     if myGen ~= gen then return end
     releaseHeld()
     busy = false
     -- An emptied deck loses the blind: the screen waits until the cards have left.
-    if run.phase ~= "play" then main().Render(run, true) end
+    if run.phase ~= "play" or events then main().Render(run, true) end
     HandView.Update(run, true)
     HandView.AfterAction()
+  end
+  local barrier = afterAll(2, settled)
+  local arrived = afterAll(#widgets, function()
+    if myGen ~= gen then return end
+    barrier()
+  end)
+  ns.UI.Lifecycle.Drain(run, function()
+    if myGen == gen then barrier() end
   end)
   for k, w in ipairs(widgets) do
     Tween.To(w.body, { x = 0, y = 0 }, 0.1)
@@ -472,7 +491,7 @@ local function doDiscard()
       (k - 1) * 0.02)
   end
   if run.phase == "play" then
-    main().Render(run, true)
+    if events then ns.UI.Sidebar.Update(run, 0, 0) else main().Render(run, true) end
     -- Purple seals made Scrolls: they pop into their slots.
     if #outcome.created > 0 then ns.UI.Outcome.Play({ created = outcome.created }) end
   else
@@ -483,7 +502,7 @@ end
 
 local function doSort(mode)
   local run = HandView.run
-  if busy or not run then return end
+  if HandView.IsBusy() or not run then return end
   closeRow()
   ns.Run.sortHand(run, mode)
   HandView.Update(run, false)
