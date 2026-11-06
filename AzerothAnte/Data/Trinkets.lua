@@ -254,7 +254,7 @@ local LEGACY_DEFS = {
     id = "GOBLIN_BANK", name = "Goblin Bank", rarity = "uncommon", cost = 7,
     desc = "+2 Mult per 5g held",
     icon = "Interface\\Icons\\INV_Misc_Coin_01",
-    onHand = function(ctx) return { mult = 2 * math.floor(((ctx.goldRef and ctx.goldRef.gold) or ctx.gold) / 5) } end,
+    onHand = function(ctx) return { mult = 2 * math.floor(math.max(0, (ctx.goldRef and ctx.goldRef.gold) or ctx.gold) / 5) } end,
   },
   AVENGING_WRATH = {
     id = "AVENGING_WRATH", name = "Avenging Wrath", rarity = "uncommon", cost = 6,

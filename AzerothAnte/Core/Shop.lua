@@ -76,6 +76,10 @@ end
 function Shop.reprice(run)
   local shop = run.shop
   if not shop then return end
+  -- Chaos bought or sold mid-shop adds or removes a free reroll.
+  local chaos = ns.TrinketRules.count(run.trinkets, "CHAOS")
+  shop.freeRerolls = math.max(0, (shop.freeRerolls or 0) + chaos - (shop.chaosSeen or chaos))
+  shop.chaosSeen = chaos
   for _, stock in ipairs({ shop.cards, shop.packs }) do
     for _, item in ipairs(stock) do
       if item then
@@ -126,6 +130,7 @@ function Shop.open(run)
     packs = { ns.Packs.random(run), ns.Packs.random(run) },
     rerollCost = 5, freeRerolls = ns.TrinketRules.count(run.trinkets, "CHAOS"),
   }
+  run.shop.chaosSeen = run.shop.freeRerolls
   Shop.reprice(run)
 end
 
