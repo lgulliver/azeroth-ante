@@ -58,7 +58,7 @@ function Deck.relink(run)
 end
 
 function Deck.handSize(run)
-  local size = run.baseHandSize + run.handSizeMod
+  local size = run.baseHandSize + run.handSizeMod + ns.Vouchers.extraHandSize(run)
   for _, card in ipairs(run.deck) do
     if card.ed == "NEGATIVE" then size = size + 1 end
   end
