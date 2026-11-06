@@ -13,6 +13,18 @@ frame:SetScript("OnEvent", function(self, event, addon)
         if AzerothAnteDB then pcall(ns.Profile.discover, AzerothAnteDB, kind, id) end
       end
     end
+    -- Core's one-argument hasAchievement(id) reads this database; the hook feeds
+    -- lifetime counters and toasts each achievement in unlock order.
+    if ns.Profile then
+      ns.Profile.db = AzerothAnteDB
+      ns.Profile.onEvent = function(n, a, run)
+        if not AzerothAnteDB then return end
+        local ok, new = pcall(ns.Profile.event, AzerothAnteDB, n, a, run)
+        if ok and new and ns.UI.Toast then
+          for _, id in ipairs(new) do pcall(ns.UI.Toast.Achievement, id) end
+        end
+      end
+    end
     ns.UI.Main.Create()
     ns.UI.Main.SetRun(ns.Save.load(AzerothAnteDB))
     self:UnregisterEvent("ADDON_LOADED")

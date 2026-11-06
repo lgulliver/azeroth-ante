@@ -182,10 +182,25 @@ local function startBlind()
   persist()
 end
 
+-- Director's Cut / Retcon: re-draws this stage's boss. The button is only live
+-- when Run.canRerollBoss agrees, but the guard is repeated here.
+local function rerollBoss()
+  local run = main().run
+  if blocked() or not run or run.phase ~= "blind" then return end
+  local before = run.gold
+  local ok = ns.Run.rerollBoss(run)
+  main().Render(run, true)
+  persist()
+  if ok then
+    ns.UI.Outcome.FloatGold(run.gold - before)
+    ns.UI.BlindSelect.FlipBoss(panels.blind)
+  end
+end
+
 local function buildBlind()
   return ns.UI.BlindSelect.Build({
     makePanel = makePanel, button = button, reasonTip = reasonTip, setReason = setReason,
-    addAbandon = addAbandon, start = startBlind,
+    addAbandon = addAbandon, start = startBlind, rerollBoss = rerollBoss,
   })
 end
 
@@ -265,6 +280,17 @@ function Screens.ShowItemTip(owner, info, hint)
     GameTooltip:AddLine(info.edDesc, 1, 1, 1, true)
   end
   if hint then GameTooltip:AddLine(hint, 0.6, 0.9, 0.6) end
+  GameTooltip:Show()
+end
+
+-- Name, tier and effect of a voucher (shop tile and sidebar icons).
+function Screens.ShowVoucherTip(owner, id, anchor)
+  local def = ns.Vouchers.def[id]
+  if not def then return end
+  GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  GameTooltip:AddLine(def.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
+  GameTooltip:AddLine(def.tier == 2 and "Voucher (upgrade)" or "Voucher", Theme.parchment[1], Theme.parchment[2], Theme.parchment[3])
+  GameTooltip:AddLine(def.desc, 1, 1, 1, true)
   GameTooltip:Show()
 end
 
@@ -412,6 +438,7 @@ local function nextBlind()
 end
 
 local COL_W, FACE_H, COL_H = 90, 126, 276 -- 5:7 face
+local MAX_CARDS = 4                    -- 2 slots, +1 per Overstock tier
 local COL_Y = -64
 
 -- Fades a column in (new offers after a reroll).
@@ -476,6 +503,201 @@ local function makePackColumn(p, x, onOpen)
   return c
 end
 
+-- Offer columns shrink when Overstock adds card slots: n cards and 2 packs share one row.
+local CARDS_X = 200
+local function shopMetrics(n)
+  if n <= 2 then return COL_W, 8, 24 end
+  return math.floor((416 - 16 - (n + 1) * 6) / (n + 2)), 6, 16
+end
+
+local function layoutColumn(c, x, cw, compact)
+  local fh = math.floor(cw * 7 / 5 + 0.5)
+  c.compact = compact
+  c:SetSize(cw, compact and (fh + 82) or COL_H)
+  c:ClearAllPoints()
+  c:SetPoint("TOPLEFT", c:GetParent(), "TOPLEFT", x, COL_Y)
+  c.name:ClearAllPoints()
+  c.name:SetPoint("TOP", c, "TOP", 0, -(fh + 6))
+  c.name:SetWidth(cw)
+  c.desc:ClearAllPoints()
+  c.desc:SetPoint("TOP", c, "TOP", 0, -(fh + 34))
+  c.desc:SetWidth(cw)
+  c.cost:SetWidth(cw)
+  c.buy:SetWidth(cw - 8)
+  c.sold:SetWidth(cw)
+  c.sold:ClearAllPoints()
+  c.sold:SetPoint("TOP", c, "TOP", 0, -(fh / 2 - 8))
+  c.face:SetSize(cw, fh)
+  if c.face.iconBox then
+    c.face.iconBox:SetSize(math.floor(cw * 0.5), math.floor(cw * 0.5))
+    c.face.iconBoxH = fh
+    if c.face.info then Screens.SkinFace(c.face, c.face.info) end
+  end
+end
+
+local function layoutShop(p, n)
+  if p.cardCount == n then return end
+  p.cardCount = n
+  local cw, gap, groupGap = shopMetrics(n)
+  local compact = n > 2
+  for i = 1, #p.offerCards do
+    layoutColumn(p.offerCards[i], CARDS_X + (i - 1) * (cw + gap), cw, compact)
+  end
+  local packsX = CARDS_X + n * cw + (n - 1) * gap + groupGap
+  for i = 1, 2 do layoutColumn(p.packOffers[i], packsX + (i - 1) * (cw + gap), cw, compact) end
+  p.cardsHdr:SetWidth(n * cw + (n - 1) * gap)
+  p.packsHdr:ClearAllPoints()
+  p.packsHdr:SetPoint("TOPLEFT", p, "TOPLEFT", packsX, -46)
+  p.packsHdr:SetWidth(2 * cw + gap)
+end
+
+---------------------------------------------------------------------------
+-- The voucher tile: one coupon per shop visit, under the payout.
+
+local VW, VH, VX, VY = 176, 164, 12, -226
+local SOLD_IN_DELAY = 0.6
+
+local function voucherArt(def)
+  return MEDIA .. (def.tier == 2 and "Voucher_Plus" or "Voucher")
+end
+
+local function buildVoucherTile(p)
+  local v = CreateFrame("Frame", nil, p)
+  v:SetSize(VW, VH)
+  v:SetPoint("TOPLEFT", p, "TOPLEFT", VX, VY)
+  Theme.Raised(v)
+  local header = text(v, Theme.fonts.small, "TOPLEFT", 8, -6, 100)
+  header:SetText("Voucher")
+  Theme.Label(header)
+
+  local c = CreateFrame("Frame", nil, v)
+  c:SetAllPoints(v)
+  v.content = c
+  v.face = CreateFrame("Frame", nil, c)
+  v.face:SetSize(48, 67)
+  v.face:SetPoint("TOPLEFT", c, "TOPLEFT", 8, -22)
+  v.face:EnableMouse(true)
+  v.face.art = v.face:CreateTexture(nil, "ARTWORK")
+  v.face.art:SetAllPoints()
+  v.face.art:SetTexCoord(0, 1, 0, Theme.cardV)
+  v.face:SetScript("OnEnter", function(self)
+    if self.voucherId then Screens.ShowVoucherTip(self, self.voucherId) end
+  end)
+  v.face:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  v.name = text(c, Theme.fonts.small, "TOPLEFT", 62, -22, 106)
+  v.name:SetHeight(28)
+  v.name:SetJustifyV("TOP")
+  Theme.setColor(v.name, Theme.gold)
+  v.orig = text(c, Theme.fonts.small, "TOPLEFT", 62, -52, 60)
+  Theme.Label(v.orig)
+  v.strike = c:CreateTexture(nil, "OVERLAY")
+  v.strike:SetPoint("LEFT", v.orig, "LEFT", 0, 0)
+  v.strike:SetColorTexture(RED[1], RED[2], RED[3], 1)
+  Theme.Edge(v.strike, "h", 1)
+  v.price = text(c, Theme.fonts.text, "TOPLEFT", 62, -66, 106)
+  v.desc = text(c, Theme.fonts.small, "TOPLEFT", 8, -94, 160)
+  v.desc:SetHeight(40)
+  v.desc:SetJustifyV("TOP")
+  Theme.setColor(v.desc, Theme.parchment)
+  v.buy = button(c, "Buy", 160, 22, function()
+    local run = main().run
+    local offer = run and run.shopVoucher
+    local id = offer and offer.id
+    shopAction(ns.Shop.buyVoucher, function() Screens.PlayVoucherSold(p, id) end, nil)
+  end, "primary")
+  v.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 6)
+  reasonTip(v.buy)
+
+  -- Bought: the coupon is stamped, then fades out under "Sold out this stage".
+  local ghost = CreateFrame("Frame", nil, v)
+  ghost:SetAllPoints(v)
+  ghost:SetFrameLevel(v:GetFrameLevel() + 5)
+  ghost.art = ghost:CreateTexture(nil, "ARTWORK")
+  ghost.art:SetSize(48, 67)
+  ghost.art:SetPoint("TOPLEFT", ghost, "TOPLEFT", 8, -22)
+  ghost.art:SetTexCoord(0, 1, 0, Theme.cardV)
+  ghost.name = text(ghost, Theme.fonts.small, "TOPLEFT", 62, -22, 106)
+  Theme.setColor(ghost.name, Theme.gold)
+  ghost.stamp = CreateFrame("Frame", nil, ghost)
+  ghost.stamp:SetSize(120, 30)
+  ghost.stamp:SetPoint("CENTER", ghost, "CENTER", 0, 10)
+  ghost.stamp.text = ghost.stamp:CreateFontString(nil, "OVERLAY", Theme.fonts.big)
+  ghost.stamp.text:SetPoint("CENTER", ghost.stamp, "CENTER", 0, 0)
+  ghost.stamp.text:SetText("BOUGHT")
+  Theme.setColor(ghost.stamp.text, Theme.gold)
+  if ghost.stamp.text.SetRotation then pcall(ghost.stamp.text.SetRotation, ghost.stamp.text, math.rad(12)) end
+  ghost:Hide()
+  v.ghost = ghost
+
+  local soldBox = CreateFrame("Frame", nil, v)
+  soldBox:SetAllPoints(v)
+  soldBox.text = text(soldBox, Theme.fonts.text, "CENTER", 0, -8, VW - 16, "CENTER")
+  soldBox.text:SetText("Sold out this stage")
+  Theme.setColor(soldBox.text, GREY)
+  soldBox:Hide()
+  v.soldBox = soldBox
+  p.voucher = v
+  return v
+end
+
+-- The stamp-and-fade after a purchase. Safe if cancelled: refreshShop restores the static look.
+function Screens.PlayVoucherSold(p, id)
+  local v, def = p.voucher, id and ns.Vouchers.def[id]
+  if not v or not def then return end
+  local g = v.ghost
+  Tween.Cancel(g)
+  Tween.Cancel(g.stamp)
+  Tween.Cancel(v.soldBox)
+  g.art:SetTexture(voucherArt(def))
+  g.name:SetText(def.name)
+  g:SetAlpha(1)
+  g:Show()
+  g.stamp:SetAlpha(0)
+  g.stamp:SetScale(2.4)
+  Tween.To(g.stamp, { scale = 1, alpha = 1 }, 0.2)
+  Tween.To(g, { alpha = 0 }, 0.35, function() g:Hide() end, SOLD_IN_DELAY)
+  v.soldBox:SetAlpha(0)
+  Tween.To(v.soldBox, { alpha = 1 }, 0.3, nil, SOLD_IN_DELAY)
+end
+
+local function refreshVoucher(p, run)
+  local v = p.voucher
+  local offer = run.shopVoucher
+  local def = offer and ns.Vouchers.def[offer.id]
+  if not def then
+    v.content:Hide()
+    v.soldBox:Show()
+    if not Tween.IsActive(v.soldBox) then v.soldBox:SetAlpha(1) end
+    if not Tween.IsActive(v.ghost) then v.ghost:Hide() end
+    return
+  end
+  Tween.Cancel(v.ghost)
+  Tween.Cancel(v.ghost.stamp)
+  Tween.Cancel(v.soldBox)
+  v.ghost:Hide()
+  v.soldBox:Hide()
+  v.content:Show()
+  local price = ns.Vouchers.price(run, def.cost)
+  local afford = run.gold >= price
+  local blockedByPack = run.shop and run.shop.openPack ~= nil
+  v.face.voucherId = def.id
+  v.face.art:SetTexture(voucherArt(def))
+  v.name:SetText(def.name)
+  v.desc:SetText(def.desc)
+  local discounted = price ~= def.cost
+  v.orig:SetShown(discounted)
+  v.strike:SetShown(discounted)
+  if discounted then
+    v.orig:SetText(def.cost .. "g")
+    v.strike:SetWidth(v.orig:GetStringWidth())
+  end
+  v.price:SetText(price .. "g")
+  Theme.setColor(v.price, afford and Theme.gold or RED)
+  local ok = afford and not blockedByPack and run.phase == "shop"
+  if ok then v.buy:Enable() else v.buy:Disable() end
+  setReason(v.buy, (not ok) and (blockedByPack and BUY_ERRORS.pack or BUY_ERRORS.gold) or nil)
+end
+
 local function buildShop()
   local p = makePanel("shop", true)
   p.title:SetText("Shop")
@@ -502,9 +724,10 @@ local function buildShop()
   local packsHdr = text(p, Theme.fonts.small, "TOPLEFT", 200 + 2 * COL_W + 8 + 24, -46, 2 * COL_W + 8, "CENTER")
   packsHdr:SetText("Packs")
   Theme.Label(packsHdr)
+  p.cardsHdr, p.packsHdr = cardsHdr, packsHdr
 
   p.offerCards, p.packOffers = {}, {}
-  for i = 1, 2 do
+  for i = 1, MAX_CARDS do
     local item = i
     p.offerCards[i] = makeOfferColumn(p, 200 + (i - 1) * (COL_W + 8), function()
       local run = main().run
@@ -519,10 +742,13 @@ local function buildShop()
         end
       end, offerType, item)
     end)
-    p.packOffers[i] = makePackColumn(p, 200 + 2 * COL_W + 8 + 24 + (i - 1) * (COL_W + 8), function()
-      shopAction(ns.Packs.open, nil, nil, item)
-    end)
+    if i <= 2 then
+      p.packOffers[i] = makePackColumn(p, 200 + 2 * COL_W + 8 + 24 + (i - 1) * (COL_W + 8), function()
+        shopAction(ns.Packs.open, nil, nil, item)
+      end)
+    end
   end
+  buildVoucherTile(p)
 
   p.err = text(p, Theme.fonts.text, "BOTTOM", 0, 56, 560, "CENTER")
   Theme.setColor(p.err, RED)
@@ -530,8 +756,8 @@ local function buildShop()
 
   p.reroll = button(p, "Reroll", 150, 28, function()
     shopAction(ns.Shop.reroll, function()
-      for i = 1, 2 do
-        fadeIn(p.offerCards[i], (i - 1) * 0.06)
+      for i = 1, MAX_CARDS do
+        if p.offerCards[i]:IsShown() then fadeIn(p.offerCards[i], (i - 1) * 0.06) end
       end
     end)
   end)
@@ -546,7 +772,7 @@ end
 local function setColumn(c, live)
   c.face:SetShown(live)
   c.name:SetShown(live)
-  c.desc:SetShown(live)
+  c.desc:SetShown(live and not c.compact)
   c.cost:SetShown(live)
   c.buy:SetShown(live)
   c.sold:SetShown(not live)
@@ -598,10 +824,15 @@ local function refreshShop(p, run)
 
   local shop = run.shop or { cards = {}, packs = {}, rerollCost = 0 }
   local blockedByPack = shop.openPack ~= nil
-  for i = 1, 2 do
+  local slots = math.max(2, math.min(MAX_CARDS, math.max(ns.Vouchers.shopCardSlots(run), #shop.cards)))
+  layoutShop(p, slots)
+  refreshVoucher(p, run)
+  for i = 1, MAX_CARDS do
     local c = p.offerCards[i]
     local offer = shop.cards[i]
+    c:SetShown(i <= slots)
     setColumn(c, offer and true or false)
+    if i > slots then c:Hide() end
     if offer then
       local info = Screens.ItemInfo(offer)
       local full
@@ -644,8 +875,10 @@ local function refreshShop(p, run)
     end
   end
 
-  p.reroll:SetText("Reroll (" .. shop.rerollCost .. "g)")
-  local canReroll = run.gold >= shop.rerollCost and not blockedByPack
+  -- Lucky Coin and Gambler's Charm make rerolls cheaper (Shop.reroll's formula).
+  local rerollCost = math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
+  p.reroll:SetText("Reroll (" .. rerollCost .. "g)")
+  local canReroll = run.gold >= rerollCost and not blockedByPack
   if canReroll then p.reroll:Enable() else p.reroll:Disable() end
   setReason(p.reroll, blockedByPack and BUY_ERRORS.pack or ((not canReroll) and BUY_ERRORS.gold or nil))
 end

@@ -731,6 +731,73 @@ NEW_JOBS.update({
 })
 
 
+# --------------------------------------------------------------- voucher
+# A 5:7 parchment coupon with a perforated tear line and a gold wax seal.
+# Voucher_Plus (tier 2) adds a gold-trimmed border and a starred seal.
+def _voucher(px, py, plus):
+    w, h = FACE_W, FACE_H
+    d = _edge_dist(px, py, w, h, CORNER)
+    if d < 0:
+        return CLEAR
+    if d < 3.0:
+        return _rgb(GOLD)
+    if d < 4.0:
+        return _rgb(GOLD_DARK)
+    if plus and 4.0 <= d < 10.0:
+        t = (d - 4.0) / 6.0
+        band = _mix((255, 224, 120), (190, 146, 40), t)
+        if int(px / 6.0 + py / 6.0) % 2 == 0 and 6.0 <= d < 8.0:
+            band = _shade(band, 0.85)
+        return _rgb(band)
+    if not plus and 7.0 <= d < 8.0:
+        return _rgb(GOLD_DARK)
+    if plus and 10.0 <= d < 11.0:
+        return _rgb(GOLD_DARK)
+    c = parchment(px, py, d)
+    # perforated tear line near the bottom: a row of small holes
+    ty = h - 40.0
+    if abs(py - ty) < 1.6 and 14.0 < px < w - 14.0 and int(px / 5.0) % 2 == 0:
+        return _rgb(_shade(c, 0.62))
+    # faint ruled lines in the stub, as if for terms and conditions
+    if py > ty + 8.0 and py < h - 14.0 and 20.0 < px < w - 20.0 and int(py - ty) % 7 == 0:
+        c = _shade(c, 0.88)
+    # the wax seal sits in the upper window, clear of the name plate
+    cx, cy = w / 2.0, 64.0
+    dx, dy = px - cx, py - cy
+    r = math.hypot(dx, dy)
+    ang = math.atan2(dy, dx)
+    rim = 30.0 + 2.2 * math.sin(7 * ang + 0.6) + 1.4 * math.sin(3 * ang)
+    if r < rim:
+        g = _mix((255, 224, 120), (176, 126, 30), (dy + dx * 0.4) / 60.0 + 0.5)
+        if r > rim - 4.0:
+            g = _shade(g, 0.8)
+        elif 20.0 <= r < 21.5:
+            g = _shade(g, 0.72)
+        elif r < 20.0:
+            star = 9.0 + 9.0 * max(0.0, math.cos((8 if plus else 4) * ang)) ** 3
+            if r <= star:
+                g = _mix((255, 240, 170), (206, 150, 44), r / star)
+            else:
+                g = _shade(g, 0.86)
+        return _rgb(g)
+    # soft shadow of the seal on the paper
+    if r < rim + 3.0:
+        c = _shade(c, 0.82)
+    return _rgb(c)
+
+
+def voucher(px, py):
+    return _voucher(px, py, False)
+
+
+def voucher_plus(px, py):
+    return _voucher(px, py, True)
+
+
+NEW_JOBS["Voucher"] = voucher
+NEW_JOBS["Voucher_Plus"] = voucher_plus
+
+
 # ------------------------------------------------------------ deck backs
 # Back_<DECK>: the CardBack silhouette and gold border, with a per-deck field,
 # a gold-ringed medallion and an emblem built from simple vector shapes.
