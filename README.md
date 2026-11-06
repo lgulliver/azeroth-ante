@@ -43,6 +43,11 @@ on the character-select AddOns screen until you set the right number.
 5. Beat three blinds per stage across eight stages. You lose when you run out of
    hands, or when your hand and deck are both empty with the blind still unbeaten.
 
+**Trinkets** come in 80 kinds (common, uncommon and rare). They score left to right, so order
+matters: drag a trinket left or right in the trinket row to reorder it. Blueprint copies the
+trinket to its right and Brainstorm copies the leftmost one; rule trinkets can't be copied.
+Hover a trinket for its live values and sell price.
+
 **Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.
 
 - Scrolls change cards. Select the cards first; the popover shows what will be affected.
@@ -100,8 +105,12 @@ luajit tools/sim/sim.lua [runs=200] [deckId=ROGUE] [seed=1]
 ```
 
 The bot also buys the vouchers it likes (extra hands, discards, hand size, interest and
-shop slots). It prints wins, where runs ended, and mean final gold. The target curve in
-`Core/Run.lua` is tuned so ROGUE at 200 runs and seed 1 wins 10-25%.
+shop slots) and, with room, the highest-rarity trinket it can afford. It never reorders
+trinkets. It prints wins, where runs ended, and mean final gold.
+
+Wave 1 (80 trinkets) win rates at 200 runs and seed 1: ROGUE 46.5%, WARRIOR 62.5%,
+GOBLIN 56.5%, MONK 51.0%, WARLOCK 32.0%. The intended band is 8-45%, so ROGUE, WARRIOR,
+GOBLIN and MONK are above it and the targets still need a tuning pass.
 
 ## In-game test checklist
 

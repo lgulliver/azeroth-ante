@@ -2,7 +2,7 @@
 ## Title: Azeroth Ante
 ## Notes: Poker roguelike for queue waits
 ## SavedVariables: AzerothAnteDB
-## Version: 0.3.0
+## Version: 0.4.0
 
 Core\RNG.lua
 Core\Cards.lua
