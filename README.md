@@ -8,6 +8,27 @@ opens the window, a queue pop shows an overlay and plays a sound, and accepting
 or entering combat hides it. Use `/ante` to toggle the window at any time.
 Mouse controls only; no key bindings.
 
+## Screenshots
+
+Playing a hand: select up to five cards and the sidebar previews the hand and
+its chips × mult.
+
+![Playing a hand](docs/screenshots/play.png)
+
+Choosing a blind: each stage is a Small Blind, a Big Blind and a boss with its
+own rule.
+
+![Blind select](docs/screenshots/blind-select.png)
+
+The shop after a cleared blind: payout, trinkets, packs and a voucher.
+
+![Shop](docs/screenshots/shop.png)
+
+Opening a pack: here a Jumbo Standard Pack with an enhanced card and an
+edition.
+
+![Opening a pack](docs/screenshots/pack.png)
+
 ## Install
 
 Copy or symlink the `AzerothAnte/` folder into your client's add-on directory:
