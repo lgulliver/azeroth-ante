@@ -4,12 +4,9 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
-### Added
-- CI: luacheck lint, the unit, UI smoke (30 seeds), syntax and media test suites, and a tag-driven release workflow that builds the `-forever` zip, publishes a GitHub release and uploads to CurseForge. Wago imports releases through a GitHub webhook.
-- MIT licence, contributing guide, issue and pull request templates.
-- Addon icon in the addon list, and the same art as the README logo.
-
 ## [0.6.0] - 2026-11-06
+
+First public release.
 
 ### Added
 - The full trinket set: 143 trinkets, every non-legendary Balatro joker except the two that need skip tags.
@@ -17,9 +14,15 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Trinkets that create Scrolls and Relics, popping into the consumable row.
 - Gladiator's Medallion: sell it during a boss blind to disable the boss.
 - Deck- and usage-based trinkets (Ironforge Anvil, Earthen Ring, Master Riding, Sandstorm, Seer, Mage Tower, Glass Cannon, Fortune Cat).
+- Addon icon in the addon list, and the same art as the README logo.
+- CI: luacheck lint, the unit, UI smoke (30 seeds), syntax and media test suites, and a tag-driven release workflow that builds the `-forever` zip, publishes a GitHub release and uploads to CurseForge. Wago imports releases through a GitHub webhook.
+- MIT licence, contributing guide, issue and pull request templates.
 
 ### Changed
 - Save version 6; older saves migrate.
+
+### Fixed
+- The title-bar Abandon Run button now takes clicks (the window's drag handle was covering it).
 
 ## [0.5.0] - 2026-11-06
 
