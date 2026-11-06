@@ -65,17 +65,29 @@ function Run.bossId(run)
   if run.blind == 3 then return run.bosses[run.stage] end
 end
 
-function Run.startBlind(run)
-  local deck = ns.Decks.def[run.deckId]
+-- Hands and discards the current blind starts with: the deck's (or the boss's)
+-- base plus voucher changes. Shared by startBlind and the blind-screen sidebar.
+function Run.blindHands(run)
   local bossId = Run.bossId(run)
   local boss = bossId and ns.Bosses.def[bossId]
+  return math.max(1, (boss and boss.hands or ns.Decks.def[run.deckId].hands) + ns.Vouchers.extraHands(run))
+end
+
+function Run.blindDiscards(run)
+  local bossId = Run.bossId(run)
+  local boss = bossId and ns.Bosses.def[bossId]
+  return math.max(0, (boss and boss.discards or ns.Decks.def[run.deckId].discards) + ns.Vouchers.extraDiscards(run))
+end
+
+function Run.startBlind(run)
+  local bossId = Run.bossId(run)
   run.phase = "play"
   run.pile = ns.Deck.shuffledPile(run)
   run.hand = {}
   ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run))
   ns.Cards.sort(run.hand, run.sortMode or "rank")
-  run.handsLeft = math.max(1, (boss and boss.hands or deck.hands) + ns.Vouchers.extraHands(run))
-  run.discardsLeft = math.max(0, (boss and boss.discards or deck.discards) + ns.Vouchers.extraDiscards(run))
+  run.handsLeft = Run.blindHands(run)
+  run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
   run.target = Run.target(run.stage, run.blind, bossId)
   if bossId then
@@ -279,10 +291,9 @@ function Run.canRerollBoss(run)
   return true
 end
 
-function Run.rerollBoss(run)
-  local ok, reason = Run.canRerollBoss(run)
-  if not ok then return false, reason end
-  local current = run.bosses[run.stage]
+-- Picks a boss other than `current` from the pool, preferring ones not yet
+-- fought (the final boss is never in the pool).
+local function pickBoss(run, current)
   local fresh, any = {}, {}
   for _, id in ipairs(ns.Bosses.pool) do
     if id ~= current then
@@ -290,8 +301,21 @@ function Run.rerollBoss(run)
       if not run.bossesFought[id] then fresh[#fresh + 1] = id end
     end
   end
-  local pool = #fresh > 0 and fresh or any
-  local bossId = ns.RNG.pick(run.rng, pool)
+  return ns.RNG.pick(run.rng, #fresh > 0 and fresh or any)
+end
+
+-- A stage replayed after Hieroglyph or Petroglyph gets a new boss if its old
+-- one was already fought (Balatro does the same when you go back an ante).
+function Run.refreshReplayedBoss(run, stage)
+  local current = run.bosses and run.bosses[stage]
+  if stage >= 8 or not current or not run.bossesFought[current] then return end
+  run.bosses[stage] = pickBoss(run, current)
+end
+
+function Run.rerollBoss(run)
+  local ok, reason = Run.canRerollBoss(run)
+  if not ok then return false, reason end
+  local bossId = pickBoss(run, run.bosses[run.stage])
   run.gold = run.gold - Run.BOSS_REROLL_COST
   run.bossRerollsUsed = run.bossRerollsUsed + 1
   run.bosses[run.stage] = bossId

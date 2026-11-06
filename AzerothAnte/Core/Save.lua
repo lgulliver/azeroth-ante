@@ -29,6 +29,7 @@ function Save.load(db)
     run.bossRerollsUsed = run.bossRerollsUsed or 0
     run.bossesFought = run.bossesFought or {}
     run.streak = run.streak or { maxInterest = 0 }
+    if run.phase == "shop" and run.shopVoucher == nil then run.shopVoucher = ns.Shop.rollVoucher(run) end
   end
   ns.Deck.relink(run)
   return run

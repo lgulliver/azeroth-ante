@@ -2348,6 +2348,9 @@ local function run(w)
     local g2 = run.gold
     shop.voucher.buy:Click()
     check(run.gold == g2 and not run.vouchers.GRABBER, "no buy outside the shop phase")
+    ns2.UI.Screens.Show("shop", run) -- refresh the open shop panel with a non-shop phase
+    check(not shop.voucher.buy:IsEnabled(), "voucher Buy is disabled outside the shop phase")
+    eq(shop.voucher.buy.reason, "Only in the shop", "the reason says so")
     run.phase = "shop"
     run.shopVoucher = false
 
@@ -2377,6 +2380,14 @@ local function run(w)
     bp = panel2("preview")
     boss = bp.panels[3]
     check(not boss.reroll:IsShown(), "still no boss reroll")
+    -- The sidebar shows the hands and discards the blind will really start with.
+    run.vouchers.GRABBER, run.vouchers.WASTEFUL = true, true
+    m.Render(run, true)
+    eq(m.sidebar.hands:GetText(), "Hands: 5", "sidebar hands include Grabber")
+    eq(m.sidebar.discards:GetText(), "Discards: 5", "sidebar discards include Wasteful")
+    run.vouchers.GRABBER, run.vouchers.WASTEFUL = nil, nil
+    m.Render(run, true)
+    eq(m.sidebar.hands:GetText(), "Hands: 4", "and drop back without them")
     run.vouchers.DIRECTORS_CUT = true
     run.gold = 50
     m.Render(run, true)

@@ -94,6 +94,11 @@ end
 
 function Vouchers.onBuy(run, id)
   if id == "HIEROGLYPH" or id == "PETROGLYPH" then
+    -- The stage whose boss the player may meet again: after a boss that is
+    -- this stage (replayed from blind 1), otherwise the one before it.
+    local replay = run.stage
+    if run.blind ~= 3 then replay = math.max(1, run.stage - 1) end
     run.stage = math.max(1, run.stage - 1)
+    if run.blind ~= 3 or replay > 1 then ns.Run.refreshReplayedBoss(run, replay) end
   end
 end

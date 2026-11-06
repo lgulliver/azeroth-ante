@@ -298,3 +298,63 @@ T.test("consumable_sell_uses_paid", function()
   T.eq(run.gold, 3)
   T.eq(ns.Consumables.sell(run, 1), 1)
 end)
+
+T.test("blind_hands_discards_helpers", function()
+  local run = fresh()
+  local deck = ns.Decks.def[run.deckId]
+  T.eq(ns.Run.blindHands(run), deck.hands)
+  T.eq(ns.Run.blindDiscards(run), deck.discards)
+  run.vouchers.GRABBER, run.vouchers.WASTEFUL = true, true
+  T.eq(ns.Run.blindHands(run), deck.hands + 1)
+  T.eq(ns.Run.blindDiscards(run), deck.discards + 1)
+  ns.Run.startBlind(run)
+  T.eq(run.handsLeft, ns.Run.blindHands(run), "startBlind uses the helper")
+  T.eq(run.discardsLeft, ns.Run.blindDiscards(run))
+end)
+
+T.test("blind_hands_discards_hieroglyph_and_boss", function()
+  local run = fresh()
+  run.vouchers.HIEROGLYPH, run.vouchers.PETROGLYPH = true, true
+  T.eq(ns.Run.blindHands(run), ns.Decks.def[run.deckId].hands - 1)
+  T.eq(ns.Run.blindDiscards(run), ns.Decks.def[run.deckId].discards - 1)
+  run.blind, run.bosses[run.stage] = 3, "ONYXIA" -- one hand only: still at least 1
+  T.eq(ns.Run.blindHands(run), 1)
+  run.bosses[run.stage] = "MUTANUS" -- no discards: still at least 0
+  T.eq(ns.Run.blindDiscards(run), 0)
+  run.vouchers = { WASTEFUL = true }
+  T.eq(ns.Run.blindDiscards(run), 1)
+end)
+
+T.test("hieroglyph_replay_rerolls_fought_boss", function()
+  for _, id in ipairs({ "HIEROGLYPH", "PETROGLYPH" }) do
+    local run = fresh()
+    run.phase, run.gold, run.stage, run.blind = "shop", 20, 3, 3
+    local old = run.bosses[3]
+    run.bossesFought[old] = true
+    run.shop = { cards = {}, packs = {}, rerollCost = 5 }
+    run.shopVoucher = { id = id }
+    T.ok(ns.Shop.buyVoucher(run))
+    T.eq(run.stage, 2)
+    ns.Run.nextBlind(run)
+    T.eq(run.stage, 3)
+    T.eq(run.blind, 1)
+    local new = run.bosses[3]
+    T.ok(new ~= old, "replayed stage got a new boss")
+    T.ok(new ~= "RAGNAROS" and not run.bossesFought[new], "a fresh, non-final boss")
+    T.ok(ns.Bosses.def[new] ~= nil)
+  end
+end)
+
+T.test("hieroglyph_replay_keeps_final_and_unfought_bosses", function()
+  local run = fresh()
+  run.phase, run.gold, run.stage, run.blind = "shop", 20, 1, 3
+  run.bossesFought[run.bosses[1]] = true
+  local before = run.bosses[1]
+  ns.Vouchers.onBuy(run, "HIEROGLYPH")
+  T.eq(run.stage, 1)
+  T.eq(run.bosses[1], before, "no stage to go back to: nothing replays")
+  run.stage, run.blind = 8, 1
+  ns.Vouchers.onBuy(run, "HIEROGLYPH")
+  T.eq(run.bosses[7] ~= nil, true)
+  T.eq(run.bosses[8], "RAGNAROS")
+end)
