@@ -183,6 +183,7 @@ function Run.discard(run, idx)
 end
 
 function Run.winBlind(run)
+  if run.blind == 3 then run.shopVoucher = nil end
   local deck = ns.Decks.def[run.deckId]
   local payout = {
     reward = Run.BLIND_REWARDS[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),

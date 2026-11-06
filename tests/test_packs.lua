@@ -242,3 +242,97 @@ T.test("shop_locked_while_pack_open", function()
     T.eq(run.phase, "shop")
   end
 end)
+
+T.test("pack_discount", function()
+  local run = offered()
+  run.vouchers.LIQUIDATION = true
+  ns.Shop.open(run)
+  for _, offer in ipairs(run.shop.packs) do
+    T.eq(offer.cost, ns.Vouchers.price(run, ns.Packs.SIZES[offer.size].cost))
+  end
+  local offer = run.shop.packs[1]
+  local gold = run.gold
+  T.eq(ns.Packs.open(run, 1), true)
+  T.eq(run.gold, gold - offer.cost)
+  T.eq(run.shop.openPack.paid, offer.cost)
+end)
+
+T.test("omen_globe_relics", function()
+  local run, relics, total = offered(), 0, 0
+  run.vouchers.OMEN_GLOBE = true
+  for _ = 1, 1000 do
+    run.gold = 100
+    run.shop.packs[1] = { type = "ARCANA", size = "mega", cost = 8 }
+    T.eq(ns.Packs.open(run, 1), true)
+    local seen = {}
+    for _, item in ipairs(run.shop.openPack.choices) do
+      local key = item.kind .. ":" .. item.id
+      T.ok(not seen[key])
+      seen[key] = true
+      if item.kind == "relic" then
+        T.ok(ns.Relics.def[item.id])
+        relics = relics + 1
+      else T.eq(item.kind, "scroll") end
+      total = total + 1
+    end
+    ns.Packs.skip(run)
+  end
+  T.ok(relics / total > 0.17 and relics / total < 0.23)
+end)
+
+T.test("telescope_most_played", function()
+  local run = offered("CELESTIAL")
+  run.vouchers.TELESCOPE = true
+  for _, plays in ipairs({ { PAIR = 10, FLUSH = 4 }, { PAIR = 5, FLUSH = 5 },
+    { FLUSH_FIVE = 20, PAIR = 5 } }) do
+    run.handPlays = plays
+    run.seenHands.FLUSH_FIVE = plays.FLUSH_FIVE and true or nil
+    run.shop.packs[1] = { type = "CELESTIAL", size = "mega", cost = 8 }
+    T.eq(ns.Packs.open(run, 1), true)
+    local expected = plays.FLUSH_FIVE and "FLUSH_FIVE" or (plays.FLUSH == 5 and "FLUSH" or "PAIR")
+    T.eq(run.shop.openPack.choices[1], { kind = "tome", id = expected })
+    local seen = {}
+    for _, item in ipairs(run.shop.openPack.choices) do
+      T.ok(not seen[item.id])
+      seen[item.id] = true
+    end
+    ns.Packs.skip(run)
+  end
+  run.handPlays, run.seenHands = {}, {}
+  local seen = {}
+  for _ = 1, 100 do
+    run.gold = 100
+    run.shop.packs[1] = { type = "CELESTIAL", size = "normal", cost = 4 }
+    ns.Packs.open(run, 1)
+    local id = run.shop.openPack.choices[1].id
+    T.ok(not ns.Hands.def[id].secret)
+    seen[id] = true
+    ns.Packs.skip(run)
+  end
+  local count = 0
+  for _ in pairs(seen) do count = count + 1 end
+  T.ok(count > 1)
+end)
+
+T.test("pack_events_emitted", function()
+  local profile, events = ns.Profile, {}
+  local ok, err = pcall(function()
+    ns.Profile = { onEvent = function(name, amount) events[#events + 1] = { name, amount } end }
+    local run = offered("ARCANA", "normal")
+    ns.Packs.open(run, 1)
+    run.shop.openPack.choices[1] = { kind = "scroll", id = "BLESSING" }
+    T.eq(ns.Packs.pick(run, 1), false)
+    T.eq(ns.Packs.pick(run, 1, { 1 }), true)
+    run.shop.packs[1] = { type = "CELESTIAL", size = "normal", cost = 4 }
+    ns.Packs.open(run, 1)
+    T.eq(ns.Packs.pick(run, 1), true)
+    T.eq(events, { { "spend", 8 }, { "scrollFromPackUsed", 1 },
+      { "spend", 4 }, { "tomeFromPackUsed", 1 } })
+    ns.Profile = nil
+    run.shop.packs[1] = { type = "CELESTIAL", size = "normal", cost = 4 }
+    T.eq(ns.Packs.open(run, 1), true)
+    T.eq(ns.Packs.pick(run, 1), true)
+  end)
+  ns.Profile = profile
+  if not ok then error(err) end
+end)

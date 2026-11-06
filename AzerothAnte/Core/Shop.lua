@@ -2,6 +2,37 @@ local _, ns = ...
 
 local Shop = {}
 
+local function event(name, amount)
+  if ns.Profile and ns.Profile.onEvent then ns.Profile.onEvent(name, amount) end
+end
+
+function Shop.rollVoucher(run)
+  local pool = {}
+  for _, id in ipairs(ns.Vouchers.order) do
+    local def = ns.Vouchers.def[id]
+    if not ns.Vouchers.owns(run, id) and (def.tier == 1
+      or (ns.Vouchers.owns(run, def.base) and ns.Profile and ns.Profile.hasAchievement
+        and ns.Profile.hasAchievement(def.achievement))) then
+      pool[#pool + 1] = id
+    end
+  end
+  if #pool == 0 then return false end
+  local id = ns.RNG.pick(run.rng, pool)
+  return { id = id, cost = ns.Vouchers.price(run, ns.Vouchers.def[id].cost) }
+end
+
+function Shop.rollEdition(run, allowNegative)
+  local mult = ns.Vouchers.editionMult(run)
+  if mult == 1 then return ns.CardTypes.rollEdition(run.rng, allowNegative) end
+  local roll, edge = ns.RNG.next(run.rng), 0
+  for _, id in ipairs({ "NEGATIVE", "POLY", "HOLO", "FOIL" }) do
+    if id ~= "NEGATIVE" or allowNegative then
+      edge = edge + ns.CardTypes.ED_ODDS[id] * (id == "NEGATIVE" and 1 or mult)
+      if roll < edge then return id end
+    end
+  end
+end
+
 local function owns(run, id)
   for _, trinket in ipairs(run.trinkets) do
     if trinket.id == id then return true end
@@ -27,33 +58,46 @@ function Shop.rollTrinket(run, taken)
   if #pool == 0 then pool = any end
   local id = ns.RNG.pick(run.rng, pool)
   taken[id] = true
-  local ed = ns.CardTypes.rollEdition(run.rng, true)
+  local ed = Shop.rollEdition(run, true)
   return { type = "trinket", id = id, ed = ed,
     cost = ns.Trinkets.def[id].cost + (ns.CardTypes.ED_COST[ed] or 0) }
 end
 
-local function generateCards(run)
-  local cards, taken = {}, {}
-  for i = 1, 2 do
-    local roll = ns.RNG.next(run.rng) * 28
+local function generateCards(run, cards)
+  cards = cards or {}
+  local taken = {}
+  for _, item in ipairs(cards) do
+    if item and item.type == "trinket" then taken[item.id] = true end
+  end
+  local scroll, tome = ns.Vouchers.scrollWeight(run), ns.Vouchers.tomeWeight(run)
+  local playing = ns.Vouchers.playingCardsInShop(run) and 4 or 0
+  for i = #cards + 1, ns.Vouchers.shopCardSlots(run) do
+    local roll = ns.RNG.next(run.rng) * (20 + scroll + tome + playing)
     if roll < 20 then
       cards[i] = Shop.rollTrinket(run, taken)
+      if not cards[i] then roll = 20 + ns.RNG.next(run.rng) * (scroll + tome + playing) end
     end
     if not cards[i] then
-      local kind
-      if roll < 20 then
-        kind = ns.RNG.next(run.rng) < 0.5 and "scroll" or "tome"
+      if roll >= 20 + scroll + tome then
+        local card = ns.Packs.rollCard(run, ns.Vouchers.illusion(run))
+        card.type = "card"
+        card.cost = 1 + (card.enh and 1 or 0) + (card.seal and 1 or 0)
+          + (ns.CardTypes.ED_COST[card.ed] or 0)
+        cards[i] = card
       else
-        kind = roll < 24 and "scroll" or "tome"
+        local kind = roll < 20 + scroll and "scroll" or "tome"
+        local item = ns.Consumables.random(run, kind)
+        cards[i] = { type = kind, id = item.id, cost = ns.Consumables.COST[kind] }
       end
-      local item = ns.Consumables.random(run, kind)
-      cards[i] = { type = kind, id = item.id, cost = ns.Consumables.COST[kind] }
     end
+    cards[i].baseCost = cards[i].cost
+    cards[i].cost = ns.Vouchers.price(run, cards[i].baseCost)
   end
   return cards
 end
 
 function Shop.open(run)
+  if run.shopVoucher == nil then run.shopVoucher = Shop.rollVoucher(run) end
   run.shop = {
     cards = generateCards(run),
     packs = { ns.Packs.random(run), ns.Packs.random(run) },
@@ -70,19 +114,59 @@ function Shop.buy(run, i)
   if item.type == "trinket" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
-    run.trinkets[#run.trinkets + 1] = { id = item.id, ed = item.ed }
+    run.trinkets[#run.trinkets + 1] = { id = item.id, ed = item.ed, paid = item.cost }
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
+  elseif item.type == "card" then
+    ns.Deck.add(run, { rank = item.rank, suit = item.suit, enh = item.enh,
+      ed = item.ed, seal = item.seal, paid = item.cost })
   else
-    if not ns.Consumables.add(run, { kind = item.type, id = item.id }) then
+    if not ns.Consumables.add(run, { kind = item.type, id = item.id, paid = item.cost }) then
       return false, "slots"
     end
   end
-  run.gold = run.gold - item.cost
+  item.paid = item.cost
+  run.gold = run.gold - item.paid
   shop.cards[i] = false
+  event("spend", item.paid)
+  if item.type == "scroll" then event("scrollBought", 1)
+  elseif item.type == "tome" then event("tomeBought", 1)
+  elseif item.type == "card" then event("cardBought", 1) end
+  return true
+end
+
+function Shop.buyVoucher(run)
+  if run.shop and run.shop.openPack then return false, "pack" end
+  local offer = run.shopVoucher
+  if not offer or ns.Vouchers.owns(run, offer.id) then return false, "gone" end
+  local paid = ns.Vouchers.price(run, ns.Vouchers.def[offer.id].cost)
+  if run.gold < paid then return false, "gold" end
+  offer.paid = paid
+  run.gold = run.gold - paid
+  run.vouchers[offer.id] = true
+  ns.Vouchers.onBuy(run, offer.id)
+  run.shopVoucher = false
+  if run.shop and (offer.id == "OVERSTOCK" or offer.id == "OVERSTOCK_PLUS") then
+    generateCards(run, run.shop.cards)
+  end
+  if run.shop and (offer.id == "CLEARANCE_SALE" or offer.id == "LIQUIDATION") then
+    for _, stock in ipairs({ run.shop.cards, run.shop.packs }) do
+      for _, item in ipairs(stock) do
+        if item then
+          item.baseCost = item.baseCost or item.cost
+          item.cost = ns.Vouchers.price(run, item.baseCost)
+        end
+      end
+    end
+  end
+  if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("voucher", offer.id) end
+  event("spend", paid)
+  event("voucherBought", 1)
+  if offer.id == "BLANK" then event("blankBought", 1) end
   return true
 end
 
 function Shop.sellValue(trinket)
+  if trinket.paid ~= nil then return math.floor(trinket.paid / 2) end
   local cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
   return math.floor(cost / 2)
 end
@@ -99,10 +183,13 @@ end
 function Shop.reroll(run)
   local shop = run.shop
   if shop.openPack then return false, "pack" end
-  if run.gold < shop.rerollCost then return false, "gold" end
-  run.gold = run.gold - shop.rerollCost
+  local cost = math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
+  if run.gold < cost then return false, "gold" end
+  run.gold = run.gold - cost
   shop.rerollCost = shop.rerollCost + 1
   shop.cards = generateCards(run)
+  event("reroll", 1)
+  event("spend", cost)
   return true
 end
 
