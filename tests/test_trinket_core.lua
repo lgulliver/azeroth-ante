@@ -126,7 +126,7 @@ T.test("all_creation_sites_use_create", function()
   T.eq(ns.Packs.pick(run, 1), true)
   local taken = run.trinkets[1]
   T.ok(taken.uid and taken.state, "pack trinket lacks uid/state")
-  T.eq(taken.paid, 0)
+  T.eq(taken.paid, nil)
   -- Relic (Lich creates a rare trinket)
   run = newRun()
   run.phase = "shop"
@@ -145,4 +145,15 @@ T.test("all_creation_sites_use_create", function()
   ns.Consumables.apply(run, item, {})
   made = run.trinkets[1]
   T.ok(made and made.uid and made.state, "scroll trinket lacks uid/state")
+end)
+
+T.test("buffoon_trinket_sells_for_half_cost", function()
+  local run = newRun()
+  run.phase, run.gold = "shop", 100
+  ns.Shop.open(run)
+  run.shop.packs[1] = { type = "BUFFOON", size = "normal", cost = 4 }
+  T.eq(ns.Packs.open(run, 1), true)
+  run.shop.openPack.choices[1] = { type = "trinket", id = "WHETSTONE", cost = 5 }
+  T.eq(ns.Packs.pick(run, 1), true)
+  T.eq(ns.Shop.sellValue(run.trinkets[1]), 2)
 end)
