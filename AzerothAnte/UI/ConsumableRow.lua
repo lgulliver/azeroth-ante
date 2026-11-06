@@ -262,9 +262,14 @@ local function onSell()
   if not slot or not run or busy() then return end
   local gained = ns.Consumables.sell(run, slot)
   ConsumableRow.Close()
-  main().Render(run, true)
+  persist() -- saved before the events play, like a trinket sale
   ns.UI.Outcome.FloatGold(gained)
-  persist()
+  -- Selling can move a trinket (Cooking Fire grows): its events play before the table renders.
+  ns.UI.Lifecycle.Drain(run, function()
+    main().Render(run, true)
+    if run.phase == "play" then ns.UI.HandView.Update(run, true) end
+    persist()
+  end)
 end
 
 -- Transparent click-catcher under the popover: a click anywhere else closes it.
