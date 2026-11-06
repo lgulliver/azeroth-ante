@@ -20,13 +20,17 @@ function Cards.draw(pile, hand, n)
   return drawn
 end
 
--- Rank chips (none for Stone) plus any permanent bonusChips the card has earned.
+-- Rank value alone (Stone gives 0), ignoring bonusChips: Raised Fist-style effects use this.
+function Cards.nominal(card)
+  if Cards.isStone(card) then return 0 end
+  if card.rank == 14 then return 11 end
+  if card.rank >= 11 then return 10 end
+  return card.rank
+end
+
+-- Scoring chips: the nominal value plus any permanent bonusChips (Stone keeps only the bonus).
 function Cards.chipValue(card)
-  local bonus = card.bonusChips or 0
-  if Cards.isStone(card) then return bonus end
-  if card.rank == 14 then return 11 + bonus end
-  if card.rank >= 11 then return 10 + bonus end
-  return card.rank + bonus
+  return Cards.nominal(card) + (card.bonusChips or 0)
 end
 
 function Cards.isFace(card, rules)

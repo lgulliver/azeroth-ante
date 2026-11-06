@@ -90,7 +90,7 @@ function Scoring.score(ctx)
     if effect.destroyCard then sideEffects[#sideEffects + 1] = { kind = "destroyCard", id = effect.destroyCard } end
   end
 
-  -- Called once per successful Lucky roll (mult and money separately).
+  -- Called at most once per Lucky card trigger, whichever of the mult and money rolls hit.
   local function lucky(card)
     luckyTriggers = luckyTriggers + 1
     engine.each(trinkets, function(slot, inst, def, isCopy)
@@ -140,15 +140,17 @@ function Scoring.score(ctx)
     elseif enh == "GLASS" then
       enhEvent(i, card, { xmult = 2 })
     elseif enh == "LUCKY" then
+      local hit = false
       if ns.Prob.roll(ctx.rng, trinkets, 1, 5) then
         enhEvent(i, card, { mult = 20 })
-        lucky(card)
+        hit = true
       end
       if ns.Prob.roll(ctx.rng, trinkets, 1, 15) then
         goldRef.gold = goldRef.gold + 20
         emit({ kind = "money", index = i, gold = 20 })
-        lucky(card)
+        hit = true
       end
+      if hit then lucky(card) end
     end
     if card.ed then
       applyEdition(card.ed, { index = i }, "pre")
@@ -191,8 +193,8 @@ function Scoring.score(ctx)
 
   chips, mult = ns.Hands.base(handId, ((ctx.handLevels and ctx.handLevels[handId]) or 1)
     + (levelUps[handId] or 0))
-  if boss and (boss.halveBase or boss.mustPlay) then bossTriggered = true end
   if boss and boss.halveBase then
+    bossTriggered = true
     chips = math.floor(chips / 2)
     mult = math.max(1, math.floor(mult / 2))
   end
@@ -204,6 +206,7 @@ function Scoring.score(ctx)
     local card = cards[i]
     if boss and boss.debuff and boss.debuff(card, ctx.rules) then
       emit({ kind = "debuff", index = i })
+      bossTriggered = true
     else
       local extra = retriggers(card, "retrigger", i)
       cardStep(i, card)
@@ -212,12 +215,6 @@ function Scoring.score(ctx)
         cardStep(i, card)
       end
       if card.enh == "GLASS" then destroyCandidates[#destroyCandidates + 1] = i end
-    end
-  end
-  -- A debuffed card that was played but did not score still counts as the boss acting.
-  if boss and boss.debuff then
-    for _, card in ipairs(cards) do
-      if boss.debuff(card, ctx.rules) then bossTriggered = true end
     end
   end
 

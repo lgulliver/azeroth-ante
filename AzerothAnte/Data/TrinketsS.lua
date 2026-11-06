@@ -132,7 +132,7 @@ ns.Trinkets.add {
         if not lowest or held.rank <= lowest then lowest, lowestIndex = held.rank, i end
       end
     end
-    if heldIndex == lowestIndex then return { mult = 2 * ns.Cards.chipValue(card) } end
+    if heldIndex == lowestIndex then return { mult = 2 * ns.Cards.nominal(card) } end
   end,
 }
 

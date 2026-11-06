@@ -29,7 +29,9 @@ function H.score(run, cards, held, overrides)
     handsPlayedTotal = run.handsPlayedTotal + 1, isLastHand = run.handsLeft == 1,
     discardsLeft = run.discardsLeft, gold = run.gold, handsLeft = run.handsLeft,
     handPlays = run.handPlays, roundHandPlays = run.roundHandPlays, pileCount = #run.pile,
-    trinketSlots = ns.Run.trinketSlots(run),
+    trinketSlots = ns.Run.trinketSlots(run), deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
+    firstHandOfRound = (run.handsPlayedRound or 0) == 0,
+    consumableRoom = ns.Consumables.slots(run) - #run.consumables,
   }
   for k, v in pairs(overrides or {}) do ctx[k] = v end
   return ns.Scoring.score(ctx)
