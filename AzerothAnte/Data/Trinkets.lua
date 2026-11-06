@@ -11,7 +11,12 @@ local _, ns = ...
 -- onBossDefeated(run, self, isCopy), onLose(run, self, isCopy). onRoundEnd stays payout-only.
 -- Lifecycle effect fields: gold, msg, destroySelf, destroyTrinket (uid), createTrinkets { rarity, n },
 -- sellBonusAll (n), handsDelta (n), discardsSet (n), levelHand (handId), destroyCard (cardId), save.
--- Defs may also set copyable (default true), copies ("right"|"leftmost"), rule, status(self, ctx).
+-- More update hooks: onSell(run, self, sold, isCopy) on every other trinket after a sale (sold = { kind =
+-- "trinket"|"consumable", item }), onSelfSold(run, self) -> effect (original only, before removal),
+-- onShopReroll(run, self, isCopy), onPackSkipped(run, self, isCopy).
+-- Defs may also set copyable (default true), copies ("right"|"leftmost"), rule, status(self, ctx),
+-- handSize / hands / discards (a number or function(self, run) -> number, summed by Trinkets.mods)
+-- and interestBonus (a number; interest is multiplied by 1 + the sum).
 local Trinkets = { order = {}, def = {} }
 
 -- Instances: { id, ed, paid, sellBonus, state, uid }. Defs may set rule (a TrinketRules key),
@@ -68,6 +73,35 @@ function Trinkets.rollOfRarity(run, rarity)
   end
   if #pool == 0 then return nil end
   return ns.RNG.pick(run.rng, pool)
+end
+
+local function modValue(v, instance, run)
+  if type(v) == "function" then return v(instance, run) or 0 end
+  return v or 0
+end
+
+-- Hand size, hands and discards the owned trinkets add. Only real instances count, so copiers add none.
+function Trinkets.mods(run)
+  local mods = { handSize = 0, hands = 0, discards = 0 }
+  for _, instance in ipairs(run.trinkets or {}) do
+    local def = Trinkets.def[instance.id]
+    if def then
+      mods.handSize = mods.handSize + modValue(def.handSize, instance, run)
+      mods.hands = mods.hands + modValue(def.hands, instance, run)
+      mods.discards = mods.discards + modValue(def.discards, instance, run)
+    end
+  end
+  return mods
+end
+
+-- Sum of owned interestBonus values; interest is multiplied by 1 + this.
+function Trinkets.interestBonus(run)
+  local sum = 0
+  for _, instance in ipairs(run.trinkets or {}) do
+    local def = Trinkets.def[instance.id]
+    if def and def.interestBonus then sum = sum + def.interestBonus end
+  end
+  return sum
 end
 
 function Trinkets.inPool(run, id)

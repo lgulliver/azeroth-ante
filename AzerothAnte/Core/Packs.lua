@@ -62,7 +62,7 @@ function Packs.open(run, i)
   if shop and shop.openPack then return false, "pack" end
   local offer = shop and shop.packs[i]
   if not offer then return false, "gone" end
-  if run.gold < offer.cost then return false, "gold" end
+  if not ns.Run.canAfford(run, offer.cost) then return false, "gold" end
   local size = Packs.SIZES[offer.size]
   local show = Packs.showCount(offer.type, offer.size)
   local pack = { type = offer.type, size = offer.size, choices = {}, picksLeft = size.pick, paid = offer.cost }
@@ -139,7 +139,7 @@ local function selectedCards(pack, item, idx)
   return cards
 end
 
-function Packs.pick(run, c, idx)
+local function pickChoice(run, c, idx)
   local pack = run.shop and run.shop.openPack
   local item = pack and pack.choices[c]
   if not item then return false, "gone" end
@@ -171,8 +171,14 @@ function Packs.pick(run, c, idx)
   return true, nil, outcome
 end
 
+function Packs.pick(run, c, idx)
+  return ns.Run.withMods(run, function() return pickChoice(run, c, idx) end)
+end
+
 function Packs.skip(run)
+  local pack = run.shop and run.shop.openPack
   if run.shop then run.shop.openPack = nil end
+  if pack and pack.picksLeft > 0 then ns.TrinketEngine.fire(run, "onPackSkipped") end
 end
 
 ns.Packs = Packs

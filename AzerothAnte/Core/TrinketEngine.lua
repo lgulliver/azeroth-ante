@@ -113,6 +113,18 @@ function TrinketEngine.apply(run, slot, uid, effect, isCopy, only)
   return events
 end
 
+-- Applies every phase of one effect now (selling a trinket has no batch to order against) and
+-- appends the events to run.lifecycleEvents. Returns the events.
+function TrinketEngine.applyAll(run, slot, uid, effect, isCopy)
+  local events = {}
+  for _, phase in ipairs({ "now", "destroy", "create" }) do
+    for _, e in ipairs(TrinketEngine.apply(run, slot, uid, effect, isCopy, phase)) do events[#events + 1] = e end
+  end
+  run.lifecycleEvents = run.lifecycleEvents or {}
+  for _, e in ipairs(events) do run.lifecycleEvents[#run.lifecycleEvents + 1] = e end
+  return events
+end
+
 -- True while a fire is running and `uid` is already marked for destruction.
 function TrinketEngine.isMarked(run, uid)
   return run.pendingDestroy ~= nil and run.pendingDestroy[uid] == true
@@ -122,7 +134,7 @@ end
 -- collects the effects, then applies them in slot order: plain fields, destructions, creations.
 -- A uid marked for destruction (run.pendingDestroy) skips its own hook; hooks may check isMarked.
 -- Returns the events and appends them to run.lifecycleEvents for the UI.
-function TrinketEngine.fire(run, hook, ...)
+local function fireNow(run, hook, ...)
   local n = select("#", ...)
   local args = { ... }
   local pending = {}
@@ -149,6 +161,13 @@ function TrinketEngine.fire(run, hook, ...)
   run.lifecycleEvents = run.lifecycleEvents or {}
   for _, e in ipairs(events) do run.lifecycleEvents[#run.lifecycleEvents + 1] = e end
   return events
+end
+
+-- Trinkets created or destroyed by a hook change hands, discards and hand size, so settle them.
+function TrinketEngine.fire(run, hook, ...)
+  local args = { ... }
+  local n = select("#", ...)
+  return ns.Run.withMods(run, function() return fireNow(run, hook, unpack(args, 1, n)) end)
 end
 
 ns.TrinketEngine = TrinketEngine

@@ -174,7 +174,7 @@ local function buildApi(run, outcome, touched)
 end
 
 -- Applies an item's effect with no slot involved. Callers check canApply first.
-function Consumables.apply(run, item, cards)
+local function applyItem(run, item, cards)
   local def = Consumables.def(item)
   local outcome = {
     changed = {}, destroyed = {}, created = {}, added = {}, gold = 0,
@@ -202,6 +202,11 @@ function Consumables.apply(run, item, cards)
   end
   ns.Run.checkHand(run) -- a thinned hand refills, or the blind is lost when nothing is left
   return outcome
+end
+
+-- Scrolls and Relics can add or remove trinkets, so settle hands, discards and hand size after.
+function Consumables.apply(run, item, cards)
+  return ns.Run.withMods(run, function() return applyItem(run, item, cards) end)
 end
 
 -- Resolves selected hand indices into cards, left to right. Returns nil, reason on bad input.
@@ -249,6 +254,7 @@ function Consumables.sell(run, slot)
   local gained = Consumables.sellValue(item)
   run.gold = run.gold + gained
   table.remove(run.consumables, slot)
+  ns.TrinketEngine.fire(run, "onSell", { kind = "consumable", item = item })
   return gained
 end
 
