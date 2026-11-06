@@ -14,6 +14,7 @@ Core\Prob.lua
 Core\TrinketRules.lua
 Data\Trinkets.lua
 Data\TrinketsS.lua
+Data\TrinketsE.lua
 Data\Bosses.lua
 Data\Decks.lua
 Data\Vouchers.lua
