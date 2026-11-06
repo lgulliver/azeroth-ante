@@ -1593,6 +1593,95 @@ local function run(w)
   check(visible("carousel"), "abandon returns to the new-run screen")
   step("9c abandon run")
 
+  -- 9d. Title-bar Abandon Run: any phase with a run, hidden on deck select.
+  do
+    local ab = Main.abandon
+    check(ab and ab.themeButton == "danger", "title-bar Abandon exists, danger variant")
+    check(not ab:IsShown(), "title-bar Abandon hidden on deck select")
+    local function runsRecorded()
+      local st = ns.Profile.get(env.AzerothAnteDB).stats.ROGUE
+      return st and st.runs or 0
+    end
+    local before = runsRecorded()
+    startDeck("ROGUE")
+    stub.advance(1)
+    check(ab:IsVisible(), "title-bar Abandon shown on the blind screen")
+    click(panel("preview").start, "Start Blind (9d)")
+    stub.advance(3)
+    eq(Main.run.phase, "play", "9d: playing")
+    Main.run.target = 1e9
+    check(ab:IsVisible(), "title-bar Abandon shown during play")
+    check(#handWidgets() > 0, "9d: a hand is dealt")
+    -- a first click, then 3s: disarmed
+    click(ab, "title Abandon")
+    check(ab:GetText() ~= "Abandon Run", "title Abandon arms")
+    stub.advance(3.5)
+    eq(ab:GetText(), "Abandon Run", "title Abandon disarms after 3s")
+    check(Main.run ~= nil and env.AzerothAnteDB.run ~= nil, "a lone click keeps the run")
+    -- ignored while a tally runs
+    selectCard(1)
+    playSelected()
+    local waited = 0
+    while not Tally.IsBusy() and waited < 5 do
+      stub.advance(0.05)
+      waited = waited + 0.05
+    end
+    check(Tally.IsBusy(), "9d: tally started")
+    stub.advance(0.3)
+    ab:Click()
+    ab:Click()
+    check(Main.run ~= nil and env.AzerothAnteDB.run ~= nil, "Abandon is ignored during a tally")
+    eq(ab:GetText(), "Abandon Run", "a blocked click does not arm")
+    stub.advance(10)
+    check(not Tally.IsBusy() and not HandView.IsBusy(), "9d: tally finished")
+    eq(Main.run.phase, "play", "9d: still in the play phase")
+    -- two clicks during play return to deck select, clean
+    click(ab, "title Abandon (arm)")
+    click(ab, "title Abandon (confirm)")
+    stub.advance(1)
+    check(Main.run == nil and env.AzerothAnteDB.run == nil, "play-phase abandon clears run and save")
+    check(visible("carousel"), "play-phase abandon returns to deck select")
+    check(not HandView.IsBusy() and not Tally.IsBusy(), "no busy state after abandon")
+    eq(#handWidgets(), 0, "no hand widgets after abandon")
+    eq(#HandView.HeldWidgets(), 0, "HandView holds no widgets after abandon")
+    check(not HandView.deck:IsShown(), "deck pile hidden after abandon")
+    check(not ab:IsShown(), "title-bar Abandon hidden again on deck select")
+    eq(runsRecorded(), before, "play-phase abandon records no run")
+    -- the shop
+    startDeck("ROGUE")
+    stub.advance(1)
+    click(panel("preview").start, "Start Blind (9d shop)")
+    stub.advance(3)
+    Main.run.target = 1
+    selectCard(1)
+    playSelected()
+    stub.advance(15)
+    eq(Main.run.phase, "shop", "9d: reached the shop")
+    check(ab:IsVisible(), "title-bar Abandon shown in the shop")
+    click(ab, "title Abandon (shop arm)")
+    click(ab, "title Abandon (shop confirm)")
+    stub.advance(1)
+    check(Main.run == nil and visible("carousel"), "shop abandon returns to deck select")
+  end
+  step("9d title-bar abandon: phases, arm timeout, tally block, clean play-phase exit")
+
+  -- 9e. Danger variant contrast (WCAG 2.x).
+  do
+    local Theme = ns.UI.Theme
+    local function lin(c) return c <= 0.03928 and c / 12.92 or ((c + 0.055) / 1.055) ^ 2.4 end
+    local function lum(c) return 0.2126 * lin(c[1]) + 0.7152 * lin(c[2]) + 0.0722 * lin(c[3]) end
+    local function ratio(a, b)
+      local x, y = lum(a), lum(b)
+      if x < y then x, y = y, x end
+      return (x + 0.05) / (y + 0.05)
+    end
+    local d = Theme.buttons.danger
+    check(ratio(d.text, d.fill) >= 4.5, "danger text/fill contrast " .. ratio(d.text, d.fill))
+    check(ratio(d.border, Theme.insetFill) >= 3, "danger border/panel contrast " .. ratio(d.border, Theme.insetFill))
+    check(ratio(d.border, Theme.bg) >= 3, "danger border/window contrast")
+  end
+  step("9e danger button contrast")
+
   local SMOKE_SEED = tonumber(os.getenv("SMOKE_SEED")) or 424242
   -- 10. The balance bot plays a scripted run through the UI: it decides, we click.
   do
