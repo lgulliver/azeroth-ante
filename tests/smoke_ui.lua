@@ -151,7 +151,7 @@ local function run(w)
     eq(sb.profileWins:GetText(), "Wins: 0", "sidebar wins")
     eq(sb.profileBest:GetText(), "Best stage: 0", "sidebar best stage")
     eq(sb.profileDecks:GetText(), "Decks unlocked: 1/5", "sidebar decks unlocked")
-    eq(sb.profileFound:GetText(), "Discovered: 0/127", "sidebar discovered") -- Task 4 adds 23 S trinkets.
+    eq(sb.profileFound:GetText(), "Discovered: 0/164", "sidebar discovered") -- Wave 1 adds 60 S trinkets.
     check(not sb.targetLabel:IsShown() and not sb.scoreLabel:IsShown() and not sb.chipsBox:IsShown()
       and not sb.multBox:IsShown() and not sb.hands:IsShown() and not sb.gold:IsShown(), "round stats hidden")
     check(not sb.deckButton:IsShown(), "Deck button hidden on the select screen")
