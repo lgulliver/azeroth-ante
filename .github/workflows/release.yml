@@ -39,9 +39,9 @@ jobs:
           cp -r AzerothAnte dist/AzerothAnte
           cp LICENSE dist/AzerothAnte/LICENSE
 
-          # The TOC lists Retail and Forever interfaces (120100, 120105, 16001).
+          # The TOC lists Retail and Forever interfaces (120100, 120105, 120107, 16001).
           # Forever's is the five-digit one (16001 -> 1.60.1); Retail's are six digits
-          # (120100 -> 12.1.0, 120105 -> 12.1.5).
+          # (120100 -> 12.1.0, 120105 -> 12.1.5, 120107 -> 12.1.7).
           interfaces=$(sed -n 's/^## Interface: *//p' AzerothAnte/AzerothAnte.toc | tr -d '\r' | tr ',' '\n' | tr -d ' ')
           to_patch() { printf "%d.%d.%d" $(($1 / 10000)) $(($1 / 100 % 100)) $(($1 % 100)); }
           interface=$(awk 'length($0) == 5' <<<"$interfaces" | head -1)

@@ -54,7 +54,7 @@ In each client, run:
 ```
 
 Set `## Interface` in `AzerothAnte/AzerothAnte.toc` to the returned number.
-The shipped line is `## Interface: 120100, 120105, 16001`. If your client returns a
+The shipped line is `## Interface: 120100, 120105, 120107, 16001`. If your client returns a
 number that isn't listed, add it to that comma-separated list (or replace the
 list with your number).
 
