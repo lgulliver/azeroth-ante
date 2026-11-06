@@ -54,11 +54,18 @@ function Profile.totalDiscoverable()
   return #ns.Trinkets.order + #ns.Tomes.order + #ns.Scrolls.order + #ns.Relics.order + #ns.Vouchers.order
 end
 
+-- Items to discover before a deck unlocks: a fraction of the whole collection, so it scales as content grows.
+function Profile.unlockThreshold(deckId)
+  local deck = ns.Decks.def[deckId]
+  local fraction = deck and deck.unlock and deck.unlock.fraction
+  return fraction and math.floor(fraction * Profile.totalDiscoverable()) or 0
+end
+
 function Profile.isUnlocked(db, deckId)
   local deck = ns.Decks.def[deckId]
   local have = Profile.discoveredCount(db)
   if not deck then return false, have, 0 end
-  local need = deck.unlock and deck.unlock.discovered or 0
+  local need = Profile.unlockThreshold(deckId)
   local profile = Profile.get(db)
   if have >= need then profile.unlockedDecks[deckId] = true end
   return profile.unlockedDecks[deckId] == true, have, need

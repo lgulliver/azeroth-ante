@@ -5,15 +5,12 @@ return function(ns)
   local Vouchers = ns.Vouchers
   local bot = {}
 
-  -- Trinket buy order: xmult first, then mult, then chips and the rest.
-  local TRINKET_PRIORITY = {
-    "AVENGING_WRATH", "BLOODLUST", "EXECUTE", "HUNTERS_MARK",
-    "LUCKY_CHARM", "ELEMENTAL", "MULTI_SHOT", "CLEAVE", "BATTLE_SHOUT", "TWIN_BLADES",
-    "ARCANE_INTELLECT", "WHETSTONE", "HEALTHSTONE", "OGRE_CUDGEL", "JEWELERS_KIT",
-    "GOBLIN_BANK", "ROYAL_GUARD", "FORTITUDE", "COMBO_POINTS", "HEARTHSTONE",
-  }
-  local TRINKET_RANK = {}
-  for i, id in ipairs(TRINKET_PRIORITY) do TRINKET_RANK[id] = i end
+  -- Trinkets are bought by rarity (rare over uncommon over common); the bot never reorders them.
+  local RARITY_WEIGHT = { common = 1, uncommon = 2, rare = 3 }
+  local function trinketWeight(offer)
+    local def = ns.Trinkets.def[offer.id]
+    return def and RARITY_WEIGHT[def.rarity] or 0
+  end
 
   -- Scrolls worth using on the highest-rank cards, best first.
   local SCROLL_PRIORITY = {
@@ -197,16 +194,16 @@ return function(ns)
 
   local function shop(run)
     useConsumables(run, nil)
-    -- Trinkets, best first.
+    -- Trinkets, rarest first.
     local progress = true
     while progress do
       progress = false
-      local bestI, bestRank = nil, 1e9
+      local bestI, bestWeight = nil, 0
       for i, offer in ipairs(run.shop.cards) do
         if offer and offer.type == "trinket" and offer.cost <= run.gold
           and #run.trinkets < Run.trinketSlots(run) then
-          local rank = TRINKET_RANK[offer.id] or 99
-          if rank < bestRank then bestI, bestRank = i, rank end
+          local weight = trinketWeight(offer)
+          if weight > bestWeight then bestI, bestWeight = i, weight end
         end
       end
       if bestI and Shop.buy(run, bestI) then progress = true end
@@ -240,7 +237,7 @@ return function(ns)
   -- Decision pieces, exposed so a UI harness can drive the same choices through clicks.
   bot.bestPlay, bot.discardPlan, bot.usePlan = bestPlay, discardPlan, usePlan
   bot.choosePick, bot.mostPlayed = choosePick, mostPlayed
-  bot.TRINKET_RANK, bot.SCROLL_RANK, bot.VOUCHER_RANK = TRINKET_RANK, SCROLL_RANK, VOUCHER_RANK
+  bot.trinketWeight, bot.SCROLL_RANK, bot.VOUCHER_RANK = TRINKET_RANK, SCROLL_RANK, VOUCHER_RANK
 
   function bot.playRun(run)
     run.bot = { played = {} }

@@ -113,7 +113,7 @@ local function run(w)
   -- Picks a deck in the carousel (unlocking it in the profile first) and presses Play.
   local function startDeck(id)
     local profile = ns.Profile.get(env.AzerothAnteDB)
-    local need = ns.Decks.def[id].unlock and ns.Decks.def[id].unlock.discovered or 0
+    local need = ns.Profile.unlockThreshold(id)
     for i = ns.Profile.discoveredCount(env.AzerothAnteDB) + 1, need do profile.discovered["test:" .. i] = true end
     local p = panel("carousel")
     ns.UI.DeckSelect.Select(id, true)
@@ -167,11 +167,14 @@ local function run(w)
     check(math.abs(DS.Card("WARRIOR"):GetWidth() - CardWidget.WIDTH * 1.35) < 0.5, "slide settled")
     check(DS.Card("WARRIOR").lock:IsShown() and DS.Card("WARRIOR").art:IsDesaturated(), "locked deck: padlock and desaturated art")
     check(not p.play:IsEnabled(), "locked deck: Play disabled")
-    check(p.play.reason and p.play.reason:find("Discover 7 items to unlock (0/7)", 1, true), "locked deck: reason")
+    local warriorNeed = ns.Profile.unlockThreshold("WARRIOR")
+    local warlockNeed = ns.Profile.unlockThreshold("WARLOCK")
+    local warriorText = ("Discover %d items to unlock (0/%d)"):format(warriorNeed, warriorNeed)
+    check(p.play.reason and p.play.reason:find(warriorText, 1, true), "locked deck: reason")
     p.play._scripts.OnEnter(p.play)
-    check(stub.tooltip:IsShown() and stub.tooltip._tipText:find("Discover 7", 1, true), "reason tooltip on hover")
+    check(stub.tooltip:IsShown() and stub.tooltip._tipText:find("Discover " .. warriorNeed, 1, true), "reason tooltip on hover")
     p.play._scripts.OnLeave(p.play)
-    eq(p.desc:GetText(), "Discover 7 items to unlock (0/7)", "unlock text replaces the rule")
+    eq(p.desc:GetText(), warriorText, "unlock text replaces the rule")
     check(p.progress:IsShown(), "progress bar on a locked deck")
     p.play:Click()
     check(Main.run == nil, "a disabled Play does not start a run")
@@ -179,7 +182,7 @@ local function run(w)
     click(p.prevBtn, "prev arrow (wrap)")
     stub.advance(0.5)
     eq(DS.Selected(), "WARLOCK", "prev wraps around to WARLOCK")
-    eq(p.desc:GetText(), "Discover 35 items to unlock (0/35)", "locked text for Warlock")
+    eq(p.desc:GetText(), ("Discover %d items to unlock (0/%d)"):format(warlockNeed, warlockNeed), "locked text for Warlock")
     click(p.nextBtn, "next arrow (wrap)")
     stub.advance(0.5)
     eq(DS.Selected(), "ROGUE", "next wraps back to ROGUE")
@@ -1864,11 +1867,11 @@ local function run(w)
       while again do
         again = false
         r = Main.run
-        local bestI, bestRank = nil, 1e9
+        local bestI, bestWeight = nil, 0
         for i, offer in ipairs(r.shop.cards) do
           if offer and offer.type == "trinket" and offer.cost <= r.gold and #r.trinkets < ns.Run.trinketSlots(r) then
-            local rank = bot.TRINKET_RANK[offer.id] or 99
-            if rank < bestRank then bestI, bestRank = i, rank end
+            local weight = bot.trinketWeight(offer)
+            if weight > bestWeight then bestI, bestWeight = i, weight end
           end
         end
         if bestI then
@@ -2008,7 +2011,7 @@ local function run(w)
     check(ns2.Profile.get(db).seenUnlocks.ROGUE, "the starter deck is marked seen silently")
     m.Hide()
     local prof = ns2.Profile.get(db)
-    for i = 1, 7 do prof.discovered["test:" .. i] = true end
+    for i = 1, ns2.Profile.unlockThreshold("WARRIOR") do prof.discovered["test:" .. i] = true end
     local seen = {}
     local realMark = ns2.Profile.markSeen
     ns2.Profile.markSeen = function(d, id)
@@ -2043,7 +2046,7 @@ local function run(w)
     eq(#seen, 1, "no second flourish for a seen deck")
     -- Several unlocks play one at a time.
     m.Hide()
-    for i = 8, 35 do prof.discovered["test:" .. i] = true end
+    for i = ns2.Profile.unlockThreshold("WARRIOR") + 1, ns2.Profile.unlockThreshold("WARLOCK") do prof.discovered["test:" .. i] = true end
     w2.env.SlashCmdList.AZEROTHANTE()
     stub2.advance(0.2)
     eq(DS2.Flourishing(), "GOBLIN", "first of several")
@@ -2444,7 +2447,7 @@ local function run(w)
     p2.prevBtn:Click()
     stub2.advance(0.4)
     m.Hide()
-    for i = 1, 7 do ns2.Profile.get(db).discovered["test:" .. i] = true end
+    for i = 1, ns2.Profile.unlockThreshold("WARRIOR") do ns2.Profile.get(db).discovered["test:" .. i] = true end
     w2.env.SlashCmdList.AZEROTHANTE()
     stub2.advance(0.3)
     eq(DS2.Flourishing(), "WARRIOR", "the flourish plays without those APIs")

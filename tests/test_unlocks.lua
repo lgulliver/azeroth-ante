@@ -70,6 +70,30 @@ T.test("discovery_idempotence_counts_and_kind_namespaces", function()
   T.eq(ns.Profile.discoveredCount(db), 5)
 end)
 
+local FRACTIONS = { WARRIOR = 0.067, GOBLIN = 0.163, MONK = 0.25, WARLOCK = 0.337 }
+
+T.test("thresholds_scale_with_total", function()
+  local total = ns.Profile.totalDiscoverable()
+  for id, fraction in pairs(FRACTIONS) do
+    local need = math.floor(fraction * total)
+    T.eq(ns.Profile.unlockThreshold(id), need)
+    local db = {}
+    local p = ns.Profile.get(db)
+    for i = 1, need - 1 do p.discovered["t:" .. i] = true end
+    T.eq({ ns.Profile.isUnlocked(db, id) }, { false, need - 1, need })
+    p.discovered["t:" .. need] = true
+    T.eq({ ns.Profile.isUnlocked(db, id) }, { true, need, need })
+  end
+  T.eq(ns.Profile.unlockThreshold("ROGUE"), 0)
+end)
+
+T.test("grandfathered_unlock_kept", function()
+  local db = { profile = { discovered = {}, unlockedDecks = { WARLOCK = true } } }
+  for i = 1, 20 do db.profile.discovered["t:" .. i] = true end
+  T.ok(ns.Profile.unlockThreshold("WARLOCK") > 20)
+  T.eq(ns.Profile.isUnlocked(db, "WARLOCK"), true)
+end)
+
 T.test("unlock_thresholds_and_seen_notifications", function()
   T.ok(ns.Profile, "Profile module missing")
   local db = {}
@@ -81,9 +105,13 @@ T.test("unlock_thresholds_and_seen_notifications", function()
   for _, data in ipairs({ ns.Trinkets, ns.Tomes, ns.Scrolls, ns.Relics }) do
     for _, id in ipairs(data.order) do items[#items + 1] = tostring(#items + 1) .. ":" .. id end
   end
-  for i = 1, 35 do
+  local cases = {}
+  for _, id in ipairs({ "WARRIOR", "GOBLIN", "MONK", "WARLOCK" }) do
+    cases[#cases + 1] = { id, ns.Profile.unlockThreshold(id) }
+  end
+  for i = 1, cases[4][2] do
     p.discovered[items[i]] = true
-    for _, c in ipairs({ { "WARRIOR", 7 }, { "GOBLIN", 17 }, { "MONK", 26 }, { "WARLOCK", 35 } }) do
+    for _, c in ipairs(cases) do
       T.eq({ ns.Profile.isUnlocked(db, c[1]) }, { i >= c[2], i, c[2] })
     end
   end
@@ -229,7 +257,11 @@ T.test("grandfathered_unlocks", function()
 end)
 
 T.test("new_thresholds_persist_without_reapplying_old_thresholds", function()
-  for _, c in ipairs({ { "WARRIOR", 7 }, { "GOBLIN", 17 }, { "MONK", 26 }, { "WARLOCK", 35 } }) do
+  local cases = {}
+  for _, id in ipairs({ "WARRIOR", "GOBLIN", "MONK", "WARLOCK" }) do
+    cases[#cases + 1] = { id, ns.Profile.unlockThreshold(id) }
+  end
+  for _, c in ipairs(cases) do
     local db = {}
     local p = ns.Profile.get(db)
     for i = 1, c[2] - 1 do p.discovered[tostring(i)] = true end
