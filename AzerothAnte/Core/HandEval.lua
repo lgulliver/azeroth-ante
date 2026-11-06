@@ -2,7 +2,7 @@ local _, ns = ...
 
 local HandEval = {}
 
--- Find the longest qualifying run, keeping one card per rank. Ace can start low.
+-- Find the longest qualifying run, scoring every card of its ranks. Ace can start low.
 local function findStraight(cards, live, need, shortcut)
   local byRank = {}
   for _, i in ipairs(live) do
@@ -25,7 +25,14 @@ local function findStraight(cards, live, need, shortcut)
     used[i], path[#path] = nil, nil
   end
   for rank = 1, 14 do search(rank) end
-  return best, bestLength
+  if best then
+    local ranks = {}
+    for i in pairs(best) do ranks[cards[i].rank] = true end
+    for _, i in ipairs(live) do
+      if ranks[cards[i].rank] then best[i] = true end
+    end
+  end
+  return best
 end
 
 -- Stone cards never form part of a hand, so only the other cards are analysed.
@@ -55,7 +62,7 @@ local function analyze(cards, rules)
   local straight, flush, straightFlush
   if (rules and rules.FOUR_FINGERS and #live >= need) or #live == 5 then
     straight = findStraight(cards, live, need, rules and rules.SHORTCUT)
-    local flushLength, straightFlushLength = 0, 0
+    local flushLength = 0
     for _, suit in ipairs(ns.Cards.SUITS) do
       local suited = {}
       for _, i in ipairs(live) do
@@ -66,11 +73,12 @@ local function analyze(cards, rules)
           flush, flushLength = {}, #suited
           for _, i in ipairs(suited) do flush[i] = true end
         end
-        local run, length = findStraight(cards, suited, need, rules and rules.SHORTCUT)
-        if run and length > straightFlushLength then
-          straightFlush, straightFlushLength = run, length
-        end
       end
+    end
+    if straight and flush then
+      straightFlush = {}
+      for i in pairs(straight) do straightFlush[i] = true end
+      for i in pairs(flush) do straightFlush[i] = true end
     end
   end
 
