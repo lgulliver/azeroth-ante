@@ -28,7 +28,7 @@ local VALID_RARITY = { common = true, uncommon = true, rare = true }
 local ICON_PREFIX = "Interface\\Icons\\"
 
 T.test("trinkets_complete", function()
-  T.eq(#ns.Trinkets.order, 80) -- Wave 1: 20 remaps + 60 new S defs.
+  T.eq(#ns.Trinkets.order, 94) -- Wave 1 catalog plus 14 wave 2 E defs.
   local seen = {}
   for _, id in ipairs(ns.Trinkets.order) do
     local def = trinket(id)
@@ -42,7 +42,8 @@ T.test("trinkets_complete", function()
     T.ok(VALID_RARITY[def.rarity], id .. ": bad rarity")
     T.ok(type(def.cost) == "number", id .. ": cost not a number")
     T.ok(def.onCard or def.onHand or def.onRoundEnd or def.rule or def.retrigger
-      or def.heldRetrigger or def.onHeld or def.before or def.otherTrinket or def.copies, id .. ": no hook")
+      or def.heldRetrigger or def.onHeld or def.before or def.otherTrinket or def.copies
+      or def.onBlindSelect or def.onDiscard or def.roundUpdate or def.onPackSkipped, id .. ": no hook")
   end
 end)
 

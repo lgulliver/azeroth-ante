@@ -61,7 +61,7 @@ end)
 T.test("discovery_idempotence_counts_and_kind_namespaces", function()
   T.ok(ns.Profile, "Profile module missing")
   local db = {}
-  T.eq(ns.Profile.totalDiscoverable(), 164) -- Wave 1 adds 60 discoverable S trinkets.
+  T.eq(ns.Profile.totalDiscoverable(), #ns.Trinkets.order + #ns.Scrolls.order + #ns.Tomes.order + #ns.Relics.order + #ns.Vouchers.order)
   T.eq(ns.Profile.discoveredCount(db), 0)
   for _, item in ipairs({ { "trinket", "BLOODLUST" }, { "scroll", "FURY" }, { "tome", "PAIR" }, { "relic", "LICH" }, { "voucher", "BLANK" } }) do
     T.eq(ns.Profile.discover(db, item[1], item[2]), true)
@@ -293,13 +293,13 @@ T.test("new_thresholds_persist_without_reapplying_old_thresholds", function()
   end
 end)
 
-T.test("total_discoverable_164", function()
+T.test("total_discoverable_catalog", function()
   local db = {}
   for _, c in ipairs({ { "trinket", ns.Trinkets }, { "scroll", ns.Scrolls },
     { "tome", ns.Tomes }, { "relic", ns.Relics }, { "voucher", ns.Vouchers } }) do
     for _, id in ipairs(c[2].order) do T.eq(ns.Profile.discover(db, c[1], id), true) end
   end
-  T.eq(ns.Profile.discoveredCount(db), 164)
-  T.eq(ns.Profile.totalDiscoverable(), 164) -- Wave 1 adds 60 discoverable S trinkets.
+  T.eq(ns.Profile.discoveredCount(db), ns.Profile.totalDiscoverable())
+  T.eq(ns.Profile.totalDiscoverable(), #ns.Trinkets.order + #ns.Scrolls.order + #ns.Tomes.order + #ns.Relics.order + #ns.Vouchers.order)
   T.eq(ns.Profile.discover(db, "voucher", "UNKNOWN"), false)
 end)
