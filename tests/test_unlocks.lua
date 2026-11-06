@@ -43,7 +43,8 @@ T.test("profile_creation_migration_preserves_progress_and_save", function()
   T.ok(ns.Profile, "Profile module missing")
   local db = { run = { seed = 7 }, version = 2 }
   local p = ns.Profile.get(db)
-  T.eq(p, { version = 1, discovered = {}, stats = {}, seenUnlocks = {} })
+  T.eq(p, { version = 1, discovered = {}, stats = {}, seenUnlocks = {},
+    counters = {}, achievements = {}, bossesSeen = {}, unlockedDecks = {}, seenAchievements = {} })
   T.ok(p == ns.Profile.get(db))
   db.profile = { version = 0, discovered = { ["scroll:FURY"] = true }, stats = { ROGUE = { wins = 2 } } }
   p = ns.Profile.get(db)
@@ -60,13 +61,13 @@ end)
 T.test("discovery_idempotence_counts_and_kind_namespaces", function()
   T.ok(ns.Profile, "Profile module missing")
   local db = {}
-  T.eq(ns.Profile.totalDiscoverable(), 72)
+  T.eq(ns.Profile.totalDiscoverable(), 104)
   T.eq(ns.Profile.discoveredCount(db), 0)
-  for _, item in ipairs({ { "trinket", "BLOODLUST" }, { "scroll", "FURY" }, { "tome", "PAIR" }, { "relic", "LICH" } }) do
+  for _, item in ipairs({ { "trinket", "BLOODLUST" }, { "scroll", "FURY" }, { "tome", "PAIR" }, { "relic", "LICH" }, { "voucher", "BLANK" } }) do
     T.eq(ns.Profile.discover(db, item[1], item[2]), true)
     T.eq(ns.Profile.discover(db, item[1], item[2]), false)
   end
-  T.eq(ns.Profile.discoveredCount(db), 4)
+  T.eq(ns.Profile.discoveredCount(db), 5)
 end)
 
 T.test("unlock_thresholds_and_seen_notifications", function()
@@ -80,9 +81,9 @@ T.test("unlock_thresholds_and_seen_notifications", function()
   for _, data in ipairs({ ns.Trinkets, ns.Tomes, ns.Scrolls, ns.Relics }) do
     for _, id in ipairs(data.order) do items[#items + 1] = tostring(#items + 1) .. ":" .. id end
   end
-  for i = 1, 24 do
+  for i = 1, 35 do
     p.discovered[items[i]] = true
-    for _, c in ipairs({ { "WARRIOR", 5 }, { "GOBLIN", 12 }, { "MONK", 18 }, { "WARLOCK", 24 } }) do
+    for _, c in ipairs({ { "WARRIOR", 7 }, { "GOBLIN", 17 }, { "MONK", 26 }, { "WARLOCK", 35 } }) do
       T.eq({ ns.Profile.isUnlocked(db, c[1]) }, { i >= c[2], i, c[2] })
     end
   end
@@ -208,4 +209,46 @@ T.test("sim_defaults_to_every_selectable_deck", function()
     T.ok(output:find("deck " .. id .. ", 1 runs, seed 1", 1, true), "sim missing " .. id)
   end
   T.ok(not output:find("deck ADVENTURER", 1, true))
+end)
+
+T.test("grandfathered_unlocks", function()
+  for _, c in ipairs({ { "WARRIOR", 5 }, { "GOBLIN", 12 }, { "MONK", 18 }, { "WARLOCK", 24 } }) do
+    local db = { profile = { discovered = {}, seenUnlocks = { [c[1]] = true } } }
+    for i = 1, c[2] do db.profile.discovered[tostring(i)] = true end
+    local p = ns.Profile.get(db)
+    T.eq(p.unlockedDecks[c[1]], true)
+    p.discovered = {}
+    T.eq(ns.Profile.isUnlocked(db, c[1]), true)
+    T.eq(p.seenUnlocks[c[1]], true)
+  end
+  local db = { profile = { discovered = {} } }
+  for i = 1, 6 do db.profile.discovered[tostring(i)] = true end
+  ns.Profile.get(db)
+  T.eq(ns.Profile.isUnlocked(db, "WARRIOR"), true)
+  T.eq(ns.Profile.isUnlocked(db, "GOBLIN"), false)
+end)
+
+T.test("new_thresholds_persist_without_reapplying_old_thresholds", function()
+  for _, c in ipairs({ { "WARRIOR", 7 }, { "GOBLIN", 17 }, { "MONK", 26 }, { "WARLOCK", 35 } }) do
+    local db = {}
+    local p = ns.Profile.get(db)
+    for i = 1, c[2] - 1 do p.discovered[tostring(i)] = true end
+    T.eq(ns.Profile.isUnlocked(db, c[1]), false)
+    p.discovered[tostring(c[2])] = true
+    T.eq(ns.Profile.isUnlocked(db, c[1]), true)
+    T.eq(p.unlockedDecks[c[1]], true)
+    p.discovered = {}
+    T.eq(ns.Profile.isUnlocked(db, c[1]), true)
+  end
+end)
+
+T.test("total_discoverable_104", function()
+  local db = {}
+  for _, c in ipairs({ { "trinket", ns.Trinkets }, { "scroll", ns.Scrolls },
+    { "tome", ns.Tomes }, { "relic", ns.Relics }, { "voucher", ns.Vouchers } }) do
+    for _, id in ipairs(c[2].order) do T.eq(ns.Profile.discover(db, c[1], id), true) end
+  end
+  T.eq(ns.Profile.discoveredCount(db), 104)
+  T.eq(ns.Profile.totalDiscoverable(), 104)
+  T.eq(ns.Profile.discover(db, "voucher", "UNKNOWN"), false)
 end)
