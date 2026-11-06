@@ -133,6 +133,7 @@ local function layout()
       tilt, dim, alpha = -sgn * TILT, DIM, 1 - f
     end
     if not scale or alpha <= 0.01 then
+      Theme.Selected(card, false)
       card:Hide()
     else
       local w, h = CardWidget.WIDTH * scale, CardWidget.HEIGHT * scale
@@ -142,6 +143,7 @@ local function layout()
       card:SetPoint("CENTER", panel.carousel, "CENTER", x, 0)
       card:SetFrameLevel(baseLevel + math.floor((2 - math.min(a, 2)) * 20))
       card:SetAlpha(alpha)
+      Theme.Selected(card, a < 0.5) -- the centre card: gold outline and glow
       local side = w * SQ / ART
       card.art:SetSize(side, side)
       if card.art.SetRotation then card.art:SetRotation(tilt) end

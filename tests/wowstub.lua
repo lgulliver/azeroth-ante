@@ -143,9 +143,17 @@ function M.install(env)
   function methods.SetAlpha(self, a) self._alpha = a end
   function methods.GetAlpha(self) return self._alpha end
 
-  function methods.Enable(self) self._enabled = true end
-  function methods.Disable(self) self._enabled = false end
-  function methods.SetEnabled(self, on) self._enabled = on and true or false end
+  -- Like the client, a real state change fires OnEnable / OnDisable.
+  local function setEnabled(self, on)
+    on = on and true or false
+    if self._enabled == on then return end
+    self._enabled = on
+    runScript(self, on and "OnEnable" or "OnDisable")
+  end
+  function methods.Enable(self) setEnabled(self, true) end
+  function methods.Disable(self) setEnabled(self, false) end
+  function methods.SetEnabled(self, on) setEnabled(self, on) end
+  function methods.SetColorTexture(self, r, g, b, a) self._color = { r, g, b, a == nil and 1 or a } end
   function methods.IsEnabled(self) return self._enabled end
   function methods.EnableMouse(self, on) self._mouse = on and true or false end
   function methods.IsMouseEnabled(self) return self._mouse end

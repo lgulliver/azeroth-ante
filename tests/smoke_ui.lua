@@ -1187,8 +1187,9 @@ local function run(w)
     check(r.shop.openPack == nil, "the last pick closed the pack in the run")
     check(pv:IsVisible(), "the overlay stays up while the last pick animates")
     do
-      local fillc = pv.insetFillColor
-      check(pv.themeInset and fillc and fillc[4] == 1, "pack overlay is a set-in panel with a fully opaque fill")
+      local col = pv.insetFill and pv.insetFill._color
+      check(pv.themeInset and col and col[4] == 1, "pack overlay inset fill texture is fully opaque")
+      eq(pv:GetAlpha(), 1, "pack overlay frame alpha")
     end
     stub.advance(0.15)
     check(a.face:GetWidth() < 80 and not a.released, "the last pick's flip ran on the pack card")
@@ -2151,6 +2152,26 @@ local function run(w)
     b:Enable()
     eq(b.themeState, "normal", "and returns when enabled")
     b:SetEnabled(was)
+    -- a hovered, then disabled, then re-enabled button: hover is recomputed from the cursor
+    b:Enable()
+    b._scripts.OnEnter(b)
+    b.hover = true
+    b:Disable()
+    check(not b.pressed, "disabling clears pressed")
+    b:Enable()
+    eq(b.themeState, "normal", "re-enabled with the cursor gone: not stuck on hover")
+    stub.over[b] = true
+    b:Disable()
+    b:Enable()
+    eq(b.themeState, "hover", "re-enabled under the cursor: hover")
+    stub.over[b] = nil
+    b:Disable()
+    b:Enable()
+    b:SetEnabled(was)
+    -- the selected deck card carries the gold outline
+    local DS = ns.UI.DeckSelect
+    local center = DS.Card(DS.Selected())
+    check(center.themeSelected, "the carousel's centre card is selected")
   end
   step("12 window theme: inset, raised, outline-free tiles, themed buttons")
 

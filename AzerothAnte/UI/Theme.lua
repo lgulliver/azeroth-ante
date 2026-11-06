@@ -281,6 +281,12 @@ end
 local function buttonRefresh(b)
   local v = Theme.buttons[b.themeButton]
   local enabled = b:IsEnabled()
+  if not enabled then
+    b.pressed = false
+  elseif b.wasDisabled then
+    b.hover = b:IsMouseOver() -- the cursor may have moved while it was disabled
+  end
+  b.wasDisabled = not enabled
   local border, text, fill = v.border, v.text, v.fill
   local k = 1
   if not enabled then
@@ -330,10 +336,8 @@ function Theme.Button(btn, variant)
   btn:HookScript("OnMouseDown", function(self) self.pressed = true; buttonRefresh(self) end)
   btn:HookScript("OnMouseUp", function(self) self.pressed = false; buttonRefresh(self) end)
   btn:HookScript("OnHide", function(self) self.hover, self.pressed = false, false end)
-  -- Enable and Disable refresh the look when called from Lua.
-  for _, method in ipairs({ "Enable", "Disable", "SetEnabled" }) do
-    hooksecurefunc(btn, method, buttonRefresh)
-  end
+  btn:HookScript("OnEnable", buttonRefresh)
+  btn:HookScript("OnDisable", buttonRefresh)
   buttonRefresh(btn)
   return btn
 end
