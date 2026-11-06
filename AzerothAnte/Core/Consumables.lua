@@ -239,10 +239,14 @@ function Consumables.use(run, slot, idx)
   return Consumables.apply(run, item, cards)
 end
 
+function Consumables.sellValue(item)
+  return math.floor((item.paid or Consumables.COST[item.kind]) / 2)
+end
+
 function Consumables.sell(run, slot)
   local item = run.consumables[slot]
   if not item then return 0 end
-  local gained = math.floor((item.paid or Consumables.COST[item.kind]) / 2)
+  local gained = Consumables.sellValue(item)
   run.gold = run.gold + gained
   table.remove(run.consumables, slot)
   return gained

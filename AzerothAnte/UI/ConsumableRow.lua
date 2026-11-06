@@ -63,7 +63,7 @@ local function shortName(def)
 end
 
 local function sellValue(item)
-  return math.floor(ns.Consumables.COST[item.kind] / 2)
+  return ns.Consumables.sellValue(item)
 end
 
 -- One line saying exactly what the consumable touches (explicit `affects` on

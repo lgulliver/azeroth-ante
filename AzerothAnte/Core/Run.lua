@@ -273,7 +273,7 @@ end
 
 function Run.canRerollBoss(run)
   if run.stage >= 8 then return false, "The final boss cannot be rerolled." end
-  if run.phase ~= "blind" or run.blind ~= 3 then return false, "Not at a boss blind." end
+  if run.phase ~= "blind" then return false, "Only on the blind screen" end
   if run.bossRerollsUsed >= ns.Vouchers.bossRerolls(run) then return false, "No boss rerolls left." end
   if run.gold < Run.BOSS_REROLL_COST then return false, "Not enough gold." end
   return true
