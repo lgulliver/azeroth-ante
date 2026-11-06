@@ -177,13 +177,14 @@ T.test("scoring_receives_run_context", function()
   run.hand = { { rank = 13, suit = "S", id = 12 } }
   run.handsLeft, run.handsPlayedTotal, run.gold = 1, 4, 10
   run.handLevels.HIGH_CARD = 2
-  run.trinkets = { { id = "BLOODLUST" }, { id = "EXECUTE" },
-    { id = "COMBO_POINTS" }, { id = "GOBLIN_BANK" } }
+  run.trinkets = { ns.Trinkets.create(run, "BLOODLUST"), ns.Trinkets.create(run, "EXECUTE"),
+    ns.Trinkets.create(run, "COMBO_POINTS"), ns.Trinkets.create(run, "GOBLIN_BANK") }
+  run.trinkets[1].state.hands = 5 -- Spec row 25: sixth hand since purchase.
   run.target = 1000000
   local result = ns.Run.play(run, { 1 })
-  T.eq(result.chips, 75)
-  T.eq(result.mult, 20)
-  T.eq(result.total, 1500)
+  T.eq(result.chips, 105) -- Spec row 22: +90 chips from 3 discards.
+  T.eq(result.mult, 28) -- Spec rows 25/108/145: 2 * 4 * 3 + 4.
+  T.eq(result.total, 2940)
   T.eq(result.events[2].kind, "debuff")
   T.eq(run.handsPlayedTotal, 5)
 end)
@@ -245,8 +246,8 @@ T.test("payout_rewards_interest_cap_and_trinkets", function()
   run.gold, run.blind, run.handsLeft = 29, 2, 2
   run.trinkets = { { id = "HEARTHSTONE" }, { id = "ARCANE_INTELLECT" } }
   ns.Run.winBlind(run)
-  T.eq(run.lastPayout, { reward = 4, hands = 2, discards = 0, interest = 5, trinkets = 3, trinketLines = { { id = "HEARTHSTONE", gold = 3 } }, held = 0, total = 14 })
-  T.eq(run.gold, 43)
+  T.eq(run.lastPayout, { reward = 4, hands = 2, discards = 0, interest = 5, trinkets = 4, trinketLines = { { id = "HEARTHSTONE", gold = 4 } }, held = 0, total = 15 })
+  T.eq(run.gold, 44) -- Spec row 90: Hearthstone pays 4g.
 end)
 
 T.test("round_end_receives_run", function()

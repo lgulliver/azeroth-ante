@@ -1,4 +1,5 @@
 local ns, T = ...
+local H = loadfile("tests/trinket_helper.lua")(ns, T)
 
 local function newRun(phase)
   local run = ns.Run.new(7, "ADVENTURER")
@@ -120,7 +121,9 @@ T.test("radiance_adds_edition", function()
   T.ok(seen.FOIL and seen.HOLO and seen.POLY, "all three rolled")
 end)
 
-T.test("lich_gold_zero", function()
+H.test("lich_gold_zero", function()
+  -- Spec remaps remove legacy rares; keep rare relic coverage with a scoped fixture.
+  H.stub { id = "RELIC_RARE", name = "Rare", rarity = "rare", cost = 8 }
   local run = newRun("shop")
   run.gold = 25
   apply(run, "LICH")
@@ -264,7 +267,9 @@ T.test("mirrors_two_copies", function()
   end
 end)
 
-T.test("legends_rarest_available", function()
+H.test("legends_rarest_available", function()
+  -- Spec remaps remove legacy rares; keep rare relic coverage with a scoped fixture.
+  H.stub { id = "RELIC_RARE", name = "Rare", rarity = "rare", cost = 8 }
   local run = newRun("shop")
   apply(run, "LEGENDS")
   T.eq(ns.Trinkets.def[run.trinkets[1].id].rarity, "rare")
@@ -315,7 +320,9 @@ T.test("radiance_refuses_card_with_edition", function()
   T.ok(ns.Consumables.canApply(run, relic("RADIANCE"), { run.hand[2] }))
 end)
 
-T.test("trinket_outcomes_report_slots", function()
+H.test("trinket_outcomes_report_slots", function()
+  -- Spec remaps remove legacy rares; keep rare relic coverage with a scoped fixture.
+  H.stub { id = "RELIC_RARE", name = "Rare", rarity = "rare", cost = 8 }
   local run = newRun("shop")
   run.trinkets = { trinket("FORTITUDE"), trinket("WHETSTONE"), trinket("HEALTHSTONE") }
   local outcome = apply(run, "VOID")

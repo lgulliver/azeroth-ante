@@ -6,7 +6,8 @@ end
 
 local function ctx(extra)
   local c = { cards = {}, handLevels = {}, trinkets = {}, handsPlayedTotal = 1,
-    isLastHand = false, discardsLeft = 0, gold = 0, contains = {}, rng = ns.RNG.new(1) }
+    isLastHand = false, discardsLeft = 0, gold = 0, pileCount = 25, roundHandPlays = {},
+    handId = "HIGH_CARD", contains = {}, rng = ns.RNG.new(1) }
   for k, v in pairs(extra or {}) do c[k] = v end
   return c
 end
@@ -15,8 +16,8 @@ local function trinket(id)
   return ns.Trinkets.def[id]
 end
 
-local function handHook(id, c)
-  return trinket(id).onHand(c)
+local function handHook(id, c, self)
+  return trinket(id).onHand(c, self)
 end
 
 local function cardHook(id, c, cd)
@@ -26,8 +27,8 @@ end
 local VALID_RARITY = { common = true, uncommon = true, rare = true }
 local ICON_PREFIX = "Interface\\Icons\\"
 
-T.test("twenty_trinkets_complete", function()
-  T.eq(#ns.Trinkets.order, 20)
+T.test("trinkets_complete", function()
+  T.eq(#ns.Trinkets.order, 43) -- Task 4: 20 remaps + 23 new S defs.
   local seen = {}
   for _, id in ipairs(ns.Trinkets.order) do
     local def = trinket(id)
@@ -40,14 +41,16 @@ T.test("twenty_trinkets_complete", function()
     T.ok(type(def.icon) == "string" and def.icon:sub(1, #ICON_PREFIX) == ICON_PREFIX, id .. ": bad icon")
     T.ok(VALID_RARITY[def.rarity], id .. ": bad rarity")
     T.ok(type(def.cost) == "number", id .. ": cost not a number")
-    T.ok(def.onCard or def.onHand or def.onRoundEnd, id .. ": no hook")
+    T.ok(def.onCard or def.onHand or def.onRoundEnd or def.rule or def.retrigger
+      or def.heldRetrigger or def.onHeld or def.before, id .. ": no hook")
   end
 end)
 
 T.test("trinket_bloodlust", function()
-  T.eq(handHook("BLOODLUST", ctx({ handsPlayedTotal = 5 })), { xmult = 3 })
-  T.eq(handHook("BLOODLUST", ctx({ handsPlayedTotal = 10 })), { xmult = 3 })
-  T.eq(handHook("BLOODLUST", ctx({ handsPlayedTotal = 4 })), nil)
+  -- Spec row 25: counter belongs to the purchased instance, every sixth hand.
+  T.eq(handHook("BLOODLUST", ctx(), { state = { hands = 6 } }), { xmult = 4 })
+  T.eq(handHook("BLOODLUST", ctx(), { state = { hands = 12 } }), { xmult = 4 })
+  T.eq(handHook("BLOODLUST", ctx(), { state = { hands = 5 } }), nil)
 end)
 
 T.test("trinket_arcane_intellect", function()
@@ -55,7 +58,7 @@ T.test("trinket_arcane_intellect", function()
 end)
 
 T.test("trinket_fortitude", function()
-  T.eq(handHook("FORTITUDE", ctx()), { chips = 50 })
+  T.eq(handHook("FORTITUDE", ctx()), { chips = 50 }) -- Spec row 53: 25 cards * 2.
 end)
 
 T.test("trinket_whetstone", function()
@@ -79,22 +82,13 @@ T.test("trinket_jewelers_kit", function()
 end)
 
 T.test("trinket_hearthstone", function()
-  T.eq(trinket("HEARTHSTONE").onRoundEnd({}), 3)
+  T.eq(trinket("HEARTHSTONE").onRoundEnd({}), 4) -- Spec row 90.
 end)
 
 T.test("trinket_lucky_charm", function()
-  -- Find one seed whose first roll is below 0.25 and one whose roll is at or above it.
-  -- Park-Miller gives tiny first outputs for small seeds, so the miss sits at larger seeds.
-  local hit, miss
-  for seed = 1, 100000 do
-    local v = ns.RNG.next(ns.RNG.new(seed))
-    if v < 0.25 and not hit then hit = seed end
-    if v >= 0.25 and not miss then miss = seed end
-    if hit and miss then break end
-  end
-  T.ok(hit and miss, "could not find seeds")
-  T.eq(handHook("LUCKY_CHARM", ctx({ rng = ns.RNG.new(hit) })), { mult = 20 })
-  T.eq(handHook("LUCKY_CHARM", ctx({ rng = ns.RNG.new(miss) })), nil)
+  -- Spec row 27: random +0..23, one RNG draw.
+  T.eq(handHook("LUCKY_CHARM", ctx({ rng = ns.RNG.new(1) })), { mult = 0 })
+  T.eq(handHook("LUCKY_CHARM", ctx({ rng = ns.RNG.new(64000) })), { mult = 12 })
 end)
 
 T.test("trinket_execute", function()
@@ -103,7 +97,7 @@ T.test("trinket_execute", function()
 end)
 
 T.test("trinket_combo_points", function()
-  T.eq(handHook("COMBO_POINTS", ctx({ discardsLeft = 3 })), { chips = 60 })
+  T.eq(handHook("COMBO_POINTS", ctx({ discardsLeft = 3 })), { chips = 90 }) -- Spec row 22: 30 chips per discard.
   T.eq(handHook("COMBO_POINTS", ctx({ discardsLeft = 0 })), { chips = 0 })
 end)
 
@@ -138,16 +132,18 @@ T.test("trinket_battle_shout", function()
 end)
 
 T.test("trinket_goblin_bank", function()
-  T.eq(handHook("GOBLIN_BANK", ctx({ gold = 12 })), { mult = 2 })
+  T.eq(handHook("GOBLIN_BANK", ctx({ gold = 12 })), { mult = 4 }) -- Spec row 145: +2 per 5g.
   T.eq(handHook("GOBLIN_BANK", ctx({ gold = 4 })), { mult = 0 })
 end)
 
 T.test("trinket_avenging_wrath", function()
-  T.eq(handHook("AVENGING_WRATH", ctx()), { xmult = 2 })
+  -- Spec row 62: requires a prior play this round.
+  T.eq(handHook("AVENGING_WRATH", ctx()), nil)
+  T.eq(handHook("AVENGING_WRATH", ctx({ roundHandPlays = { HIGH_CARD = 1 } })), { xmult = 3 })
 end)
 
 T.test("trinket_hunters_mark", function()
-  T.eq(cardHook("HUNTERS_MARK", ctx(), card(14)), { xmult = 1.5 })
+  T.eq(cardHook("HUNTERS_MARK", ctx(), card(14)), { chips = 20, mult = 4 }) -- Spec row 41.
   T.eq(cardHook("HUNTERS_MARK", ctx(), card(13)), nil)
 end)
 

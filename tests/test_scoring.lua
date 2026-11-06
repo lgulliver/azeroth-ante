@@ -246,7 +246,7 @@ test("lucky_gold_visible_to_goblin_bank", function()
   T.eq(r.gold, 20)
   T.eq(goldRef.gold, 20)
   T.eq(eventsOf(r, "money")[1].gold, 20)
-  T.eq(r.mult, 2 + 20 + 4)
+  T.eq(r.mult, 2 + 20 + 8) -- Spec row 145: +2 Mult per 5g.
   local miss = findSeed(2, function(x) return x[1] >= 0.2 and x[2] >= 1 / 15 end)
   r = ns.Scoring.score(ctx(cards, { rng = ns.RNG.new(miss) }))
   T.eq(r.mult, 2)

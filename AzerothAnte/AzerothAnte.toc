@@ -13,6 +13,7 @@ Core\HandEval.lua
 Core\Prob.lua
 Core\TrinketRules.lua
 Data\Trinkets.lua
+Data\TrinketsS.lua
 Data\Bosses.lua
 Data\Decks.lua
 Data\Vouchers.lua

@@ -129,7 +129,7 @@ T.test("thrift_sums_sell_values", function()
   run.trinkets = { { id = "ARCANE_INTELLECT" }, { id = "BLOODLUST", ed = "POLY" } }
   run.gold = 0
   apply(run, "THRIFT", {})
-  T.eq(run.gold, 2 + 6) -- floor(4/2) + floor((8+5)/2)
+  T.eq(run.gold, 1 + 5) -- Spec rows 1/25: floor(2/2) + floor((5+5)/2).
 end)
 
 T.test("thrift_caps_50", function()

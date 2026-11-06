@@ -42,28 +42,33 @@ local LEGACY_ORDER = {
 
 local LEGACY_DEFS = {
   BLOODLUST = {
-    id = "BLOODLUST", name = "Drums of Bloodlust", rarity = "rare", cost = 8,
-    desc = "Hands played: x3 mult on every 5th hand.",
+    id = "BLOODLUST", name = "Drums of Bloodlust", rarity = "uncommon", cost = 5,
+    desc = "×4 Mult every 6 hands played (shows countdown)",
     icon = "Interface\\Icons\\Spell_Nature_BloodLust",
-    onHand = function(ctx)
-      if ctx.handsPlayedTotal % 5 == 0 then return { xmult = 3 } end
+    init = function(self) self.state.hands = 0 end,
+    before = function(_, self, isCopy)
+      if not isCopy then self.state.hands = (self.state.hands or 0) + 1 end
     end,
+    onHand = function(_, self)
+      if (self.state.hands or 0) % 6 == 0 then return { xmult = 4 } end
+    end,
+    status = function(self) return (6 - (self.state.hands or 0) % 6) .. " remaining" end,
   },
   ARCANE_INTELLECT = {
-    id = "ARCANE_INTELLECT", name = "Arcane Intellect", rarity = "common", cost = 4,
-    desc = "+4 mult.",
+    id = "ARCANE_INTELLECT", name = "Arcane Intellect", rarity = "common", cost = 2,
+    desc = "+4 Mult",
     icon = "Interface\\Icons\\Spell_Holy_MagicalSentry",
     onHand = function() return { mult = 4 } end,
   },
   FORTITUDE = {
-    id = "FORTITUDE", name = "Power Word: Fortitude", rarity = "common", cost = 4,
-    desc = "+50 chips.",
+    id = "FORTITUDE", name = "Power Word: Fortitude", rarity = "common", cost = 5,
+    desc = "+2 Chips per card remaining in the draw pile",
     icon = "Interface\\Icons\\Spell_Holy_WordFortitude",
-    onHand = function() return { chips = 50 } end,
+    onHand = function(ctx) return { chips = 2 * ctx.pileCount } end,
   },
   WHETSTONE = {
     id = "WHETSTONE", name = "Whetstone", rarity = "common", cost = 5,
-    desc = "Each scoring Spade gives +3 mult.",
+    desc = "Spades +3 Mult",
     icon = "Interface\\Icons\\INV_Stone_SharpeningStone_01",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "S", ctx.rules) then return { mult = 3 } end
@@ -71,7 +76,7 @@ local LEGACY_DEFS = {
   },
   HEALTHSTONE = {
     id = "HEALTHSTONE", name = "Healthstone", rarity = "common", cost = 5,
-    desc = "Each scoring Heart gives +3 mult.",
+    desc = "Hearts +3 Mult",
     icon = "Interface\\Icons\\INV_Stone_04",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "H", ctx.rules) then return { mult = 3 } end
@@ -79,7 +84,7 @@ local LEGACY_DEFS = {
   },
   OGRE_CUDGEL = {
     id = "OGRE_CUDGEL", name = "Ogre Cudgel", rarity = "common", cost = 5,
-    desc = "Each scoring Club gives +3 mult.",
+    desc = "Clubs +3 Mult",
     icon = "Interface\\Icons\\INV_Mace_01",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "C", ctx.rules) then return { mult = 3 } end
@@ -87,29 +92,30 @@ local LEGACY_DEFS = {
   },
   JEWELERS_KIT = {
     id = "JEWELERS_KIT", name = "Jeweler's Kit", rarity = "common", cost = 5,
-    desc = "Each scoring Diamond gives +3 mult.",
+    desc = "Played Diamonds +3 Mult when scored",
     icon = "Interface\\Icons\\INV_Misc_Gem_01",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "D", ctx.rules) then return { mult = 3 } end
     end,
   },
   HEARTHSTONE = {
-    id = "HEARTHSTONE", name = "Hearthstone", rarity = "common", cost = 5,
-    desc = "+3 gold at the end of each round.",
+    id = "HEARTHSTONE", name = "Hearthstone", rarity = "common", cost = 6,
+    desc = "4g at round end",
     icon = "Interface\\Icons\\INV_Misc_Rune_01",
-    onRoundEnd = function() return 3 end,
+    copyable = false,
+    onRoundEnd = function() return 4 end,
   },
   LUCKY_CHARM = {
-    id = "LUCKY_CHARM", name = "Gnomish Luck Charm", rarity = "uncommon", cost = 6,
-    desc = "25% chance for +20 mult each hand.",
+    id = "LUCKY_CHARM", name = "Gnomish Luck Charm", rarity = "common", cost = 4,
+    desc = "+0 to 23 Mult (random)",
     icon = "Interface\\Icons\\INV_Misc_Enggizmos_01",
     onHand = function(ctx)
-      if ns.Prob.roll(ctx.rng, ctx.trinkets, 1, 4) then return { mult = 20 } end
+      return { mult = math.floor(ns.RNG.next(ctx.rng) * 24) }
     end,
   },
   EXECUTE = {
-    id = "EXECUTE", name = "Execute", rarity = "uncommon", cost = 7,
-    desc = "x3 mult on your last hand of the round.",
+    id = "EXECUTE", name = "Execute", rarity = "uncommon", cost = 6,
+    desc = "×3 Mult on final hand of round",
     icon = "Interface\\Icons\\Ability_Warrior_Decisivestrike",
     onHand = function(ctx)
       if ctx.isLastHand then return { xmult = 3 } end
@@ -117,74 +123,76 @@ local LEGACY_DEFS = {
   },
   COMBO_POINTS = {
     id = "COMBO_POINTS", name = "Combo Points", rarity = "common", cost = 5,
-    desc = "+20 chips for each unused discard.",
+    desc = "+30 Chips per remaining discard",
     icon = "Interface\\Icons\\Ability_Rogue_Eviscerate",
-    onHand = function(ctx) return { chips = 20 * ctx.discardsLeft } end,
+    onHand = function(ctx) return { chips = 30 * ctx.discardsLeft } end,
   },
   TWIN_BLADES = {
-    id = "TWIN_BLADES", name = "Twin Blades", rarity = "common", cost = 4,
-    desc = "+8 mult if the hand contains a Pair.",
+    id = "TWIN_BLADES", name = "Twin Blades", rarity = "common", cost = 3,
+    desc = "+8 Mult if hand contains a Pair",
     icon = "Interface\\Icons\\Ability_DualWield",
     onHand = function(ctx)
       if ctx.contains.PAIR then return { mult = 8 } end
     end,
   },
   CLEAVE = {
-    id = "CLEAVE", name = "Cleave", rarity = "common", cost = 5,
-    desc = "+12 mult if the hand contains Three of a Kind.",
+    id = "CLEAVE", name = "Cleave", rarity = "common", cost = 4,
+    desc = "+12 Mult if Three of a Kind",
     icon = "Interface\\Icons\\Ability_Warrior_Cleave",
     onHand = function(ctx)
       if ctx.contains.THREE_KIND then return { mult = 12 } end
     end,
   },
   MULTI_SHOT = {
-    id = "MULTI_SHOT", name = "Multi-Shot", rarity = "uncommon", cost = 6,
-    desc = "+12 mult if the hand contains a Straight.",
+    id = "MULTI_SHOT", name = "Multi-Shot", rarity = "common", cost = 4,
+    desc = "+12 Mult if Straight",
     icon = "Interface\\Icons\\Ability_UpgradeMoonGlaive",
     onHand = function(ctx)
       if ctx.contains.STRAIGHT then return { mult = 12 } end
     end,
   },
   ELEMENTAL = {
-    id = "ELEMENTAL", name = "Elemental Attunement", rarity = "uncommon", cost = 6,
-    desc = "+10 mult if the hand contains a Flush.",
+    id = "ELEMENTAL", name = "Elemental Attunement", rarity = "common", cost = 4,
+    desc = "+10 Mult if Flush",
     icon = "Interface\\Icons\\Spell_Nature_LightningShield",
     onHand = function(ctx)
       if ctx.contains.FLUSH then return { mult = 10 } end
     end,
   },
   ROYAL_GUARD = {
-    id = "ROYAL_GUARD", name = "Royal Guard", rarity = "common", cost = 5,
-    desc = "Each scoring face card gives +30 chips.",
+    id = "ROYAL_GUARD", name = "Royal Guard", rarity = "common", cost = 4,
+    desc = "Played face cards +30 Chips",
     icon = "Interface\\Icons\\INV_Shield_06",
     onCard = function(ctx, _, card)
       if ns.Cards.isFace(card, ctx.rules) then return { chips = 30 } end
     end,
   },
   BATTLE_SHOUT = {
-    id = "BATTLE_SHOUT", name = "Battle Shout", rarity = "uncommon", cost = 6,
-    desc = "+3 mult for each trinket you own.",
+    id = "BATTLE_SHOUT", name = "Battle Shout", rarity = "common", cost = 4,
+    desc = "+3 Mult per trinket",
     icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
     onHand = function(ctx) return { mult = 3 * #ctx.trinkets } end,
   },
   GOBLIN_BANK = {
-    id = "GOBLIN_BANK", name = "Goblin Bank", rarity = "uncommon", cost = 6,
-    desc = "+1 mult for every 5 gold you hold.",
+    id = "GOBLIN_BANK", name = "Goblin Bank", rarity = "uncommon", cost = 7,
+    desc = "+2 Mult per 5g held",
     icon = "Interface\\Icons\\INV_Misc_Coin_01",
-    onHand = function(ctx) return { mult = math.floor(((ctx.goldRef and ctx.goldRef.gold) or ctx.gold) / 5) } end,
+    onHand = function(ctx) return { mult = 2 * math.floor(((ctx.goldRef and ctx.goldRef.gold) or ctx.gold) / 5) } end,
   },
   AVENGING_WRATH = {
-    id = "AVENGING_WRATH", name = "Avenging Wrath", rarity = "rare", cost = 8,
-    desc = "x2 mult.",
+    id = "AVENGING_WRATH", name = "Avenging Wrath", rarity = "uncommon", cost = 6,
+    desc = "×3 Mult if this hand type was already played this round",
     icon = "Interface\\Icons\\Spell_Holy_AvenginWrath",
-    onHand = function() return { xmult = 2 } end,
+    onHand = function(ctx)
+      if (ctx.roundHandPlays[ctx.handId] or 0) >= 1 then return { xmult = 3 } end
+    end,
   },
   HUNTERS_MARK = {
-    id = "HUNTERS_MARK", name = "Hunter's Mark", rarity = "rare", cost = 8,
-    desc = "Each scoring Ace gives x1.5 mult.",
+    id = "HUNTERS_MARK", name = "Hunter's Mark", rarity = "common", cost = 4,
+    desc = "Played Aces +20 Chips and +4 Mult",
     icon = "Interface\\Icons\\Ability_Hunter_MarkedForDeath",
     onCard = function(ctx, _, card)
-      if not ns.Cards.isStone(card) and card.rank == 14 then return { xmult = 1.5 } end
+      if not ns.Cards.isStone(card) and card.rank == 14 then return { chips = 20, mult = 4 } end
     end,
   },
 }

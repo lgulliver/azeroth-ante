@@ -67,7 +67,7 @@ T.test("v3_save_migrates_trinkets", function()
   local loaded = ns.Save.load(db)
   T.ok(loaded ~= nil, "v3 load returned nil")
   local t = loaded.trinkets[1]
-  T.eq({ t.uid, t.sellBonus, t.state, t.paid }, { 1, 0, {}, 8 })
+  T.eq({ t.uid, t.sellBonus, t.state, t.paid }, { 1, 0, { hands = 0 }, 8 }) -- Spec row 25: fresh purchase counter.
   T.eq(loaded.nextTrinketUid, 2)
   T.eq(loaded.roundHandPlays, {})
   T.eq(ns.Save.VERSION, 4)
