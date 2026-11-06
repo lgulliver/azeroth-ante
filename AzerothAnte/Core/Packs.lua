@@ -119,6 +119,7 @@ function Packs.open(run, i)
   shop.openPack = pack
   offer.paid = offer.cost
   if ns.Profile and ns.Profile.onEvent then ns.Profile.onEvent("spend", offer.paid) end
+  ns.TrinketEngine.fire(run, "onPackOpened", pack)
   return true
 end
 
@@ -172,7 +173,11 @@ local function pickChoice(run, c, idx)
 end
 
 function Packs.pick(run, c, idx)
-  return ns.Run.withMods(run, function() return pickChoice(run, c, idx) end)
+  return ns.Run.withMods(run, function()
+    local ok, reason, outcome = pickChoice(run, c, idx)
+    ns.TrinketEngine.flushCards(run)
+    return ok, reason, outcome
+  end)
 end
 
 function Packs.skip(run)

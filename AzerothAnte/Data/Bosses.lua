@@ -1,6 +1,7 @@
 local _, ns = ...
 
 -- Stages 1-7 each draw 7 distinct ids from pool. FINAL is stage 8.
+-- A trinket may disable the boss (run.bossDisabled): read its rules through Run.activeBoss, not Bosses.def[Run.bossId].
 -- debuff(card, rules) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count): a debuffed card scores no chips and no trinket effects.
 local Bosses = {}
 

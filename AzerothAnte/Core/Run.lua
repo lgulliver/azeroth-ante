@@ -30,6 +30,8 @@ function Run.new(seed, deckId)
     handsPlayedTotal = 0, handsPlayedRound = 0, bosses = {}, score = 0,
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
+    usage = { scroll = 0, tome = 0, relic = 0, tomeIds = {} }, cardLog = { added = {}, destroyed = {} },
+    bossDisabled = false,
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
@@ -38,6 +40,7 @@ function Run.new(seed, deckId)
   ns.RNG.shuffle(run.rng, pool)
   for i = 1, 7 do run.bosses[i] = pool[i] end
   run.bosses[8] = ns.Bosses.FINAL
+  run.startDeckSize = #run.deck
   return run
 end
 
@@ -66,20 +69,41 @@ function Run.bossId(run)
   if run.blind == 3 then return run.bosses[run.stage] end
 end
 
+-- The boss whose rules apply now: nil off a boss blind, and once a trinket has disabled it.
+-- Identity and target keep using bossId.
+function Run.activeBoss(run)
+  local bossId = Run.bossId(run)
+  if bossId and not run.bossDisabled then return ns.Bosses.def[bossId] end
+end
+
 -- Hands and discards the current blind starts with: the deck's (or the boss's)
 -- base plus voucher changes. Shared by startBlind and the blind-screen sidebar.
-function Run.blindHands(run)
-  local bossId = Run.bossId(run)
-  local boss = bossId and ns.Bosses.def[bossId]
+local function handsFor(run, boss)
   return math.max(1, (boss and boss.hands or ns.Decks.def[run.deckId].hands) + ns.Vouchers.extraHands(run)
     + ns.Trinkets.mods(run).hands)
 end
 
-function Run.blindDiscards(run)
-  local bossId = Run.bossId(run)
-  local boss = bossId and ns.Bosses.def[bossId]
+local function discardsFor(run, boss)
   return math.max(0, (boss and boss.discards or ns.Decks.def[run.deckId].discards) + ns.Vouchers.extraDiscards(run)
     + ns.Trinkets.mods(run).discards)
+end
+
+function Run.blindHands(run) return handsFor(run, Run.activeBoss(run)) end
+
+function Run.blindDiscards(run) return discardsFor(run, Run.activeBoss(run)) end
+
+-- Switches the boss's rules off for the rest of the blind. A boss that overrode hands or discards
+-- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable.
+function Run.disableBoss(run)
+  local boss = Run.activeBoss(run)
+  if not boss then return false end
+  local hands, discards = handsFor(run, boss), discardsFor(run, boss)
+  run.bossDisabled = true
+  if run.phase == "play" then
+    if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
+    if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
+  end
+  return true
 end
 
 -- Hands, discards and hand size derived from trinkets; applyMods settles a change in the live round.
@@ -94,6 +118,7 @@ end
 function Run.startBlind(run)
   local bossId = Run.bossId(run)
   run.phase = "play"
+  run.bossDisabled = false
   run.pile = ns.Deck.shuffledPile(run)
   run.hand = {}
   run.handsLeft = Run.blindHands(run)
@@ -114,7 +139,9 @@ function Run.startBlind(run)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
   event("handSize", ns.Deck.handSize(run), run)
   editionTrinkets(run)
+  ns.TrinketEngine.fire(run, "onFirstDraw")
   Run.checkHand(run)
+  ns.TrinketEngine.flushCards(run)
 end
 
 -- Ends the run as lost, once, unless an onLose trinket (Mr. Bones) saves the blind.
@@ -152,8 +179,7 @@ end
 function Run.canPlay(run, idx)
   local ok, reason = validSelection(run, idx)
   if not ok then return false, reason end
-  local bossId = Run.bossId(run)
-  local boss = bossId and ns.Bosses.def[bossId]
+  local boss = Run.activeBoss(run)
   if boss and boss.mustPlay and #idx ~= boss.mustPlay then
     return false, "Must play exactly " .. boss.mustPlay .. " cards."
   end
@@ -270,18 +296,19 @@ function Run.play(run, idx)
     if not selected[i] then held[#held + 1] = card end
   end
   local goldRef = { gold = run.gold }
+  local activeBoss = Run.activeBoss(run)
   local firstHandOfRound = run.handsPlayedRound == 0
   run.handsPlayedTotal = run.handsPlayedTotal + 1
   run.handsPlayedRound = run.handsPlayedRound + 1
   local result = ns.Scoring.score({
     cards = cards, held = held, goldRef = goldRef, handLevels = run.handLevels, trinkets = run.trinkets,
-    bossId = Run.bossId(run), rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
+    bossId = activeBoss and activeBoss.id, rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
     isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
     consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
     handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
     pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
     deckCards = run.deck, startDeckSize = run.startDeckSize or 52, firstHandOfRound = firstHandOfRound,
-    consumableRoom = ns.Consumables.slots(run) - #run.consumables,
+    consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
   })
   removePlayed(run, cards)
   -- Scoring worked on scratch copies of the instances and cards; this is the commit. A trinket
@@ -306,6 +333,7 @@ function Run.play(run, idx)
   run.score = run.score + result.total
   run.handsLeft = run.handsLeft - 1
   for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
+  ns.TrinketEngine.flushCards(run)
   if run.score < run.target then refill(run) end
   run.lastResult = result
   if run.score >= run.target then
@@ -331,7 +359,7 @@ function Run.discard(run, idx)
   ns.TrinketEngine.fire(run, "onDiscard", cards)
   run.discardsUsedRound = run.discardsUsedRound + 1
   if ns.Consumables then
-    local boss = ns.Bosses.def[Run.bossId(run) or ""]
+    local boss = Run.activeBoss(run)
     local rules = ns.TrinketRules.set(run.trinkets)
     for _, card in ipairs(cards) do
       local debuffed = boss and boss.debuff and boss.debuff(card, rules)
@@ -348,6 +376,7 @@ function Run.discard(run, idx)
     if gone[run.hand[i]] then table.remove(run.hand, i) end
   end
   refill(run)
+  ns.TrinketEngine.flushCards(run)
   Run.checkHand(run)
   return outcome
 end
@@ -381,7 +410,7 @@ function Run.winBlind(run, opts)
       payout.trinkets = payout.trinkets + gold
     end
   end)
-  local boss = ns.Bosses.def[Run.bossId(run)]
+  local boss = Run.activeBoss(run)
   local rules = ns.TrinketRules.set(run.trinkets)
   for _, card in ipairs(run.hand) do
     if not (boss and boss.debuff and boss.debuff(card, rules)) then

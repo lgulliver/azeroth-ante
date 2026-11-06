@@ -2711,6 +2711,40 @@ local function run(w)
     end
     step("lifecycle_long_queue_autospeeds")
 
+    do -- consumable_sell_locked_during_drain: a lifecycle queue in flight locks the consumable sale
+      local w2, panel2, m, r = lifeBoard({ "FLIGHT_PATH" }, "play")
+      local stub2, ns2 = w2.stub, w2.ns
+      r.consumables = {}
+      ns2.Consumables.add(r, { kind = "scroll", id = "CHANCE" })
+      m.Render(r, true)
+      stub2.advance(0.5)
+      click(m.consumableRow.slots[1], "consumable slot")
+      local pop
+      for _, c in ipairs(m.content._children) do if c.use then pop = c end end
+      check(pop and pop:IsVisible(), "the consumable popover opens")
+      check(pop.sell:IsEnabled(), "sell is live while idle")
+      local uid = r.trinkets[1].uid
+      for _ = 1, 6 do
+        r.lifecycleEvents[#r.lifecycleEvents + 1] = { kind = "money", uid = uid, slot = 1, amount = 1 }
+      end
+      local finished = false
+      ns2.UI.Lifecycle.Drain(r, function() finished = true end)
+      check(ns2.UI.Lifecycle.IsBusy(), "the queue is playing")
+      ns2.UI.ConsumableRow.Refresh()
+      check(not pop.sell:IsEnabled(), "sell is disabled while the queue plays")
+      pop.sell._scripts.OnClick(pop.sell)
+      eq(#r.consumables, 1, "a sale during the drain sells nothing")
+      local t = 0
+      while not finished and t < 10 do
+        stub2.advance(0.05)
+        t = t + 0.05
+      end
+      check(finished, "the queue finished")
+      ns2.UI.ConsumableRow.Refresh()
+      check(pop.sell:IsEnabled(), "sell is live again after the drain")
+    end
+    step("consumable_sell_locked_during_drain")
+
     do -- saved_payout_line
       local defs = { { id = "S_BONES", onLose = function(run)
         if run.score * 4 >= run.target then return { save = true, destroySelf = true, msg = "Saved!" } end

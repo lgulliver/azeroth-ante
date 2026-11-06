@@ -285,7 +285,7 @@ function Sidebar.Update(run, chips, mult)
   local boss = bossId and ns.Bosses.def[bossId]
   if boss then
     frame.blindName:SetText(boss.name)
-    frame.bossRule:SetText(boss.desc or "")
+    frame.bossRule:SetText(run.bossDisabled and "Disabled." or boss.desc or "")
   else
     frame.blindName:SetText(BLIND_NAMES[run.blind] or "")
     frame.bossRule:SetText("")

@@ -38,8 +38,9 @@ end
 
 local function busy()
   local HandView, Tally, PackView = ns.UI.HandView, ns.UI.Tally, ns.UI.PackView
+  local Lifecycle = ns.UI.Lifecycle
   return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy())
-    or (PackView and PackView.IsBusy()) or false
+    or (PackView and PackView.IsBusy()) or (Lifecycle and Lifecycle.IsBusy()) or false
 end
 
 -- Whether a pack with a drawn hand is the thing being aimed at (it has its own selection).

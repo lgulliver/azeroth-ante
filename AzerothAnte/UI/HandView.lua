@@ -225,8 +225,7 @@ local function releaseHeld()
 end
 
 local function bossDebuff(run)
-  local id = run and run.bosses and ns.Run.bossId(run)
-  local boss = id and ns.Bosses.def[id]
+  local boss = run and run.bosses and ns.Run.activeBoss(run)
   return boss and boss.debuff
 end
 

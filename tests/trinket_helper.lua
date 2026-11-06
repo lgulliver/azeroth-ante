@@ -25,13 +25,13 @@ end
 function H.score(run, cards, held, overrides)
   local ctx = {
     cards = cards, held = held or {}, goldRef = { gold = run.gold }, handLevels = run.handLevels,
-    trinkets = run.trinkets, bossId = ns.Run.bossId(run), rng = run.rng,
+    trinkets = run.trinkets, bossId = (ns.Run.activeBoss(run) or {}).id, rng = run.rng,
     handsPlayedTotal = run.handsPlayedTotal + 1, isLastHand = run.handsLeft == 1,
     discardsLeft = run.discardsLeft, gold = run.gold, handsLeft = run.handsLeft,
     handPlays = run.handPlays, roundHandPlays = run.roundHandPlays, pileCount = #run.pile,
     trinketSlots = ns.Run.trinketSlots(run), deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
     firstHandOfRound = (run.handsPlayedRound or 0) == 0,
-    consumableRoom = ns.Consumables.slots(run) - #run.consumables,
+    consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
   }
   for k, v in pairs(overrides or {}) do ctx[k] = v end
   return ns.Scoring.score(ctx)
