@@ -7,41 +7,63 @@ local function lookup(registry, id)
   return registry.def[id]
 end
 
+local function deepCopy(value)
+  if type(value) ~= "table" then return value end
+  local out = {}
+  for k, v in pairs(value) do out[deepCopy(k)] = deepCopy(v) end
+  return out
+end
+
+-- Pure: works on a scratch copy of ctx.trinkets (set back on ctx for the hooks) and returns
+-- it as trinketsAfter. The caller commits it; nothing it was given is mutated.
 function Scoring.score(ctx)
   local cards = ctx.cards
-  local handId, scoringIdx = ns.HandEval.evaluate(cards)
-  ctx.contains = ns.HandEval.contains(cards)
+  local trinkets = deepCopy(ctx.trinkets or {})
+  ctx.trinkets = trinkets
+  local rules = ns.TrinketRules.set(trinkets)
+  ctx.rules = rules
+  local handId, scoringIdx = ns.HandEval.evaluate(cards, rules)
+  ctx.handId, ctx.scoringIdx = handId, scoringIdx
+  ctx.contains = ns.HandEval.contains(cards, rules)
 
   local boss = lookup(ns.Bosses, ctx.bossId)
-  local chips, mult = ns.Hands.base(handId, (ctx.handLevels and ctx.handLevels[handId]) or 1)
-  if boss and boss.halveBase then
-    chips = math.floor(chips / 2)
-    mult = math.max(1, math.floor(mult / 2))
-  end
+  local goldRef = ctx.goldRef or { gold = ctx.gold or 0 }
+  ctx.goldRef = goldRef
+  local goldStart = goldRef.gold
+  local held = ctx.held or {}
+  local engine = ns.TrinketEngine
 
-  local events = {}
+  local events, levelUps, destroyedUids = {}, {}, {}
+  local chips, mult = 0, 0
   local function emit(event)
     event.runChips, event.runMult = chips, mult
     events[#events + 1] = event
   end
 
-  local goldRef = ctx.goldRef or { gold = ctx.gold or 0 }
-  ctx.goldRef = goldRef
-  local goldStart = goldRef.gold
-  local held = ctx.held or {}
-  local trinkets = ctx.trinkets or {}
-
-  local function apply(effect, slot, index)
+  -- where: { index = } for a scoring card, { heldIndex = } for a held one, nil otherwise.
+  -- counted: levelHand was already tallied (the before phase needs it ahead of the base).
+  local function apply(effect, slot, where, counted)
+    where = where or {}
+    local uid = trinkets[slot].uid
     if effect.chips then chips = chips + effect.chips end
     if effect.mult then mult = mult + effect.mult end
     if effect.xmult then mult = mult * effect.xmult end
-    emit({ kind = "trinket", slot = slot, chips = effect.chips, mult = effect.mult,
-      xmult = effect.xmult, index = index })
+    if effect.gold then goldRef.gold = goldRef.gold + effect.gold end
+    if effect.chips or effect.mult or effect.xmult or effect.gold then
+      emit({ kind = "trinket", slot = slot, uid = uid, chips = effect.chips, mult = effect.mult,
+        xmult = effect.xmult, gold = effect.gold, index = where.index, heldIndex = where.heldIndex })
+    end
+    if effect.msg then emit({ kind = "trinketMsg", slot = slot, uid = uid, msg = effect.msg }) end
+    if effect.levelHand then
+      if not counted then levelUps[handId] = (levelUps[handId] or 0) + 1 end
+      emit({ kind = "levelUp", handId = handId, slot = slot, uid = uid })
+    end
   end
 
   -- Foil and Holo before, Poly after. A kind of "edition" event for a card or a trinket slot.
   local function applyEdition(ed, where, phase)
     local e = { kind = "edition", ed = ed, index = where.index, slot = where.slot }
+    if where.slot then e.uid = trinkets[where.slot].uid end
     if ed == "FOIL" and phase == "pre" then
       chips = chips + 50
       e.chips = 50
@@ -79,8 +101,8 @@ function Scoring.score(ctx)
     elseif enh == "GLASS" then
       enhEvent(i, card, { xmult = 2 })
     elseif enh == "LUCKY" then
-      if ns.Prob.roll(ctx.rng, ctx.trinkets or {}, 1, 5) then enhEvent(i, card, { mult = 20 }) end
-      if ns.Prob.roll(ctx.rng, ctx.trinkets or {}, 1, 15) then
+      if ns.Prob.roll(ctx.rng, trinkets, 1, 5) then enhEvent(i, card, { mult = 20 }) end
+      if ns.Prob.roll(ctx.rng, trinkets, 1, 15) then
         goldRef.gold = goldRef.gold + 20
         emit({ kind = "money", index = i, gold = 20 })
       end
@@ -93,14 +115,45 @@ function Scoring.score(ctx)
       goldRef.gold = goldRef.gold + 3
       emit({ kind = "seal", index = i, seal = "GOLD", gold = 3 })
     end
-    for slot, trinket in ipairs(trinkets) do
-      local def = lookup(ns.Trinkets, trinket.id)
-      local effect = def and def.onCard and def.onCard(ctx, card)
-      if effect then apply(effect, slot, i) end
-    end
+    engine.each(trinkets, function(slot, inst, def, isCopy)
+      local effect = def.onCard and def.onCard(ctx, inst, card, i, isCopy)
+      if effect then apply(effect, slot, { index = i }) end
+    end)
   end
 
+  -- One entry per extra trigger, in firing order: a Red seal first, then each trinket's.
+  local function retriggers(card, hook, index)
+    local list = {}
+    if card.seal == "RED" then list[1] = {} end
+    engine.each(trinkets, function(slot, inst, def, isCopy)
+      local n = def[hook] and def[hook](ctx, inst, card, index, isCopy)
+      for _ = 1, n or 0 do list[#list + 1] = { slot = slot, uid = trinkets[slot].uid } end
+    end)
+    return list
+  end
+
+  local function sourceFields(extra, entry)
+    extra.slot, extra.uid = entry.slot, entry.uid
+    return extra
+  end
+
+  -- Before hooks run left to right once the hand is known; levelHand counts toward this base.
+  local pending = {}
+  engine.each(trinkets, function(slot, inst, def, isCopy)
+    local effect = def.before and def.before(ctx, inst, isCopy)
+    if not effect then return end
+    if effect.levelHand then levelUps[handId] = (levelUps[handId] or 0) + 1 end
+    pending[#pending + 1] = { effect = effect, slot = slot }
+  end)
+
+  chips, mult = ns.Hands.base(handId, ((ctx.handLevels and ctx.handLevels[handId]) or 1)
+    + (levelUps[handId] or 0))
+  if boss and boss.halveBase then
+    chips = math.floor(chips / 2)
+    mult = math.max(1, math.floor(mult / 2))
+  end
   emit({ kind = "base", handId = handId, chips = chips, mult = mult })
+  for _, p in ipairs(pending) do apply(p.effect, p.slot, nil, true) end
 
   local destroyCandidates = {}
   for _, i in ipairs(scoringIdx) do
@@ -108,9 +161,10 @@ function Scoring.score(ctx)
     if boss and boss.debuff and boss.debuff(card) then
       emit({ kind = "debuff", index = i })
     else
+      local extra = retriggers(card, "retrigger", i)
       cardStep(i, card)
-      if card.seal == "RED" then
-        emit({ kind = "retrigger", index = i })
+      for _, entry in ipairs(extra) do
+        emit(sourceFields({ kind = "retrigger", index = i }, entry))
         cardStep(i, card)
       end
       if card.enh == "GLASS" then destroyCandidates[#destroyCandidates + 1] = i end
@@ -118,24 +172,37 @@ function Scoring.score(ctx)
   end
 
   for h, card in ipairs(held) do
-    if card.enh == "STEEL" then
-      if boss and boss.debuff and boss.debuff(card) then
-        emit({ kind = "debuff", heldIndex = h })
-      else
-        for pass = 1, (card.seal == "RED") and 2 or 1 do
-          if pass == 2 then emit({ kind = "retrigger", heldIndex = h }) end
+    if boss and boss.debuff and boss.debuff(card) then
+      if card.enh == "STEEL" then emit({ kind = "debuff", heldIndex = h }) end
+    else
+      local extra = retriggers(card, "heldRetrigger", h)
+      for pass = 1, #extra + 1 do
+        if pass > 1 then emit(sourceFields({ kind = "retrigger", heldIndex = h }, extra[pass - 1])) end
+        if card.enh == "STEEL" then
           mult = mult * 1.5
           emit({ kind = "held", heldIndex = h, xmult = 1.5 })
         end
+        engine.each(trinkets, function(slot, inst, def, isCopy)
+          local effect = def.onHeld and def.onHeld(ctx, inst, card, h, isCopy)
+          if effect then apply(effect, slot, { heldIndex = h }) end
+        end)
       end
     end
   end
 
   for slot, trinket in ipairs(trinkets) do
-    local def = lookup(ns.Trinkets, trinket.id)
     if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "pre") end
-    local effect = def and def.onHand and def.onHand(ctx)
-    if effect then apply(effect, slot) end
+    local inst, def = engine.source(trinkets, slot)
+    if inst then
+      local effect = def.onHand and def.onHand(ctx, inst, inst ~= trinket)
+      if effect then apply(effect, slot) end
+    end
+    local ownDef = ns.Trinkets.def[trinket.id]
+    engine.each(trinkets, function(other, otherInst, otherDef, otherIsCopy)
+      if other == slot or not otherDef.otherTrinket then return end
+      local effect = otherDef.otherTrinket(ctx, otherInst, ownDef, otherIsCopy)
+      if effect then apply(effect, other) end
+    end)
     if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "post") end
   end
 
@@ -149,16 +216,34 @@ function Scoring.score(ctx)
   local total = math.floor(chips * mult)
   emit({ kind = "total", total = total })
 
+  -- After hooks decay or destroy; only the trinket itself (not a copy) can be destroyed.
+  engine.each(trinkets, function(slot, inst, def, isCopy)
+    local effect = def.after and def.after(ctx, inst, isCopy)
+    if not effect then return end
+    apply({ gold = effect.gold, msg = effect.msg, levelHand = effect.levelHand }, slot)
+    if effect.destroySelf and not isCopy then destroyedUids[inst] = true end
+  end)
+  local destroyedTrinkets, trinketsAfter = {}, {}
+  for _, trinket in ipairs(trinkets) do
+    if destroyedUids[trinket] then
+      destroyedTrinkets[#destroyedTrinkets + 1] = trinket.uid
+      emit({ kind = "trinketDestroyed", uid = trinket.uid })
+    else
+      trinketsAfter[#trinketsAfter + 1] = trinket
+    end
+  end
+
   local destroyed = {}
   for _, i in ipairs(destroyCandidates) do
-    if ns.Prob.roll(ctx.rng, ctx.trinkets or {}, 1, 4) then
+    if ns.Prob.roll(ctx.rng, trinkets, 1, 4) then
       destroyed[#destroyed + 1] = cards[i].id
       emit({ kind = "destroy", index = i })
     end
   end
 
   return { handId = handId, chips = chips, mult = mult, total = total, events = events,
-    gold = goldRef.gold - goldStart, destroyed = destroyed }
+    gold = goldRef.gold - goldStart, destroyed = destroyed, trinketsAfter = trinketsAfter,
+    levelUps = levelUps, destroyedTrinkets = destroyedTrinkets }
 end
 
 ns.Scoring = Scoring

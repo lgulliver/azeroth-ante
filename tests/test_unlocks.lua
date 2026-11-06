@@ -20,7 +20,7 @@ T.test("monk_pays_unused_resources_without_interest", function()
   local run = ns.Run.new(7, "MONK")
   run.gold, run.handsLeft, run.discardsLeft = 29, 2, 3
   ns.Run.winBlind(run)
-  T.eq(run.lastPayout, { reward = 3, hands = 4, discards = 3, interest = 0, trinkets = 0, held = 0, total = 10 })
+  T.eq(run.lastPayout, { reward = 3, hands = 4, discards = 3, interest = 0, trinkets = 0, trinketLines = {}, held = 0, total = 10 })
   T.eq(run.gold, 39)
   run = ns.Run.new(7, "ROGUE")
   run.gold, run.handsLeft = 29, 2

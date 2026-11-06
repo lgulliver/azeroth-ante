@@ -141,7 +141,7 @@ T.test("play_reaches_target_goes_shop", function()
   if not ok then error(err, 0) end
   T.eq(run.phase, "shop")
   T.eq(run.gold, 22)
-  T.eq(run.lastPayout, { reward = 3, hands = 3, discards = 0, interest = 2, trinkets = 0, held = 0, total = 8 })
+  T.eq(run.lastPayout, { reward = 3, hands = 3, discards = 0, interest = 2, trinkets = 0, trinketLines = {}, held = 0, total = 8 })
   T.ok(seen and seen.run == run)
   T.eq(seen.phase, "shop")
   T.eq(seen.gold, 22)
@@ -245,7 +245,7 @@ T.test("payout_rewards_interest_cap_and_trinkets", function()
   run.gold, run.blind, run.handsLeft = 29, 2, 2
   run.trinkets = { { id = "HEARTHSTONE" }, { id = "ARCANE_INTELLECT" } }
   ns.Run.winBlind(run)
-  T.eq(run.lastPayout, { reward = 4, hands = 2, discards = 0, interest = 5, trinkets = 3, held = 0, total = 14 })
+  T.eq(run.lastPayout, { reward = 4, hands = 2, discards = 0, interest = 5, trinkets = 3, trinketLines = { { id = "HEARTHSTONE", gold = 3 } }, held = 0, total = 14 })
   T.eq(run.gold, 43)
 end)
 

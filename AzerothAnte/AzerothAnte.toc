@@ -20,6 +20,7 @@ Data\Achievements.lua
 Data\Tomes.lua
 Data\Scrolls.lua
 Data\Relics.lua
+Core\TrinketEngine.lua
 Core\Scoring.lua
 Core\Vouchers.lua
 Core\Consumables.lua
