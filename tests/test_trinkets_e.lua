@@ -298,9 +298,9 @@ H.test("TRADING_POST_effect", function()
   local run = H.run { trinkets = { "SCHEMATIC", "TRADING_POST" }, gold = 0 }
   local card = H.card(9)
   run.deck[#run.deck + 1] = card
-  discard(run, { card }); T.eq(run.gold, 6)
+  discard(run, { card }); T.eq(run.gold, 3) -- Blueprint no longer copies it
   for _, c in ipairs(run.deck) do T.ok(c.id ~= card.id) end
-  discard(run, single()); T.eq(run.gold, 6)
+  discard(run, single()); T.eq(run.gold, 3)
   run = H.run { trinkets = { "TRADING_POST" }, gold = 0 }
   discard(run, { H.card(2), H.card(3) }); discard(run, single()); T.eq(run.gold, 0)
 end)
