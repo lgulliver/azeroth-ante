@@ -3,6 +3,9 @@ local _, ns = ...
 local Profile = {}
 
 local oldThresholds = { WARRIOR = 5, GOBLIN = 12, MONK = 18, WARLOCK = 24 }
+-- The fixed thresholds of 0.3.0; decks reached under them stay unlocked when thresholds scale.
+local v3Thresholds = { WARRIOR = 7, GOBLIN = 17, MONK = 26, WARLOCK = 35 }
+local UNLOCK_MIGRATION = 2
 
 local function discoveredCount(profile)
   local count = 0
@@ -27,6 +30,15 @@ function Profile.get(db)
     for id, need in pairs(oldThresholds) do
       if have >= need then profile.unlockedDecks[id] = true end
     end
+  end
+  if profile.unlockMigration ~= UNLOCK_MIGRATION then
+    if existing then
+      local have = discoveredCount(profile)
+      for id, need in pairs(v3Thresholds) do
+        if have >= need then profile.unlockedDecks[id] = true end
+      end
+    end
+    profile.unlockMigration = UNLOCK_MIGRATION
   end
   for _, stats in pairs(profile.stats) do
     stats.wins = stats.wins or 0

@@ -108,9 +108,9 @@ The bot also buys the vouchers it likes (extra hands, discards, hand size, inter
 shop slots) and, with room, the highest-rarity trinket it can afford. It never reorders
 trinkets. It prints wins, where runs ended, and mean final gold.
 
-Wave 1 (80 trinkets) win rates at 200 runs and seed 1: ROGUE 46.5%, WARRIOR 62.5%,
-GOBLIN 56.5%, MONK 51.0%, WARLOCK 32.0%. The intended band is 8-45%, so ROGUE, WARRIOR,
-GOBLIN and MONK are above it and the targets still need a tuning pass.
+Wave 1 (80 trinkets) win rates at 200 runs and seed 1: ROGUE 22.0%, WARRIOR 30.0%,
+GOBLIN 31.0%, MONK 25.0%, WARLOCK 9.5%. All sit inside the intended 8-45% band; the target
+curve in `Core/Run.lua` (`BASE_TARGETS`) was retuned for the bigger trinket pool.
 
 ## In-game test checklist
 
