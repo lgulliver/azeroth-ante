@@ -8,6 +8,18 @@ local function offered(kind, size, gold)
   return run
 end
 
+-- Exhaustion fixtures omit Showman, whose rule deliberately permits owned repeats.
+local function withoutShowman(fn)
+  local order, pool = ns.Trinkets.order, {}
+  for _, id in ipairs(order) do
+    if ns.Trinkets.def[id].rule ~= "SHOWMAN" then pool[#pool + 1] = id end
+  end
+  ns.Trinkets.order = pool
+  local ok, err = pcall(fn)
+  ns.Trinkets.order = order
+  if not ok then error(err, 0) end
+end
+
 T.test("open_pack_charges_and_sizes", function()
   local run = offered()
   T.eq(ns.Packs.open(run, 1), true)
@@ -74,26 +86,28 @@ T.test("consumable_pack_duplicates_only_after_pool_exhausted", function()
 end)
 
 T.test("buffoon_exhausted_pool_has_no_false_choices", function()
-  for remaining = 0, 1 do
-    local run = offered("BUFFOON")
-    for i, id in ipairs(ns.Trinkets.order) do
-      if i > remaining then run.trinkets[#run.trinkets + 1] = { id = id } end
+  withoutShowman(function()
+    for remaining = 0, 1 do
+      local run = offered("BUFFOON")
+      for i, id in ipairs(ns.Trinkets.order) do
+        if i > remaining then run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, id) end
+      end
+      run.maxTrinkets = #run.trinkets + 1
+      T.eq(ns.Packs.open(run, 1), true)
+      local pack = run.shop.openPack
+      T.eq(#pack.choices, remaining)
+      T.eq(pack.picksLeft, remaining)
+      for _, item in pairs(pack.choices) do T.ok(type(item) == "table") end
+      if remaining == 1 then
+        T.eq(pack.choices[1].id, ns.Trinkets.order[1])
+        T.eq(ns.Packs.pick(run, 1), true)
+        T.eq(run.shop.openPack, nil)
+      else
+        ns.Packs.skip(run)
+        T.eq(run.shop.openPack, nil)
+      end
     end
-    run.maxTrinkets = #run.trinkets + 1
-    T.eq(ns.Packs.open(run, 1), true)
-    local pack = run.shop.openPack
-    T.eq(#pack.choices, remaining)
-    T.eq(pack.picksLeft, remaining)
-    for _, item in pairs(pack.choices) do T.ok(type(item) == "table") end
-    if remaining == 1 then
-      T.eq(pack.choices[1].id, ns.Trinkets.order[1])
-      T.eq(ns.Packs.pick(run, 1), true)
-      T.eq(run.shop.openPack, nil)
-    else
-      ns.Packs.skip(run)
-      T.eq(run.shop.openPack, nil)
-    end
-  end
+  end)
 end)
 
 T.test("pick_scroll_uses_on_pack_hand", function()

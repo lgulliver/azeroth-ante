@@ -7,6 +7,18 @@ local function opened(gold)
   return run
 end
 
+-- Exhaustion fixtures omit Showman, whose rule deliberately permits owned repeats.
+local function withoutShowman(fn)
+  local order, pool = ns.Trinkets.order, {}
+  for _, id in ipairs(order) do
+    if ns.Trinkets.def[id].rule ~= "SHOWMAN" then pool[#pool + 1] = id end
+  end
+  ns.Trinkets.order = pool
+  local ok, err = pcall(fn)
+  ns.Trinkets.order = order
+  if not ok then error(err, 0) end
+end
+
 T.test("shop_two_cards_two_packs", function()
   local run = opened()
   T.eq(#run.shop.cards, 2)
@@ -52,15 +64,17 @@ T.test("edition_cost_added", function()
 end)
 
 T.test("unowned_trinkets_only", function()
-  local run = opened()
-  for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = { id = id } end
-  for _ = 1, 50 do
-    ns.Shop.open(run)
-    for i = 1, 2 do
-      local item = run.shop.cards[i]
-      T.ok(item and (item.type == "scroll" or item.type == "tome"), "empty fallback slot")
+  withoutShowman(function()
+    local run = opened()
+    for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, id) end
+    for _ = 1, 50 do
+      ns.Shop.open(run)
+      for i = 1, 2 do
+        local item = run.shop.cards[i]
+        T.ok(item and (item.type == "scroll" or item.type == "tome"), "empty fallback slot")
+      end
     end
-  end
+  end)
 end)
 
 T.test("buy_checks_and_preserves_edition", function()
@@ -117,18 +131,20 @@ T.test("sell_value_includes_foil_surcharge", function()
 end)
 
 T.test("exhausted_shop_rerolls_both_consumable_types", function()
-  local run, seen = opened(1000), {}
-  for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = { id = id } end
-  for _ = 1, 100 do
-    T.eq(ns.Shop.reroll(run), true)
-    for i = 1, 2 do
-      local item = run.shop.cards[i]
-      T.ok(item and (item.type == "scroll" or item.type == "tome"), "empty reroll slot")
-      seen[item.type] = true
+  withoutShowman(function()
+    local run, seen = opened(1000), {}
+    for _, id in ipairs(ns.Trinkets.order) do run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, id) end
+    for _ = 1, 100 do
+      T.eq(ns.Shop.reroll(run), true)
+      for i = 1, 2 do
+        local item = run.shop.cards[i]
+        T.ok(item and (item.type == "scroll" or item.type == "tome"), "empty reroll slot")
+        seen[item.type] = true
+      end
+      run.gold = 1000
     end
-    run.gold = 1000
-  end
-  T.ok(seen.scroll and seen.tome)
+    T.ok(seen.scroll and seen.tome)
+  end)
 end)
 
 T.test("reroll_cards_only", function()
