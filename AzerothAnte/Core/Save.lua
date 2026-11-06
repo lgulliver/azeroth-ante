@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Save = {}
 
-Save.VERSION = 2
+Save.VERSION = 3
 
 local function deepCopy(value)
   if type(value) ~= "table" then return value end
@@ -17,12 +17,19 @@ function Save.store(db, run)
 end
 
 function Save.load(db)
-  if not db or db.version ~= Save.VERSION then return nil end
+  if not db or (db.version ~= 2 and db.version ~= Save.VERSION) then return nil end
   local run = db.run
   if type(run) ~= "table" or type(run.phase) ~= "string" then return nil end
   if type(run.deck) ~= "table" or type(run.hand) ~= "table"
     or type(run.pile) ~= "table" then return nil end
   run = deepCopy(run)
+  if db.version == 2 then
+    run.vouchers = run.vouchers or {}
+    run.handPlays = run.handPlays or {}
+    run.bossRerollsUsed = run.bossRerollsUsed or 0
+    run.bossesFought = run.bossesFought or {}
+    run.streak = run.streak or { maxInterest = 0 }
+  end
   ns.Deck.relink(run)
   return run
 end

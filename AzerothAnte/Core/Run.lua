@@ -23,6 +23,8 @@ function Run.new(seed, deckId)
     maxTrinkets = 5, trinkets = {}, handLevels = {}, voidPenalty = 1,
     consumables = {}, maxConsumables = 2, seenHands = {},
     lastHandId = nil, lastConsumable = nil,
+    vouchers = {}, shopVoucher = nil, handPlays = {}, bossRerollsUsed = 0,
+    bossesFought = {}, streak = { maxInterest = 0 },
     handsPlayedTotal = 0, bosses = {}, score = 0,
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
