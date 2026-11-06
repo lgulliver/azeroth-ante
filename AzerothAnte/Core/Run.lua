@@ -186,7 +186,12 @@ function Run.play(run, idx)
     bossId = Run.bossId(run), rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
     isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
     consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
+    handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
+    pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
   })
+  -- Scoring worked on scratch copies of the instances; this is the commit.
+  run.trinkets = result.trinketsAfter
+  for handId, n in pairs(result.levelUps) do run.handLevels[handId] = (run.handLevels[handId] or 1) + n end
   run.handPlays[result.handId] = (run.handPlays[result.handId] or 0) + 1
   run.roundHandPlays[result.handId] = (run.roundHandPlays[result.handId] or 0) + 1
   event("cardsPlayed", #cards, run)
@@ -249,12 +254,15 @@ function Run.winBlind(run)
     run.streak.maxInterest = streak
     event("maxInterestStreak", streak, run)
   end
-  for _, trinket in ipairs(run.trinkets) do
-    local def = ns.Trinkets.def[trinket.id]
-    if def and def.onRoundEnd then
-      payout.trinkets = payout.trinkets + (def.onRoundEnd(run) or 0)
+  payout.trinketLines = {}
+  ns.TrinketEngine.each(run.trinkets, function(slot, instance, def, isCopy)
+    local gold = def.onRoundEnd and def.onRoundEnd(run, instance, isCopy)
+    if gold and gold > 0 then
+      local own = run.trinkets[slot]
+      payout.trinketLines[#payout.trinketLines + 1] = { uid = own.uid, id = own.id, gold = gold }
+      payout.trinkets = payout.trinkets + gold
     end
-  end
+  end)
   local boss = ns.Bosses.def[Run.bossId(run)]
   for _, card in ipairs(run.hand) do
     if not (boss and boss.debuff and boss.debuff(card)) then

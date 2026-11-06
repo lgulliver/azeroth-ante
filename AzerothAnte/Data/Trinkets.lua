@@ -1,7 +1,12 @@
 local _, ns = ...
 
--- Hooks: onCard(ctx, card) -> {chips=,mult=,xmult=}|nil, onHand(ctx) -> effect|nil,
--- onRoundEnd(run) -> goldDelta|nil.
+-- Hooks (all optional; isCopy is true when Blueprint/Brainstorm is running the hook; see
+-- Core/TrinketEngine.lua): before(ctx, self, isCopy), onCard(ctx, self, card, index, isCopy),
+-- retrigger(ctx, self, card, index, isCopy), onHeld(ctx, self, card, heldIndex, isCopy),
+-- heldRetrigger(...), onHand(ctx, self, isCopy), otherTrinket(ctx, self, otherDef, isCopy),
+-- after(ctx, self, isCopy) -> effect|nil, onRoundEnd(run, self, isCopy) -> gold|nil.
+-- An effect is { chips?, mult?, xmult?, gold?, msg?, levelHand?, destroySelf? }.
+-- Defs may also set copyable (default true), copies ("right"|"leftmost"), rule, status(self, ctx).
 local Trinkets = { order = {}, def = {} }
 
 -- Instances: { id, ed, paid, sellBonus, state, uid }. Defs may set rule (a TrinketRules key),
@@ -60,32 +65,32 @@ local LEGACY_DEFS = {
     id = "WHETSTONE", name = "Whetstone", rarity = "common", cost = 5,
     desc = "Each scoring Spade gives +3 mult.",
     icon = "Interface\\Icons\\INV_Stone_SharpeningStone_01",
-    onCard = function(_, card)
-      if ns.Cards.hasSuit(card, "S") then return { mult = 3 } end
+    onCard = function(ctx, _, card)
+      if ns.Cards.hasSuit(card, "S", ctx.rules) then return { mult = 3 } end
     end,
   },
   HEALTHSTONE = {
     id = "HEALTHSTONE", name = "Healthstone", rarity = "common", cost = 5,
     desc = "Each scoring Heart gives +3 mult.",
     icon = "Interface\\Icons\\INV_Stone_04",
-    onCard = function(_, card)
-      if ns.Cards.hasSuit(card, "H") then return { mult = 3 } end
+    onCard = function(ctx, _, card)
+      if ns.Cards.hasSuit(card, "H", ctx.rules) then return { mult = 3 } end
     end,
   },
   OGRE_CUDGEL = {
     id = "OGRE_CUDGEL", name = "Ogre Cudgel", rarity = "common", cost = 5,
     desc = "Each scoring Club gives +3 mult.",
     icon = "Interface\\Icons\\INV_Mace_01",
-    onCard = function(_, card)
-      if ns.Cards.hasSuit(card, "C") then return { mult = 3 } end
+    onCard = function(ctx, _, card)
+      if ns.Cards.hasSuit(card, "C", ctx.rules) then return { mult = 3 } end
     end,
   },
   JEWELERS_KIT = {
     id = "JEWELERS_KIT", name = "Jeweler's Kit", rarity = "common", cost = 5,
     desc = "Each scoring Diamond gives +3 mult.",
     icon = "Interface\\Icons\\INV_Misc_Gem_01",
-    onCard = function(_, card)
-      if ns.Cards.hasSuit(card, "D") then return { mult = 3 } end
+    onCard = function(ctx, _, card)
+      if ns.Cards.hasSuit(card, "D", ctx.rules) then return { mult = 3 } end
     end,
   },
   HEARTHSTONE = {
@@ -99,7 +104,7 @@ local LEGACY_DEFS = {
     desc = "25% chance for +20 mult each hand.",
     icon = "Interface\\Icons\\INV_Misc_Enggizmos_01",
     onHand = function(ctx)
-      if ns.RNG.next(ctx.rng) < 0.25 then return { mult = 20 } end
+      if ns.Prob.roll(ctx.rng, ctx.trinkets, 1, 4) then return { mult = 20 } end
     end,
   },
   EXECUTE = {
@@ -152,8 +157,8 @@ local LEGACY_DEFS = {
     id = "ROYAL_GUARD", name = "Royal Guard", rarity = "common", cost = 5,
     desc = "Each scoring face card gives +30 chips.",
     icon = "Interface\\Icons\\INV_Shield_06",
-    onCard = function(_, card)
-      if ns.Cards.isFace(card) then return { chips = 30 } end
+    onCard = function(ctx, _, card)
+      if ns.Cards.isFace(card, ctx.rules) then return { chips = 30 } end
     end,
   },
   BATTLE_SHOUT = {
@@ -178,7 +183,7 @@ local LEGACY_DEFS = {
     id = "HUNTERS_MARK", name = "Hunter's Mark", rarity = "rare", cost = 8,
     desc = "Each scoring Ace gives x1.5 mult.",
     icon = "Interface\\Icons\\Ability_Hunter_MarkedForDeath",
-    onCard = function(_, card)
+    onCard = function(ctx, _, card)
       if not ns.Cards.isStone(card) and card.rank == 14 then return { xmult = 1.5 } end
     end,
   },

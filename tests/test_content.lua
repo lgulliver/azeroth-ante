@@ -20,7 +20,7 @@ local function handHook(id, c)
 end
 
 local function cardHook(id, c, cd)
-  return trinket(id).onCard(c, cd)
+  return trinket(id).onCard(c, {}, cd, 1, false)
 end
 
 local VALID_RARITY = { common = true, uncommon = true, rare = true }
