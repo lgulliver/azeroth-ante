@@ -150,6 +150,22 @@ T.test("boss_reroll_needs_voucher_and_gold", function()
   T.ok(not ns.Run.canRerollBoss(run), "wrong phase")
 end)
 
+T.test("boss_reroll_any_blind", function()
+  local run = atBoss()
+  run.vouchers.DIRECTORS_CUT, run.blind = true, 1
+  T.ok(ns.Run.canRerollBoss(run), "blind 1")
+  local old = run.bosses[1]
+  local ok, id = ns.Run.rerollBoss(run)
+  T.ok(ok and id ~= old)
+  T.eq(run.bosses[1], id)
+end)
+
+T.test("consumable_sell_value", function()
+  T.eq(ns.Consumables.sellValue({ kind = "tome", id = "PAIR", paid = 7 }), 3)
+  T.eq(ns.Consumables.sellValue({ kind = "relic", id = "X" }), 2)
+  T.eq(ns.Vouchers.owns({}, "GRABBER"), false)
+end)
+
 T.test("retcon_unlimited", function()
   local run = atBoss()
   run.vouchers.DIRECTORS_CUT, run.vouchers.RETCON = true, true

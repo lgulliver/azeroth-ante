@@ -3,7 +3,7 @@ local ns, T = ...
 local function newRun()
   return {
     deck = ns.Deck.new(), nextCardId = 53, hand = {}, pile = {},
-    rng = ns.RNG.new(1), baseHandSize = 8, handSizeMod = 0, vouchers = {},
+    rng = ns.RNG.new(1), baseHandSize = 8, handSizeMod = 0,
   }
 end
 

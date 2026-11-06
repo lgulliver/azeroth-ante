@@ -3,7 +3,7 @@ local _, ns = ...
 local Vouchers = ns.Vouchers
 
 function Vouchers.owns(run, id)
-  return run.vouchers[id] == true
+  return (run.vouchers or {})[id] == true
 end
 
 local function count(run, id)

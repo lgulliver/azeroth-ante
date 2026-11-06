@@ -212,11 +212,12 @@ local function fire(e)
   elseif kind == "voucher" then
     -- Observatory: the Tome in the consumable row pulses and floats its multiplier.
     local CR = ns.UI.ConsumableRow
+    s.voucherUsed = s.voucherUsed or {}
     local holder
     for i, item in ipairs(s.run.consumables) do
-      if item.kind == "tome" and item.id == s.run.lastHandId then
+      if not s.voucherUsed[i] and item.kind == "tome" and item.id == s.run.lastHandId then
         holder = CR and CR.SlotHolder and CR.SlotHolder(i)
-        if holder then break end
+        if holder then s.voucherUsed[i] = true; break end
       end
     end
     holder = holder or (CR and CR.SlotHolder and CR.SlotHolder(1))
