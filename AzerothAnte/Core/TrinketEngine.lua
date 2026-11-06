@@ -127,7 +127,7 @@ function TrinketEngine.fire(run, hook, ...)
   local args = { ... }
   local pending = {}
   run.pendingDestroy = {}
-  TrinketEngine.each(run.trinkets, function(slot, instance, def, isCopy)
+  local ok, err = pcall(TrinketEngine.each, run.trinkets, function(slot, instance, def, isCopy)
     local fn = def[hook]
     local uid = run.trinkets[slot].uid
     if not fn or run.pendingDestroy[uid] then return end
@@ -138,7 +138,8 @@ function TrinketEngine.fire(run, hook, ...)
     if effect.destroySelf and not isCopy then run.pendingDestroy[uid] = true end
     pending[#pending + 1] = { slot = slot, uid = uid, effect = effect, isCopy = isCopy }
   end)
-  run.pendingDestroy = nil
+  run.pendingDestroy = nil -- Always cleared, even when a hook errored.
+  if not ok then error(err, 0) end
   local events = {}
   for _, phase in ipairs({ "now", "destroy", "create" }) do
     for _, p in ipairs(pending) do
