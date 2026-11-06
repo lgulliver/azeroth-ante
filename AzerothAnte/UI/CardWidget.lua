@@ -101,6 +101,7 @@ local function showTip(w)
   local named = w.mini and not ns.Cards.isStone(card)
   if not named and not next(defs) then return end
   local gold = ns.UI.Theme.gold
+  local owner = ns.UI.Main and ns.UI.Main.run
   GameTooltip:SetOwner(w, "ANCHOR_TOP", 0, LIFT_SELECTED + 4) -- anchored to the fixed hit area, not the lifting body
   if named then
     GameTooltip:AddLine((RANK_NAMES[card.rank] or tostring(card.rank)) .. " of " .. ns.Cards.SUIT_NAMES[card.suit], 1, 1, 1)
@@ -109,7 +110,7 @@ local function showTip(w)
     local def = defs[i]
     if def then
       GameTooltip:AddLine(def.name, gold[1], gold[2], gold[3])
-      GameTooltip:AddLine(def.desc, 1, 1, 1, true)
+      GameTooltip:AddLine(ns.Prob.describe(owner and owner.trinkets, def.desc), 1, 1, 1, true)
     end
   end
   GameTooltip:Show()

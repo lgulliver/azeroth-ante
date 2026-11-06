@@ -166,7 +166,7 @@ local function describe(run, pack, c)
     local lines = { "Added to your deck." }
     for _, def in ipairs({ ns.CardTypes.enh[item.enh] or false, ns.CardTypes.ed[item.ed] or false,
       ns.CardTypes.seal[item.seal] or false }) do
-      if def then lines[#lines + 1] = GOLD_HEX .. def.name .. ":|r " .. def.desc end
+      if def then lines[#lines + 1] = GOLD_HEX .. def.name .. ":|r " .. ns.Prob.describe(run.trinkets, def.desc) end
     end
     return cardName(item), table.concat(lines, "\n")
   end
