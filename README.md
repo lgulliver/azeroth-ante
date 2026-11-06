@@ -47,7 +47,8 @@ on the character-select AddOns screen until you set the right number.
 matters: drag a trinket left or right in the trinket row to reorder it. Engineering Schematic copies the
 trinket to its right and Mind Control copies the leftmost one; rule trinkets can't be copied.
 Hover a trinket for its live values and sell price. You can sell trinkets during a blind as well as
-in the shop; hand-size and discard trinkets adjust the current hand and discards straight away.
+in the shop; a bigger hand size draws cards at once, a smaller one applies from the next deal, and
+the counts of hands and discards change at once.
 
 **Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.
 
@@ -113,9 +114,10 @@ Wave 1 (80 trinkets) win rates at 200 runs and seed 1: ROGUE 22.0%, WARRIOR 30.0
 GOBLIN 31.0%, MONK 25.0%, WARLOCK 9.5%. All sat inside the intended 8-45% band; the target
 curve in `Core/Run.lua` (`BASE_TARGETS`) was retuned for the bigger trinket pool.
 
-Wave 2 (117 trinkets) win rates at 200 runs and seed 1: ROGUE 13.0%, WARRIOR 25.0%, GOBLIN 21.5%,
-MONK 24.5%, WARLOCK 5.5%. WARLOCK is below the intended 8-45% band; the targets are unchanged
-pending a balance decision. The bot never goes into debt, even with Credit Card.
+Wave 2 (117 trinkets) win rates at 200 runs and seed 1, with `BASE_TARGETS` retuned to
+`{300, 700, 1400, 2800, 5000, 8000, 11500, 16000}`: ROGUE 18.0%, WARRIOR 30.5%, GOBLIN 23.0%,
+MONK 28.0%, WARLOCK 10.5%. All sit inside the intended 8-45% band. The bot never goes into debt,
+even with Credit Card.
 
 ## In-game test checklist
 

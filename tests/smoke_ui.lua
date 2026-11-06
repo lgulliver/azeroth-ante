@@ -421,6 +421,28 @@ local function run(w)
   check(not stub.tooltip:IsShown(), "card tooltip hides on leave")
   stub.advance(0.3)
 
+  -- Glass and Lucky tooltips show the effective odds, never a raw {N} token.
+  for _, odds in ipairs({ { 1, "1 in 4", "1 in 5" }, { 2, "2 in 4", "2 in 5" } }) do
+    if odds[1] == 2 then run0.trinkets[#run0.trinkets + 1] = ns.Trinkets.create(run0, "LOADED_DICE") end
+    for _, enh in ipairs({ "GLASS", "LUCKY" }) do
+      c1.enh = enh
+      HandView.Update(run0, false)
+      stub.advance(1)
+      local gw = widgetFor(c1)
+      gw._scripts.OnEnter(gw)
+      stub.advance(0.6)
+      local text = table.concat(stub.tooltip._lines, "|")
+      check(not text:find("{%d+}"), enh .. " tooltip has a raw odds token: " .. text)
+      check(text:find(enh == "GLASS" and odds[2] or odds[3], 1, true), enh .. " tooltip shows " .. odds[1] .. "x odds: " .. text)
+      gw._scripts.OnLeave(gw)
+      stub.advance(0.3)
+    end
+  end
+  run0.trinkets[#run0.trinkets] = nil
+  c1.enh = "BONUS"
+  HandView.Update(run0, false)
+  stub.advance(1)
+
   -- Deck view over the play area.
   local nDeck = #run0.deck
   check(Main.sidebar.deckButton:GetText() == "Deck (" .. nDeck .. ")", "sidebar Deck button shows the count")
@@ -1239,6 +1261,24 @@ local function run(w)
     eq(cb.enh, "MULT", "last-pick Fury changed card B")
     check(not pv:IsVisible(), "the overlay closes after the animation")
     check(not HandView.IsBusy() and not ns.UI.PackView.IsBusy(), "unlocked after the last pick")
+
+    -- Standard pack text shows effective odds for a Lucky card, never a raw {N} token.
+    pack = openPack({ type = "STANDARD", size = "normal", cost = 4 })
+    pack.choices[1] = { rank = 9, suit = "S", enh = "LUCKY" }
+    Main.Render(r)
+    stub.advance(1)
+    click(pv.packChoices[1].widget, "Lucky Standard card")
+    do
+      local body = pv.detailBody:GetText()
+      check(not body:find("{%d+}") and body:find("1 in 5", 1, true), "Standard pack text shows odds: " .. body)
+      r.trinkets[#r.trinkets + 1] = ns.Trinkets.create(r, "LOADED_DICE")
+      ns.UI.PackView.Show(r)
+      body = pv.detailBody:GetText()
+      check(not body:find("{%d+}") and body:find("2 in 5", 1, true), "Standard pack text shows doubled odds: " .. body)
+      r.trinkets[#r.trinkets] = nil
+    end
+    click(pv.skip, "Skip the Lucky pack")
+    stub.advance(1)
 
     -- A Standard card as the last pick: the float is visible.
     pack = openPack({ type = "STANDARD", size = "normal", cost = 4 })
