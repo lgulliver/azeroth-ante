@@ -137,6 +137,7 @@ T.test("lich_needs_eligible_rare", function()
   for _, id in ipairs(ns.Trinkets.order) do
     if ns.Trinkets.def[id].rarity == "rare" then run.trinkets[#run.trinkets + 1] = trinket(id) end
   end
+  run.maxTrinkets = #run.trinkets + 1 -- Keep room while exhausting the now-populated rare pool.
   local ok, reason = ns.Consumables.canApply(run, relic("LICH"), {})
   T.ok(not ok)
   T.eq(reason, "No eligible rare trinket")
@@ -278,6 +279,7 @@ H.test("legends_rarest_available", function()
   for _, id in ipairs(ns.Trinkets.order) do
     if ns.Trinkets.def[id].rarity == "rare" then run.trinkets[#run.trinkets + 1] = trinket(id) end
   end
+  run.maxTrinkets = #run.trinkets + 1 -- Test rarity fallback rather than the slot limit.
   apply(run, "LEGENDS")
   T.eq(ns.Trinkets.def[run.trinkets[#run.trinkets].id].rarity, "uncommon")
 end)
