@@ -93,16 +93,16 @@ function Run.blindHands(run) return handsFor(run, Run.activeBoss(run)) end
 function Run.blindDiscards(run) return discardsFor(run, Run.activeBoss(run)) end
 
 -- Switches the boss's rules off for the rest of the blind. A boss that overrode hands or discards
--- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable.
+-- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable
+-- (no boss, not in play, or a boss with no rules, like the final one).
 function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
+  if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase) then return false end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
   run.bossDisabled = true
-  if run.phase == "play" then
-    if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
-    if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
-  end
+  if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
+  if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
   return true
 end
 
