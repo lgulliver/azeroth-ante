@@ -13,10 +13,12 @@ Core\HandEval.lua
 Data\Trinkets.lua
 Data\Bosses.lua
 Data\Decks.lua
+Data\Vouchers.lua
 Data\Tomes.lua
 Data\Scrolls.lua
 Data\Relics.lua
 Core\Scoring.lua
+Core\Vouchers.lua
 Core\Consumables.lua
 Core\Packs.lua
 Core\Shop.lua
