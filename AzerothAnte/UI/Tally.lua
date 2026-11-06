@@ -9,6 +9,7 @@ local Tally = {}
 local STEP = 0.28            -- seconds between events
 local COUNT_TIME = 0.5       -- score count-up
 local SHATTER = 0.35      -- a destroyed card's last beat
+local MELT = 0.3             -- a destroyed trinket fades and shrinks
 local HOLD = 0.3             -- beat after the total lands
 local FLOAT_RISE, FLOAT_TIME = 30, 0.6
 local FAST = 4
@@ -92,9 +93,10 @@ local function shakeCard(w)
   leg()
 end
 
-local function slotFrame(slot)
-  local m = main()
-  return m and m.trinketRow and m.trinketRow.slots and m.trinketRow.slots[slot]
+-- The row slot showing a trinket. Slots are found by uid: the engine has already
+-- committed the hand's changes, so indexes can differ from what the row still shows.
+local function slotFrame(uid)
+  return ns.UI.TrinketRow.SlotByUid(uid)
 end
 
 -- Trinkets with no effect and zero-chip cards (Stone) spend no beat.
@@ -102,6 +104,7 @@ local function isNoop(e)
   if e.kind ~= "trinket" and e.kind ~= "card" then return false end
   local xm = e.xmult
   return (not e.chips or e.chips == 0) and (not e.mult or e.mult == 0) and (not xm or xm == 1)
+    and (not e.gold or e.gold == 0)
 end
 
 local function showRun(e, handName)
@@ -167,8 +170,9 @@ local function fire(e)
   elseif kind == "edition" then
     local color = ED_COLOR[e.ed] or Theme.chips
     if e.slot then
-      ns.UI.TrinketRow.Pulse(e.slot)
-      floatDeltas(s, slotFrame(e.slot), e, color)
+      local slot = slotFrame(e.uid)
+      ns.UI.TrinketRow.PulseSlot(slot)
+      floatDeltas(s, slot, e, color)
     else
       local w = s.widgets[e.index]
       if w then w:Pop() end
@@ -185,6 +189,7 @@ local function fire(e)
     floatDeltas(s, w, e)
     showRun(e)
   elseif kind == "retrigger" then
+    if e.uid then ns.UI.TrinketRow.PulseUid(e.uid) end -- the trinket that caused it
     stackedFloat(s, widgetFor(s, e), "Again!", CREAM)
   elseif kind == "debuff" then
     local w = widgetFor(s, e)
@@ -193,22 +198,24 @@ local function fire(e)
       stackedFloat(s, w, "X", GREY)
     end
   elseif kind == "trinket" then
-    local slot = slotFrame(e.slot)
-    ns.UI.TrinketRow.Pulse(e.slot)
+    local slot = slotFrame(e.uid)
+    ns.UI.TrinketRow.PulseSlot(slot)
     if e.index and s.widgets[e.index] then s.widgets[e.index]:Pop() end
-    local lift = 0
-    if e.chips and e.chips ~= 0 then
-      floatText(slot, (e.chips > 0 and "+" or "") .. Sidebar.round2(e.chips), Theme.chips, lift)
-      lift = lift + 16
-    end
-    if e.mult and e.mult ~= 0 then
-      floatText(slot, (e.mult > 0 and "+" or "") .. Sidebar.round2(e.mult), Theme.mult, lift)
-      lift = lift + 16
-    end
-    if e.xmult and e.xmult ~= 1 then
-      floatText(slot, "\195\151" .. Sidebar.round2(e.xmult), Theme.mult, lift)
+    floatDeltas(s, slot, e)
+    if e.gold and e.gold ~= 0 then
+      stackedFloat(s, slot, (e.gold > 0 and "+" or "") .. e.gold .. "g", Theme.gold)
     end
     showRun(e)
+  elseif kind == "trinketMsg" then
+    local slot = slotFrame(e.uid)
+    ns.UI.TrinketRow.PulseSlot(slot)
+    stackedFloat(s, slot, e.msg, CREAM)
+  elseif kind == "levelUp" then
+    ns.UI.TrinketRow.PulseUid(e.uid)
+    local sb = main().sidebar
+    stackedFloat(s, sb and sb.handName, "Level up!", Theme.gold)
+  elseif kind == "trinketDestroyed" then
+    ns.UI.TrinketRow.Destroy(e.uid, MELT / s.speed)
   elseif kind == "voucher" then
     -- Observatory: the Tome in the consumable row pulses and floats its multiplier.
     local CR = ns.UI.ConsumableRow

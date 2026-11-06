@@ -2195,6 +2195,239 @@ local function run(w)
   end
   step("11d payout rows for Monk add up")
 
+  -- 11d2. Trinket UI: drag to reorder, live tooltips, tally events, round-end lines.
+  do
+    -- A play-phase board in its own world with the given trinkets; target is out of reach.
+    local function board(ids)
+      local w2, open2, panel2, m = boot({})
+      local ns2, stub2 = w2.ns, w2.stub
+      open2()
+      local r = ns2.Run.new(SMOKE_SEED, "ROGUE")
+      ns2.Run.startBlind(r)
+      r.target = 1e9
+      for _, id in ipairs(ids) do r.trinkets[#r.trinkets + 1] = ns2.Trinkets.create(r, id) end
+      m.SetRun(r)
+      stub2.advance(3)
+      return w2, panel2, m, r
+    end
+    local function order(r)
+      local out = {}
+      for i, t in ipairs(r.trinkets) do out[i] = t.id end
+      return table.concat(out, ",")
+    end
+    local function tipLines(stub2) return table.concat(stub2.tooltip._lines or {}, "\n") end
+    -- Presses slot `from`, drags the cursor to slot `to`'s x in small steps, releases.
+    local function drag(stub2, m, from, to, over)
+      local row = m.trinketRow
+      local es = row:GetEffectiveScale()
+      local slots = row.slots
+      local dx = slots[to]._points[1][4] - slots[from]._points[1][4]
+      stub2.cursor.x, stub2.cursor.y = 600, 300
+      stub2.mouseDown(slots[from])
+      stub2.advance(0.03)
+      for k = 1, 8 do
+        stub2.cursor.x = 600 + dx * es * k / 8
+        stub2.advance(0.03)
+      end
+      stub2.over[row] = over
+      stub2.mouseUp(slots[from])
+      stub2.over[row] = nil
+    end
+    local function startTally(w2, panel2, m)
+      local ns2, stub2 = w2.ns, w2.stub
+      local ws = {}
+      for _, c in ipairs(m.handArea._children) do
+        if c.card and not c.released and c:IsShown() then ws[#ws + 1] = c end
+      end
+      table.sort(ws, function(a, b) return a._points[1][4] < b._points[1][4] end)
+      ws[1]:Click()
+      m.buttons.play:Click()
+      local waited = 0
+      while not ns2.UI.Tally.IsBusy() and waited < 5 do
+        stub2.advance(0.05)
+        waited = waited + 0.05
+      end
+      check(ns2.UI.Tally.IsBusy(), "a tally started")
+    end
+
+    do -- trinket_drag_reorder
+      local w2, panel2, m, r = board({ "FLIGHT_PATH", "SCHEMATIC", "ARCANE_INTELLECT" })
+      local stub2 = w2.stub
+      local uids = { r.trinkets[1].uid, r.trinkets[2].uid, r.trinkets[3].uid }
+      drag(stub2, m, 1, 3, true)
+      eq(order(r), "SCHEMATIC,ARCANE_INTELLECT,FLIGHT_PATH", "drag 1 -> 3 reorders the trinkets")
+      eq(r.trinkets[3].uid, uids[1], "the dragged instance moved intact")
+      stub2.advance(0.5)
+      eq(m.trinketRow.slots[3].def.id, "FLIGHT_PATH", "the row shows the new order")
+      eq(m.trinketRow.slots[1]._points[1][4], 0, "slots settle back on the grid")
+      drag(stub2, m, 3, 2, true)
+      eq(order(r), "SCHEMATIC,FLIGHT_PATH,ARCANE_INTELLECT", "drag 3 -> 2")
+      check(not w2.ns.UI.Tally.IsBusy(), "a drag never starts a tally")
+    end
+    step("trinket_drag_reorder")
+
+    do -- trinket_drag_busy_noop
+      local w2, panel2, m, r = board({ "FLIGHT_PATH", "SCHEMATIC", "ARCANE_INTELLECT" })
+      local stub2 = w2.stub
+      startTally(w2, panel2, m)
+      local before = order(r)
+      drag(stub2, m, 1, 3, true)
+      eq(order(r), before, "a drag during the tally changes nothing")
+      stub2.advance(10)
+      eq(order(r), before, "and nothing after it either")
+      eq(#r.trinkets, 3, "no trinket dropped")
+    end
+    step("trinket_drag_busy_noop")
+
+    do -- trinket_drag_outside_noop
+      local w2, panel2, m, r = board({ "FLIGHT_PATH", "SCHEMATIC", "ARCANE_INTELLECT" })
+      local stub2 = w2.stub
+      local before = order(r)
+      drag(stub2, m, 1, 3, nil)
+      eq(order(r), before, "releasing outside the row changes nothing")
+      stub2.advance(0.5)
+      for i = 1, 3 do
+        check(m.trinketRow.slots[i]._points[1][4] == (i - 1) * (m.trinketRow.slots[2]._points[1][4]),
+          "slot " .. i .. " snapped back")
+        eq(m.trinketRow.slots[i].holder:GetScale(), 1, "slot " .. i .. " is back to normal size")
+      end
+      -- A press with no real movement is a click: nothing moves.
+      stub2.cursor.x = 600
+      stub2.mouseDown(m.trinketRow.slots[2])
+      stub2.cursor.x = 603
+      stub2.advance(0.05)
+      stub2.over[m.trinketRow] = true
+      stub2.mouseUp(m.trinketRow.slots[2])
+      stub2.over[m.trinketRow] = nil
+      eq(order(r), before, "a click does not reorder")
+    end
+    step("trinket_drag_outside_noop")
+
+    do -- tooltip_status_and_copies
+      local w2, panel2, m, r = board({ "FLIGHT_PATH", "SCHEMATIC", "ARCANE_INTELLECT" })
+      local stub2 = w2.stub
+      local slots = m.trinketRow.slots
+      slots[1]._scripts.OnEnter(slots[1])
+      local t = tipLines(stub2)
+      check(t:find("Flight Path", 1, true), "tooltip names the trinket")
+      check(t:find("Common", 1, true), "tooltip shows the rarity")
+      check(t:find("Currently +0 Mult", 1, true), "tooltip shows the status line")
+      check(not t:find("Copies", 1, true), "a plain trinket has no Copies line")
+      -- The tooltip follows the state while it is open.
+      r.trinkets[1].state.mult = 7
+      m.Render(r, true)
+      check(tipLines(stub2):find("Currently +7 Mult", 1, true), "an open tooltip refreshes on render")
+      slots[2]._scripts.OnEnter(slots[2])
+      check(tipLines(stub2):find("Copies: Arcane Intellect", 1, true), "Blueprint names what it copies")
+      slots[3]._scripts.OnLeave(slots[3])
+      check(not stub2.tooltip:IsShown(), "leaving hides the tooltip")
+    end
+    step("tooltip_status_and_copies")
+
+    do -- tally_destroy_ice_cream
+      local w2, panel2, m, r = board({ "TIGULES", "FLIGHT_PATH" })
+      local stub2, ns2 = w2.stub, w2.ns
+      r.trinkets[1].state.chips = 5
+      local fpUid = r.trinkets[2].uid
+      local tigUid = r.trinkets[1].uid
+      startTally(w2, panel2, m)
+      local row = m.trinketRow
+      eq(#r.trinkets, 1, "the engine already dropped the melted trinket")
+      eq(row.slots[1].def.id, "TIGULES", "the row keeps showing it during the tally")
+      local minAlpha, melted, waited = 1, false, 0
+      while ns2.UI.Tally.IsBusy() and waited < 20 do
+        stub2.advance(0.03)
+        waited = waited + 0.03
+        minAlpha = math.min(minAlpha, row.slots[1].holder:GetAlpha())
+        melted = melted or stub2.findText("Melted!") ~= nil
+      end
+      check(not ns2.UI.Tally.IsBusy(), "the tally completed")
+      check(minAlpha < 1, "the melting slot faded")
+      check(melted, "the Melted! message floated")
+      stub2.advance(0.5)
+      eq(row.slots[1].def.id, "FLIGHT_PATH", "the survivor moved up")
+      eq(row.slots[1].trinket.uid, fpUid, "the survivor is the same instance")
+      check(row.slots[1].trinket == r.trinkets[1], "the row shows the live instance and its state")
+      check(row.slots[2].def == nil, "the melted slot is gone")
+      eq(row.slots[1].holder:GetAlpha(), 1, "the survivor is fully visible")
+      eq(row.slots[2].holder:GetScale(), 1, "the empty slot is reset")
+      check(r.trinkets[1].uid ~= tigUid, "Ice Cream is no longer owned")
+    end
+    step("tally_destroy_ice_cream")
+
+    do -- tally_new_events: synthetic retrigger, message and level-up events
+      local w2, panel2, m, r = board({ "FLIGHT_PATH", "ARCANE_INTELLECT" })
+      local stub2, ns2 = w2.stub, w2.ns
+      local uid = r.trinkets[2].uid
+      local done = false
+      ns2.UI.Tally.Play({ total = 0, chips = 1, mult = 1, events = {
+        { kind = "base", handId = "PAIR", runChips = 10, runMult = 2 },
+        { kind = "retrigger", index = 1, slot = 2, uid = uid },
+        { kind = "trinketMsg", slot = 2, uid = uid, msg = "Upgrade!" },
+        { kind = "levelUp", handId = "PAIR", slot = 2, uid = uid },
+        { kind = "trinket", slot = 2, uid = uid, gold = 2, runChips = 10, runMult = 2 },
+        { kind = "trinketMsg", slot = 9, uid = 12345, msg = "Ghost!" },
+        { kind = "total", total = 20 },
+      } }, {}, function() done = true end)
+      local seen = {}
+      for _ = 1, 400 do
+        stub2.advance(0.05)
+        for _, t in ipairs({ "Upgrade!", "Level up!", "+2g" }) do
+          if stub2.findText(t) then seen[t] = true end
+        end
+        if done then break end
+      end
+      check(done, "the synthetic tally completed")
+      check(seen["Upgrade!"], "trinketMsg floats its message")
+      check(seen["Level up!"], "levelUp floats Level up!")
+      check(seen["+2g"], "a gold-only trinket event shows its gold")
+    end
+    step("tally_new_events")
+
+    do -- round_end_lines
+      local w2, panel2, m, r = board({ "HEARTHSTONE", "SCHEMATIC", "FLIGHT_PATH" })
+      local stub2, ns2 = w2.stub, w2.ns
+      r.handsLeft, r.discardsLeft = 2, 0
+      ns2.Run.winBlind(r)
+      m.Render(r, true)
+      stub2.advance(1)
+      local shop = panel2("offerCards")
+      local lines = {}
+      for key, row in pairs(shop.payout) do
+        if key:find("^trinket") and row.label:IsShown() then
+          lines[#lines + 1] = row.label:GetText() .. " " .. row.value:GetText()
+        end
+      end
+      eq(#lines, 1, "one payout line per paying trinket")
+      eq(lines[1], "Hearthstone +4g", "the Hearthstone line")
+      local sum = 0
+      for key, row in pairs(shop.payout) do
+        if key ~= "total" and row.label:IsShown() then sum = sum + tonumber(row.value:GetText():match("%d+")) end
+      end
+      eq(sum, tonumber(shop.payout.total.value:GetText():match("%d+")), "the lines add up to Total")
+      -- Blueprint cannot copy Hearthstone.
+      r.trinkets = { ns2.Trinkets.create(r, "SCHEMATIC"), ns2.Trinkets.create(r, "HEARTHSTONE") }
+      m.Render(r, true)
+      local slot1 = m.trinketRow.slots[1]
+      slot1._scripts.OnEnter(slot1)
+      check(tipLines(stub2):find("Copies: nothing (incompatible)", 1, true),
+        "Blueprint beside Hearthstone says incompatible")
+      -- A second paying trinket gets its own line.
+      r.trinkets = { ns2.Trinkets.create(r, "HEARTHSTONE"), ns2.Trinkets.create(r, "HEARTHSTONE") }
+      r.phase = "play"
+      r.handsLeft = 2
+      ns2.Run.winBlind(r)
+      m.Render(r, true)
+      stub2.advance(1)
+      local n = 0
+      for key, row in pairs(shop.payout) do
+        if key:find("^trinket") and row.label:IsShown() then n = n + 1 end
+      end
+      eq(n, 2, "two paying trinkets give two lines")
+    end
+    step("round_end_lines")
+  end
+
   do -- 11e. A client without SetRotation / SetDesaturation still gets a working carousel
     local db = {}
     local w2, _, panel2, m = boot(db)

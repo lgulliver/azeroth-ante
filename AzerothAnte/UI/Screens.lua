@@ -723,6 +723,19 @@ local function refreshVoucher(p, run)
   setReason(v.buy, (not ok) and why or nil)
 end
 
+-- One payout line: a label and a right-aligned amount. refreshShop places and shows them.
+local function addPayoutRow(p, key)
+  local big = key == "total"
+  local label = text(p, big and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 16, -68, 120)
+  local value = text(p, big and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 130, -68, 56, "RIGHT")
+  if big then
+    Theme.setColor(label, Theme.gold)
+    Theme.setColor(value, Theme.gold)
+  end
+  p.payout[key] = { label = label, value = value }
+  return p.payout[key]
+end
+
 local function buildShop()
   local p = makePanel("shop", true)
   p.title:SetText("Shop")
@@ -731,17 +744,8 @@ local function buildShop()
   hdr:SetText("Payout")
   Theme.Label(hdr)
   p.payout = {}
-  local rows = { "reward", "hands", "discards", "interest", "trinkets", "held", "total" }
-  for i, key in ipairs(rows) do
-    local y = -68 - (i - 1) * 22
-    local label = text(p, key == "total" and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 16, y, 120)
-    local value = text(p, key == "total" and Theme.fonts.text or Theme.fonts.small, "TOPLEFT", 130, y, 56, "RIGHT")
-    if key == "total" then
-      Theme.setColor(label, Theme.gold)
-      Theme.setColor(value, Theme.gold)
-    end
-    p.payout[key] = { label = label, value = value }
-  end
+  local rows = { "reward", "hands", "discards", "interest", "held", "total" }
+  for _, key in ipairs(rows) do addPayoutRow(p, key) end
 
   local cardsHdr = text(p, Theme.fonts.small, "TOPLEFT", 200, -46, 2 * COL_W + 8, "CENTER")
   cardsHdr:SetText("Cards")
@@ -851,12 +855,32 @@ local function refreshShop(p, run)
     hands = { "Hands left (" .. (run.handsLeft or 0) .. " x " .. (deck.goldPerHand or 1) .. "g)", pay.hands },
     discards = { "Discards left (" .. (run.discardsLeft or 0) .. " x " .. (deck.goldPerDiscard or 0) .. "g)", pay.discards },
     interest = { interestLabel, pay.interest },
-    trinkets = { "Trinkets", pay.trinkets },
     held = { "Held Gold cards", pay.held },
     total = { "Total", pay.total },
   }
+  -- One line per trinket that paid ("<name> +Ng"), between interest and held cards.
+  local keys = { "reward", "hands", "discards", "interest" }
+  local entries = pay.trinketLines
+  if not entries and (pay.trinkets or 0) > 0 then entries = { { gold = pay.trinkets } } end -- a save from before the lines
+  for i, line in ipairs(entries or {}) do
+    local key = "trinket" .. i
+    local def = line.id and ns.Trinkets.def[line.id]
+    if not p.payout[key] then addPayoutRow(p, key) end
+    lines[key] = { def and def.name or "Trinkets", line.gold }
+    keys[#keys + 1] = key
+  end
+  keys[#keys + 1] = "held"
+  keys[#keys + 1] = "total"
+  local listed = {}
+  for _, key in ipairs(keys) do listed[key] = true end
+  for key, row in pairs(p.payout) do
+    if not listed[key] then
+      row.label:Hide()
+      row.value:Hide()
+    end
+  end
   local y = -68
-  for _, key in ipairs({ "reward", "hands", "discards", "interest", "trinkets", "held", "total" }) do
+  for _, key in ipairs(keys) do
     local row = p.payout[key]
     local show = key ~= "discards" or (pay.discards or 0) > 0
     row.label:SetShown(show)
@@ -871,6 +895,9 @@ local function refreshShop(p, run)
       y = y - 22
     end
   end
+  -- The voucher tile sits under the last payout line (it keeps its spot while the lines fit above it).
+  p.voucher:ClearAllPoints()
+  p.voucher:SetPoint("TOPLEFT", p, "TOPLEFT", VX, math.min(VY, y - 4))
 
   local shop = run.shop or { cards = {}, packs = {}, rerollCost = 0 }
   local blockedByPack = shop.openPack ~= nil

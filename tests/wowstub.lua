@@ -351,6 +351,20 @@ function M.install(env)
   })
   -- The cursor: stub.over[frame] = true while the mouse is over that frame.
   stub.over = {}
+  -- The mouse: GetCursorPosition returns screen pixels; stub.mouseDown / stub.mouseUp press and
+  -- release the left button on a frame (OnMouseDown / OnMouseUp), as a drag needs.
+  stub.cursor = { x = 0, y = 0 }
+  stub.buttonDown = false
+  rawset(env, "GetCursorPosition", function() return stub.cursor.x, stub.cursor.y end)
+  rawset(env, "IsMouseButtonDown", function() return stub.buttonDown end)
+  function stub.mouseDown(f, button)
+    stub.buttonDown = true
+    runScript(f, "OnMouseDown", button or "LeftButton")
+  end
+  function stub.mouseUp(f, button)
+    stub.buttonDown = false
+    runScript(f, "OnMouseUp", button or "LeftButton")
+  end
   -- No global MouseIsOver: the live client lacks it (frame:IsMouseOver() exists everywhere).
   rawset(env, "InCombatLockdown", function() return stub.combat end)
   rawset(env, "LE_LFG_CATEGORY_LFD", 1)
