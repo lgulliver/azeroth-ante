@@ -96,8 +96,6 @@ function Run.startBlind(run)
   run.phase = "play"
   run.pile = ns.Deck.shuffledPile(run)
   run.hand = {}
-  ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run))
-  ns.Cards.sort(run.hand, run.sortMode or "rank")
   run.handsLeft = Run.blindHands(run)
   run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
@@ -109,7 +107,10 @@ function Run.startBlind(run)
     run.bossesFought[bossId] = true
     event("bossFought", bossId, run)
   end
+  -- Blind-select hooks fire before the draw (Balatro's set_blind): a trinket they destroy never adds cards.
   ns.TrinketEngine.fire(run, "onBlindSelect")
+  ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run) - #run.hand)
+  ns.Cards.sort(run.hand, run.sortMode or "rank")
   event("handSize", ns.Deck.handSize(run), run)
   editionTrinkets(run)
   Run.checkHand(run)
@@ -257,8 +258,9 @@ function Run.play(run, idx)
     handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
     pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
   })
-  -- Scoring worked on scratch copies of the instances; this is the commit.
-  run.trinkets = result.trinketsAfter
+  -- Scoring worked on scratch copies of the instances; this is the commit. A trinket destroyed while
+  -- scoring changes hands, discards and hand size, so the swap settles them.
+  Run.withMods(run, function() run.trinkets = result.trinketsAfter end)
   for handId, n in pairs(result.levelUps) do run.handLevels[handId] = (run.handLevels[handId] or 1) + n end
   run.handPlays[result.handId] = (run.handPlays[result.handId] or 0) + 1
   run.roundHandPlays[result.handId] = (run.roundHandPlays[result.handId] or 0) + 1
