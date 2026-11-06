@@ -33,4 +33,110 @@ function TrinketEngine.each(trinkets, fn)
   end
 end
 
+-- Lifecycle effect handlers, keyed by effect field: fn(run, ctx, value, isCopy, emit) where
+-- ctx = { slot, uid }. Later waves add fields here. Destroys run in a second phase (see fire).
+local function indexOfUid(run, uid)
+  for i, t in ipairs(run.trinkets) do
+    if t.uid == uid then return i end
+  end
+end
+
+local function destroyUid(run, uid, emit)
+  local i = indexOfUid(run, uid)
+  if not i then return end -- Already gone.
+  local id = run.trinkets[i].id
+  table.remove(run.trinkets, i)
+  emit({ kind = "trinketDestroyed", uid = uid, slot = i, id = id })
+end
+
+local HANDLERS = {
+  msg = function(_, ctx, text, _, emit) emit({ kind = "trinketMsg", uid = ctx.uid, slot = ctx.slot, text = text }) end,
+  gold = function(run, ctx, n, _, emit)
+    run.gold = run.gold + n
+    emit({ kind = "money", uid = ctx.uid, slot = ctx.slot, amount = n })
+  end,
+  destroySelf = function(run, ctx, v, isCopy, emit)
+    if v and not isCopy then destroyUid(run, ctx.uid, emit) end
+  end,
+  destroyTrinket = function(run, _, uid, _, emit) destroyUid(run, uid, emit) end,
+  createTrinkets = function(run, ctx, spec, _, emit)
+    for _ = 1, spec.n or 1 do
+      if #run.trinkets >= ns.Run.trinketSlots(run) then break end
+      local id = ns.Trinkets.rollOfRarity(run, spec.rarity)
+      if not id then break end
+      local instance = ns.Trinkets.create(run, id)
+      run.trinkets[#run.trinkets + 1] = instance
+      local def = ns.Trinkets.def[id]
+      if def.onObtain then def.onObtain(run, instance) end
+      emit({ kind = "trinketCreated", uid = instance.uid, slot = #run.trinkets, id = id, by = ctx.uid })
+    end
+  end,
+  sellBonusAll = function(run, _, n)
+    for _, t in ipairs(run.trinkets) do t.sellBonus = (t.sellBonus or 0) + n end
+    for _, c in ipairs(run.consumables or {}) do c.sellBonus = (c.sellBonus or 0) + n end
+  end,
+  handsDelta = function(run, _, n) run.handsLeft = run.handsLeft + n end,
+  discardsSet = function(run, _, n) run.discardsLeft = n end,
+  levelHand = function(run, ctx, handId, _, emit)
+    run.handLevels[handId] = (run.handLevels[handId] or 1) + 1
+    emit({ kind = "levelUp", uid = ctx.uid, slot = ctx.slot, handId = handId })
+  end,
+  destroyCard = function(run, ctx, cardId, _, emit)
+    ns.Deck.destroy(run, cardId)
+    emit({ kind = "cardDestroyed", uid = ctx.uid, slot = ctx.slot, cardId = cardId })
+  end,
+  save = function(run, ctx, v)
+    if v and not run.savedBy then
+      run.savedBy = ctx.uid
+      local i = indexOfUid(run, ctx.uid)
+      run.savedById = i and run.trinkets[i].id
+    end
+  end,
+}
+
+local DESTROYS = { destroySelf = true, destroyTrinket = true }
+local ORDER = { "msg", "gold", "sellBonusAll", "handsDelta", "discardsSet", "levelHand", "destroyCard",
+  "createTrinkets", "save", "destroySelf", "destroyTrinket" }
+
+-- Applies one lifecycle effect for the trinket `uid` in `slot`. With `only` ("now" or "destroy")
+-- it applies just that group of fields. Returns the events it produced.
+function TrinketEngine.apply(run, slot, uid, effect, isCopy, only)
+  local events = {}
+  local ctx = { slot = slot, uid = uid }
+  local function emit(e) events[#events + 1] = e end
+  for _, field in ipairs(ORDER) do
+    local value = effect[field]
+    local group = DESTROYS[field] and "destroy" or "now"
+    if value ~= nil and value ~= false and (not only or only == group) then
+      HANDLERS[field](run, ctx, value, isCopy, emit)
+    end
+  end
+  return events
+end
+
+-- Runs an update hook, hook(run, self, ..., isCopy), on every real instance (copies included),
+-- collects the effects, then applies them in slot order; destructions come last.
+-- Returns the events and appends them to run.lifecycleEvents for the UI.
+function TrinketEngine.fire(run, hook, ...)
+  local n = select("#", ...)
+  local args = { ... }
+  local pending = {}
+  TrinketEngine.each(run.trinkets, function(slot, instance, def, isCopy)
+    local fn = def[hook]
+    if not fn then return end
+    args[n + 1] = isCopy
+    local effect = fn(run, instance, unpack(args, 1, n + 1))
+    if effect then pending[#pending + 1] = { slot = slot, uid = run.trinkets[slot].uid, effect = effect, isCopy = isCopy } end
+  end)
+  local events = {}
+  for _, phase in ipairs({ "now", "destroy" }) do
+    for _, p in ipairs(pending) do
+      for _, e in ipairs(TrinketEngine.apply(run, p.slot, p.uid, p.effect, p.isCopy, phase)) do events[#events + 1] = e end
+    end
+  end
+  run.lifecycleEvents = run.lifecycleEvents or {}
+  for _, e in ipairs(events) do run.lifecycleEvents[#run.lifecycleEvents + 1] = e end
+  return events
+end
+
 ns.TrinketEngine = TrinketEngine

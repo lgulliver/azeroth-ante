@@ -70,5 +70,16 @@ T.test("v3_save_migrates_trinkets", function()
   T.eq({ t.uid, t.sellBonus, t.state, t.paid }, { 1, 0, { hands = 0 }, 8 }) -- Spec row 25: fresh purchase counter.
   T.eq(loaded.nextTrinketUid, 2)
   T.eq(loaded.roundHandPlays, {})
-  T.eq(ns.Save.VERSION, 4)
+  T.eq(ns.Save.VERSION, 5)
+end)
+
+T.test("v4_save_migrates_lifecycle_fields", function()
+  local run = playing()
+  run.discardsUsedRound, run.flags, run.lifecycleEvents = nil, nil, nil
+  run.shop = { cards = {}, packs = {} }
+  local loaded = ns.Save.load({ version = 4, run = run })
+  T.ok(loaded ~= nil, "v4 load returned nil")
+  T.eq({ loaded.discardsUsedRound, loaded.flags, loaded.lifecycleEvents, loaded.shop.freeRerolls }, { 0, {}, {}, 0 })
+  run.shop = nil
+  T.eq(ns.Save.load({ version = 4, run = run }).shop, nil)
 end)

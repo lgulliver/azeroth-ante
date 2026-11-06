@@ -365,24 +365,24 @@ H.test("idol_reroll_round_end", function()
   T.eq({ self.state.rank, self.state.suit }, { 12, "D" })
   run.deck = { H.card(3, "H") }
   local rng = run.rng.s
-  T.eq(def.onRoundEnd(run, self, true), nil); T.eq(run.rng.s, rng)
+  T.eq(def.roundUpdate(run, self, true), nil); T.eq(run.rng.s, rng)
   T.eq({ self.state.rank, self.state.suit }, { 12, "D" })
   ns.Run.winBlind(run)
   T.eq({ self.state.rank, self.state.suit }, { 3, "H" })
   T.eq(def.status(self), "Card: 3 of Hearts")
   run.deck = { H.card(2, "S", "STONE") }
-  T.eq(def.onRoundEnd(run, self, false), nil)
+  T.eq(def.roundUpdate(run, self, false), nil)
   T.eq(H.score(run, single()).mult, 1)
 end)
 H.test("ancient_reroll_round_end", function()
   local run = H.run { trinkets = { "TITAN_RELIC" } }
   local self, def = run.trinkets[1], ns.Trinkets.def.TITAN_RELIC
   local suit, rng = self.state.suit, run.rng.s
-  T.eq(def.onRoundEnd(run, self, true), nil); T.eq(run.rng.s, rng); T.eq(self.state.suit, suit)
+  T.eq(def.roundUpdate(run, self, true), nil); T.eq(run.rng.s, rng); T.eq(self.state.suit, suit)
   run.rng = ns.RNG.new(1)
-  T.eq(def.onRoundEnd(run, self, false), nil); T.eq(self.state.suit, "S")
+  T.eq(def.roundUpdate(run, self, false), nil); T.eq(self.state.suit, "S")
   run.rng = ns.RNG.new(64000)
-  T.eq(def.onRoundEnd(run, self, false), nil); T.eq(self.state.suit, "C")
+  T.eq(def.roundUpdate(run, self, false), nil); T.eq(self.state.suit, "C")
 end)
 H.test("oops_doubles_bloodstone", function()
   local plain = H.run { trinkets = { "BLOODSTONE" } }

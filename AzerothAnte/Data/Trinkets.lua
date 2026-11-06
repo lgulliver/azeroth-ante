@@ -6,6 +6,11 @@ local _, ns = ...
 -- heldRetrigger(...), onHand(ctx, self, isCopy), otherTrinket(ctx, self, otherDef, isCopy),
 -- after(ctx, self, isCopy) -> effect|nil, onRoundEnd(run, self, isCopy) -> gold|nil.
 -- An effect is { chips?, mult?, xmult?, gold?, msg?, levelHand?, destroySelf? }.
+-- Lifecycle update hooks (fired by TrinketEngine.fire; isCopy last, return an effect or nil):
+-- onBlindSelect(run, self, isCopy), onDiscard(run, self, cards, isCopy), roundUpdate(run, self, isCopy),
+-- onBossDefeated(run, self, isCopy), onLose(run, self, isCopy). onRoundEnd stays payout-only.
+-- Lifecycle effect fields: gold, msg, destroySelf, destroyTrinket (uid), createTrinkets { rarity, n },
+-- sellBonusAll (n), handsDelta (n), discardsSet (n), levelHand (handId), destroyCard (cardId), save.
 -- Defs may also set copyable (default true), copies ("right"|"leftmost"), rule, status(self, ctx).
 local Trinkets = { order = {}, def = {} }
 
@@ -48,6 +53,21 @@ end
 function Trinkets.describe(def, run)
   local trinkets = run and run.trinkets
   return ((def.desc or ""):gsub("{(%d+)}", function(n) return tostring(ns.Prob.odds(trinkets, tonumber(n))) end))
+end
+
+-- An unowned (unless Showman is owned), in-pool id of `rarity`, drawn with run.rng; nil if none.
+function Trinkets.rollOfRarity(run, rarity)
+  local dupes = ns.TrinketRules.has(run.trinkets, "SHOWMAN")
+  local owned = {}
+  for _, t in ipairs(run.trinkets) do owned[t.id] = true end
+  local pool = {}
+  for _, id in ipairs(Trinkets.order) do
+    if Trinkets.def[id].rarity == rarity and (dupes or not owned[id]) and Trinkets.inPool(run, id) then
+      pool[#pool + 1] = id
+    end
+  end
+  if #pool == 0 then return nil end
+  return ns.RNG.pick(run.rng, pool)
 end
 
 function Trinkets.inPool(run, id)
