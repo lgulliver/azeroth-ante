@@ -33,16 +33,20 @@ function Packs.random(run)
   for _, kind in ipairs(TYPES) do
     for _, size in ipairs(SIZES) do
       edge = edge + Packs.WEIGHTS[kind][size]
-      if roll < edge then return { type = kind, size = size, cost = Packs.SIZES[size].cost } end
+      if roll < edge then
+        return { type = kind, size = size, baseCost = Packs.SIZES[size].cost,
+          cost = ns.Vouchers.price(run, Packs.SIZES[size].cost) }
+      end
     end
   end
 end
 
-local function standardCard(run)
+function Packs.rollCard(run, enhanced)
   local card = { rank = ns.RNG.int(run.rng, 2, 14), suit = ns.RNG.pick(run.rng, ns.Cards.SUITS) }
+  if enhanced == false then return card end
   if ns.RNG.next(run.rng) < 0.4 then card.enh = ns.RNG.pick(run.rng, ENHANCEMENTS) end
   if ns.RNG.next(run.rng) < 0.2 then card.seal = ns.RNG.pick(run.rng, SEALS) end
-  card.ed = ns.CardTypes.rollEdition(run.rng, false)
+  card.ed = ns.Shop.rollEdition(run, false)
   return card
 end
 
@@ -61,7 +65,7 @@ function Packs.open(run, i)
   if run.gold < offer.cost then return false, "gold" end
   local size = Packs.SIZES[offer.size]
   local show = Packs.showCount(offer.type, offer.size)
-  local pack = { type = offer.type, size = offer.size, choices = {}, picksLeft = size.pick }
+  local pack = { type = offer.type, size = offer.size, choices = {}, picksLeft = size.pick, paid = offer.cost }
   local taken = {}
   local kind = KINDS[offer.type]
   local pool = {}
@@ -70,9 +74,28 @@ function Packs.open(run, i)
       or (kind == "scroll" and ns.Scrolls.order or ns.Relics.order)
     for c, id in ipairs(ids) do pool[c] = id end
   end
+  local relicPool = {}
+  if offer.type == "ARCANA" and ns.Vouchers.omenGlobe(run) then
+    for i, id in ipairs(ns.Relics.order) do relicPool[i] = id end
+  end
+  local telescope
+  if offer.type == "CELESTIAL" and ns.Vouchers.telescope(run) then
+    local most = 0
+    for _, id in ipairs(pool) do
+      local plays = run.handPlays[id] or 0
+      if plays > 0 and plays >= most then telescope, most = id, plays end
+    end
+  end
   for c = 1, show do
     local item
-    if kind then
+    if #relicPool > 0 and ns.RNG.next(run.rng) < 0.2 then
+      item = { kind = "relic", id = table.remove(relicPool, ns.RNG.int(run.rng, 1, #relicPool)) }
+    elseif c == 1 and telescope then
+      item = { kind = "tome", id = telescope }
+      for i, id in ipairs(pool) do
+        if id == telescope then table.remove(pool, i); break end
+      end
+    elseif kind then
       if #pool > 0 then
         local index = ns.RNG.int(run.rng, 1, #pool)
         item = { kind = kind, id = table.remove(pool, index) }
@@ -82,7 +105,7 @@ function Packs.open(run, i)
     elseif offer.type == "BUFFOON" then
       item = ns.Shop.rollTrinket(run, taken)
     else
-      item = standardCard(run)
+      item = Packs.rollCard(run)
     end
     if item then pack.choices[#pack.choices + 1] = item end
   end
@@ -94,6 +117,8 @@ function Packs.open(run, i)
   run.gold = run.gold - offer.cost
   shop.packs[i] = false
   shop.openPack = pack
+  offer.paid = offer.cost
+  if ns.Profile and ns.Profile.onEvent then ns.Profile.onEvent("spend", offer.paid) end
   return true
 end
 
@@ -132,6 +157,13 @@ function Packs.pick(run, c, idx)
     local ok, err = ns.Consumables.canApply(run, item, cards)
     if not ok then return false, err end
     outcome = ns.Consumables.apply(run, item, cards)
+    if ns.Profile and ns.Profile.onEvent then
+      if pack.type == "ARCANA" and item.kind == "scroll" then
+        ns.Profile.onEvent("scrollFromPackUsed", 1)
+      elseif pack.type == "CELESTIAL" and item.kind == "tome" then
+        ns.Profile.onEvent("tomeFromPackUsed", 1)
+      end
+    end
   end
   pack.choices[c] = false
   pack.picksLeft = pack.picksLeft - 1
