@@ -244,7 +244,8 @@ function Screens.ItemInfo(item)
   if kind == "trinket" then
     local def = ns.Trinkets.def[item.id]
     local rarity = def.rarity or "common"
-    info.name, info.desc, info.icon = def.name, def.desc or "", def.icon
+    local owner = main() and main().run
+    info.name, info.desc, info.icon = def.name, ns.Trinkets.describe(def, owner), def.icon
     info.color = Theme.rarity[rarity] or Theme.rarity.common
     info.sub = rarity:sub(1, 1):upper() .. rarity:sub(2) .. " Trinket"
     local ed = ns.CardTypes.ed[item.ed]

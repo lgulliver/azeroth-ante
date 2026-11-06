@@ -115,7 +115,7 @@ local def = {
       return true
     end,
     use = function(_, _, api)
-      if ns.RNG.next(api.rng) >= 0.25 then return api.nope() end
+      if not ns.Prob.roll(api.rng, api.trinkets(), 1, 4) then return api.nope() end
       local pool = unedited(api.trinkets())
       if #pool == 0 then return end
       local chosen = ns.RNG.pick(api.rng, pool)

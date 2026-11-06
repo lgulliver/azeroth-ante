@@ -158,7 +158,7 @@ function Scoring.score(ctx)
   local destroyCandidates = {}
   for _, i in ipairs(scoringIdx) do
     local card = cards[i]
-    if boss and boss.debuff and boss.debuff(card) then
+    if boss and boss.debuff and boss.debuff(card, ctx.rules) then
       emit({ kind = "debuff", index = i })
     else
       local extra = retriggers(card, "retrigger", i)
@@ -172,7 +172,7 @@ function Scoring.score(ctx)
   end
 
   for h, card in ipairs(held) do
-    if boss and boss.debuff and boss.debuff(card) then
+    if boss and boss.debuff and boss.debuff(card, ctx.rules) then
       if card.enh == "STEEL" then emit({ kind = "debuff", heldIndex = h }) end
     else
       -- A held card only repeats when its first evaluation did something.
@@ -210,7 +210,7 @@ function Scoring.score(ctx)
     end
     local ownDef = ns.Trinkets.def[trinket.id]
     engine.each(trinkets, function(other, otherInst, otherDef, otherIsCopy)
-      if other == slot or not otherDef.otherTrinket then return end
+      if other == slot or not ownDef or not otherDef.otherTrinket then return end
       local effect = otherDef.otherTrinket(ctx, otherInst, ownDef, otherIsCopy)
       if effect then apply(effect, other) end
     end)

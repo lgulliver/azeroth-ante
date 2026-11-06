@@ -196,7 +196,7 @@ ns.Trinkets.add {
 -- 42: Trade Prince Card.
 ns.Trinkets.add {
   id = "TRADE_PRINCE", name = "Trade Prince Card", rarity = "common", cost = 4,
-  desc = "Played face cards 1 in 2 to give 2g",
+  desc = "Played face cards {1} in 2 to give 2g",
   icon = "Interface\\Icons\\INV_Misc_Coin_01",
   onCard = function(ctx, _, card)
     if ns.Cards.isFace(card, ctx.rules) and ns.Prob.roll(ctx.rng, ctx.trinkets, 1, 2) then
@@ -238,7 +238,7 @@ ns.Trinkets.add {
 -- 45: Twisting Nether.
 ns.Trinkets.add {
   id = "TWISTING_NETHER", name = "Twisting Nether", rarity = "uncommon", cost = 5,
-  desc = "1 in 4 to level up played hand",
+  desc = "{1} in 4 to level up played hand",
   icon = "Interface\\Icons\\Spell_Holy_MagicalSentry",
   before = function(ctx)
     if ns.Prob.roll(ctx.rng, ctx.trinkets, 1, 4) then return { levelHand = true } end
@@ -377,7 +377,7 @@ ns.Trinkets.add {
 -- 82: Stable Master.
 ns.Trinkets.add {
   id = "STABLE_MASTER", name = "Stable Master", rarity = "common", cost = 6,
-  desc = "Held face cards 1 in 2 to give 1g",
+  desc = "Held face cards {1} in 2 to give 1g",
   icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
   onHeld = function(ctx, _, card)
     if ns.Cards.isFace(card, ctx.rules) and ns.Prob.roll(ctx.rng, ctx.trinkets, 1, 2) then
@@ -524,7 +524,7 @@ ns.Trinkets.add {
 -- 117: Bloodstone.
 ns.Trinkets.add {
   id = "BLOODSTONE", name = "Bloodstone", rarity = "uncommon", cost = 7,
-  desc = "Played Hearts 1 in 2 for ×1.5 Mult",
+  desc = "Played Hearts {1} in 2 for ×1.5 Mult",
   icon = "Interface\\Icons\\INV_Misc_Gem_Bloodstone_01",
   onCard = function(ctx, _, card)
     if ns.Cards.hasSuit(card, "H", ctx.rules) and ns.Prob.roll(ctx.rng, ctx.trinkets, 1, 2) then

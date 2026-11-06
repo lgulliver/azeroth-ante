@@ -693,6 +693,44 @@ local function run(w)
   runC.trinkets = {}
   Main.Render(runC)
 
+  -- Rule trinkets reach the selection preview; tooltips show effective odds; an emptied slot
+  -- drops its tooltip.
+  do
+    local saved = {}
+    for i = 1, 4 do saved[i] = { runC.hand[i].rank, runC.hand[i].suit } end
+    for i, rank in ipairs({ 2, 5, 7, 9 }) do runC.hand[i].rank, runC.hand[i].suit = rank, "H" end
+    HandView.ClearSelection()
+    HandView.Update(runC, false)
+    stub.advance(1)
+    for i = 1, 4 do selectCard(i) end
+    check(not Main.sidebar.handName:GetText():find("Flush", 1, true), "4 hearts are no flush without Sleight of Hand")
+    HandView.ClearSelection()
+    runC.trinkets = { ns.Trinkets.create(runC, "SLEIGHT_HAND") }
+    Main.Render(runC)
+    for i = 1, 4 do selectCard(i) end
+    check(Main.sidebar.handName:GetText():find("Flush", 1, true) == 1, "Sleight of Hand previews a 4-card Flush")
+    HandView.ClearSelection()
+    for i = 1, 4 do runC.hand[i].rank, runC.hand[i].suit = saved[i][1], saved[i][2] end
+    HandView.Update(runC, false)
+    stub.advance(1)
+
+    runC.trinkets = { ns.Trinkets.create(runC, "BLOODSTONE") }
+    Main.Render(runC)
+    local slot1 = Main.trinketRow.slots[1]
+    slot1._scripts.OnEnter(slot1)
+    check(table.concat(stub.tooltip._lines, "|"):find("1 in 2", 1, true), "tooltip shows base odds")
+    slot1._scripts.OnLeave(slot1)
+    runC.trinkets[2] = ns.Trinkets.create(runC, "LOADED_DICE")
+    Main.Render(runC)
+    slot1._scripts.OnEnter(slot1)
+    check(table.concat(stub.tooltip._lines, "|"):find("2 in 2", 1, true), "tooltip shows Loaded Dice odds")
+    local info = ns.UI.Screens.ItemInfo({ type = "trinket", id = "BLOODSTONE" })
+    check(info.desc:find("2 in 2", 1, true), "shop item info shows Loaded Dice odds")
+    runC.trinkets = {}
+    Main.Render(runC)
+    check(not stub.tooltip:IsShown(), "an emptied slot drops its stale tooltip")
+  end
+
   -- A Purple-sealed discard pops its new Scroll into the slot.
   runC.consumables = {}
   HandView.ClearSelection()

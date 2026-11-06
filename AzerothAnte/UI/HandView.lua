@@ -170,7 +170,7 @@ local function updatePreview()
   end
   local cards = {}
   for k, i in ipairs(sel) do cards[k] = run.hand[i] end
-  local handId = ns.HandEval.evaluate(cards)
+  local handId = ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets))
   local level = run.handLevels[handId] or 1
   local chips, mult = ns.Hands.base(handId, level)
   ns.UI.Sidebar.SetChipsMult(chips, mult, ns.Hands.def[handId].name .. " Lv " .. level)
@@ -279,6 +279,7 @@ function HandView.Update(run, animate)
 
   list = {}
   local debuff = bossDebuff(run)
+  local rules = ns.TrinketRules.set(run and run.trinkets)
   local n, areaW = #hand, area:GetWidth()
   local ox, oy = deckOrigin()
   local dealt = 0
@@ -292,7 +293,7 @@ function HandView.Update(run, animate)
       widgetOf[card] = w
     end
     list[i] = w
-    w:SetDebuffed(debuff and debuff(card))
+    w:SetDebuffed(debuff and debuff(card, rules))
     w:SetBaseLevel(area:GetFrameLevel() + 2 + i * 4)
     local x = rowX(i, n, areaW)
     if isNew and animate then

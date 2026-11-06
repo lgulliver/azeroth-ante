@@ -31,13 +31,14 @@ local function slotX(i) return (i - 1) * pitch end
 
 local function showTooltip(slot)
   local def = slot.def
-  if not def or (press and press.active) then return end
+  if not def then GameTooltip:Hide() return end -- an emptied slot must not keep the old tooltip
+  if press and press.active then return end
   local run = currentRun
   local r = Theme.rarity[def.rarity] or Theme.rarity.common
   GameTooltip:SetOwner(slot, "ANCHOR_BOTTOM")
   GameTooltip:AddLine(def.name, r[1], r[2], r[3])
   GameTooltip:AddLine(def.rarity and (def.rarity:sub(1, 1):upper() .. def.rarity:sub(2)) or "", r[1], r[2], r[3])
-  GameTooltip:AddLine(def.desc or "", 1, 1, 1, true)
+  GameTooltip:AddLine(ns.Trinkets.describe(def, run), 1, 1, 1, true)
   local ed = slot.trinket and ns.CardTypes.ed[slot.trinket.ed]
   if ed then
     GameTooltip:AddLine(ed.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
