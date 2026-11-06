@@ -1233,6 +1233,87 @@ UI_JOBS = {
 }
 
 
+# ------------------------------------------------------------- addon icon
+ICON_SIZE = 64
+LEATHER = (46, 32, 20)
+LEATHER_DARK = (22, 15, 9)
+HEART_RED = (176, 30, 34)
+SPADE_INK = (24, 22, 48)
+
+
+def _in_card(x, y, cx, cy, deg, hw, hh, r):
+    """(inside, local u, local v) for a card centred at (cx, cy), rotated by deg; units of the icon."""
+    a = math.radians(deg)
+    ox, oy = x - cx, y - cy
+    dx = ox * math.cos(a) + oy * math.sin(a)  # undo a clockwise turn of deg
+    dy = -ox * math.sin(a) + oy * math.cos(a)
+    inside = _in_round_rect(dx + hw, dy + hh, 2 * hw, 2 * hh, r)
+    return inside, (dx + hw) / (2 * hw), (dy + hh) / (2 * hh)
+
+
+def icon_fn(size):
+    """Azeroth Ante's icon: a leather tile with a gold border, a parchment card (heart) fanned
+    over a navy card (spade), and a gold ante coin in the corner. Drawn in unit space so the
+    same art renders as the 64px addon-list icon and a larger README logo."""
+    def fn(px, py):
+        x, y = px / size, py / size
+        if not _in_round_rect(x, y, 1.0, 1.0, 0.17):
+            return CLEAR
+        if not _in_round_rect(x, y, 1.0, 1.0, 0.17, inset=0.045):
+            return _rgb(_mix(GOLD, GOLD_DARK, y))  # gold border, lit from the top
+        if not _in_round_rect(x, y, 1.0, 1.0, 0.17, inset=0.06):
+            return _rgb(INK)
+
+        # Gold ante coin, front-most, lower right.
+        cdx, cdy = x - 0.70, y - 0.71
+        d = math.hypot(cdx, cdy)
+        if d <= 0.215:
+            if d > 0.195:
+                return _rgb(INK)
+            lit = 1.1 - 0.35 * (cdy + 0.2) / 0.4
+            if d > 0.155:  # rim with notches, like the blind chips
+                a = math.atan2(cdy, cdx)
+                seg = 2 * math.pi / 8
+                if abs((a % seg) - seg / 2.0) * d < 0.03:
+                    return _rgb(_shade((255, 238, 176), lit))
+                return _rgb(_shade((204, 146, 44), lit))
+            if d > 0.14:
+                return _rgb(_shade((92, 56, 8), 1.0))
+            star = (abs(cdx) ** 0.6 + abs(cdy) ** 0.6) / 0.075 ** 0.6
+            if star < 1.0:
+                return _rgb(_shade((255, 238, 176), lit))
+            if star < 1.25:
+                return _rgb((92, 56, 8))
+            return _rgb(_shade((220, 164, 56), lit))
+
+        # Front card: parchment with a red heart, tilted left.
+        inside, u, v = _in_card(x, y, 0.40, 0.44, -12, 0.205, 0.285, 0.045)
+        if inside:
+            if not _in_card(x, y, 0.40, 0.44, -12, 0.19, 0.27, 0.035)[0]:
+                return _rgb(GOLD_DARK)
+            if heart((u - 0.5) * 2.0 + 0.5, (v - 0.5) * 1.55 + 0.5) > 0:
+                return _rgb(_mix(HEART_RED, _shade(HEART_RED, 0.7), v))
+            return _rgb(_mix(PARCH, PARCH_DARK, v * 0.8))
+        if _in_card(x, y, 0.40, 0.44, -12, 0.222, 0.302, 0.055)[0]:
+            return _rgb(INK)
+
+        # Back card: navy face with a gold spade, tilted right and peeking out behind.
+        inside, u, v = _in_card(x, y, 0.60, 0.40, 14, 0.19, 0.265, 0.045)
+        if inside:
+            if not _in_card(x, y, 0.60, 0.40, 14, 0.175, 0.25, 0.035)[0]:
+                return _rgb(GOLD)
+            if spade((u - 0.70) * 3.0 + 0.5, (v - 0.30) * 2.2 + 0.5) > 0:  # in the part that peeks out
+                return _rgb(_mix(GOLD, GOLD_DARK, v))
+            return _rgb(_mix(NAVY_LIGHT, NAVY, v))
+        if _in_card(x, y, 0.60, 0.40, 14, 0.207, 0.282, 0.055)[0]:
+            return _rgb(INK)
+
+        # Leather field with a soft vignette.
+        vig = math.hypot(x - 0.5, y - 0.45) / 0.7
+        return _rgb(_mix(LEATHER, LEATHER_DARK, min(1.0, vig)))
+    return fn
+
+
 # ---------------------------------------------------------------- output
 def render(width, height, fn):
     """Supersample fn(sample_x, sample_y) -> (r,g,b,a) and average to RGBA bytes.
@@ -1328,6 +1409,11 @@ def main(argv):
         jobs.append(("Chip_" + kind, CHIP_SIZE, CHIP_SIZE, render(CHIP_SIZE, CHIP_SIZE, chip_fn(kind))))
     for name, (w, h, fn) in UI_JOBS.items():
         jobs.append((name, w, h, render(w, h, fn)))
+    jobs.append(("Icon", ICON_SIZE, ICON_SIZE, render(ICON_SIZE, ICON_SIZE, icon_fn(ICON_SIZE))))
+    if "--logo" in argv:  # README logo: the icon art at a larger size, as a transparent PNG
+        logo = argv[argv.index("--logo") + 1]
+        write_png(logo, 256, 256, render(256, 256, icon_fn(256)))
+        print("wrote %s (256x256)" % logo)
     jobs = [j for j in jobs if j[0].startswith(only)]
     for name, w, h, rgba in jobs:
         write_tga(os.path.join(MEDIA, name + ".tga"), w, h, rgba)
