@@ -261,7 +261,8 @@ end
 -- Refreshes only the boss panel (a boss disabled mid-play), leaving the score boxes alone.
 function Sidebar.ShowBoss(run)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
-  if frame and frame.bossStrike and run then showBoss(frame, run) end
+  -- Only while the round layout shows: the blind-select layout has no boss panel yet (the play render sets it).
+  if frame and frame.bossStrike and run and frame.blindName:IsShown() then showBoss(frame, run) end
 end
 
 -- chips and mult are optional (shown as 0 when nil), for live scoring display.

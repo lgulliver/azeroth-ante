@@ -21,6 +21,7 @@ local openSlot                                -- slot index the popover belongs 
 local USE_IN_PLAY = "Use while playing a hand"
 local USE_IN_SHOP = "Use in a hand, or open an Arcana or Spectral pack"
 local openPhase, catcher, globalMouse
+local pending = {}                            -- items waiting for their pop: kept hidden by Update
 local openItem                                -- the item that slot held when it opened
 
 local function main()
@@ -176,9 +177,19 @@ function ConsumableRow.HolderFor(item)
   end
 end
 
+-- Items about to pop in stay hidden (alpha 0) however often the row updates, until their own PopIn.
+function ConsumableRow.MarkPending(items)
+  for _, item in ipairs(items) do pending[item] = true end
+end
+
+function ConsumableRow.ClearPending()
+  pending = {}
+end
+
 -- Shows an item just added to run.consumables: the row catches up, then its slot pops in
 -- (scale 0.6 to 1, 0.2s / speed). Returns the holder, or nil when it has no slot.
 function ConsumableRow.PopIn(run, item, speed)
+  pending[item] = nil
   ConsumableRow.Update(run)
   local holder = ConsumableRow.HolderFor(item)
   if not holder then return nil end
@@ -436,8 +447,9 @@ function ConsumableRow.Update(run)
     if shown then
       skin(slot, run and run.consumables[i])
       if not ns.UI.Tween.IsActive(slot.holder) then
-        slot.holder:SetAlpha(1)
-        slot.holder:SetScale(1)
+        local wait = slot.item and pending[slot.item]
+        slot.holder:SetAlpha(wait and 0 or 1)
+        slot.holder:SetScale(wait and POP_FROM or 1)
       end
     else
       slot.item = nil

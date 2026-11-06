@@ -102,7 +102,8 @@ local function fire(s, e)
     -- Markers and the boss panel change now; the render after the queue only confirms it.
     ns.UI.HandView.ClearDebuffs()
     ns.UI.Sidebar.ShowBoss(s.run)
-    stackedFloat(s, sb and sb.blindName, "Boss disabled!", Theme.gold)
+    local target = sb and sb.blindName and sb.blindName:IsShown() and sb.blindName or main().playArea
+    stackedFloat(s, target, "Boss disabled!", Theme.gold)
   end
 end
 
@@ -120,6 +121,7 @@ local function finish()
   if not s then return end
   state = nil
   stop()
+  ns.UI.ConsumableRow.ClearPending()
   if ns.UI.HandView then pcall(ns.UI.HandView.RefreshButtons) end
   s.done()
 end
@@ -128,6 +130,7 @@ end
 local function abandon()
   state = nil
   stop()
+  ns.UI.ConsumableRow.ClearPending()
 end
 
 local function onUpdate(_, dt)
@@ -193,6 +196,11 @@ function Lifecycle.Drain(run, done)
     end
   end
   if #steps == 0 then return done() end
+  local made = {}
+  for _, st in ipairs(steps) do
+    if st.event.kind == "consumableCreated" and st.event.item then made[#made + 1] = st.event.item end
+  end
+  ns.UI.ConsumableRow.MarkPending(made) -- hidden until their own pop
   state = {
     run = run, done = done, steps = steps, next = 1, clock = 0, real = 0, speed = 1, floats = {},
     endAt = steps[#steps].at + TAIL,

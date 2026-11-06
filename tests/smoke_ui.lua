@@ -3041,6 +3041,10 @@ local function run(w)
       stub4.advance(0.05)
       local fw = ns4.UI.HandView.WidgetForCard(made.id)
       check(fw and fw:GetAlpha() < 1, "a widget is flying in for the created card")
+      fw._scripts.OnClick(fw)
+      check(not fw.selected, "clicking a flyer mid-drain selects nothing")
+      m4.handArea._children[1]._scripts.OnClick(m4.handArea._children[1])
+      eq(#ns4.UI.HandView.Selected(), 0, "no hand card is selectable while the queue plays")
       while not done4 do stub4.advance(0.05) end
       ns4.UI.HandView.Update(r4, true)
       stub4.advance(1)
@@ -3167,6 +3171,81 @@ local function run(w)
       plain._scripts.OnLeave(plain)
     end
     step("bonus_chips_tooltip")
+
+    do -- boss_disabled_at_blind_start: no strike until the play render
+      local defs = { { id = "S_UNBOSS", onFirstDraw = function() return { disableBoss = true } end } }
+      local w2, panel2, m, r = lifeBoard({ "S_UNBOSS" }, "blind", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      r.blind, r.bosses[r.stage] = 3, "HOGGER"
+      click(panel2("preview").start, "Start Blind")
+      eq(r.phase, "play", "the blind started")
+      check(r.bossDisabled, "the trinket disabled the boss")
+      local early, floatSeen, t = false, false, 0
+      while ns2.UI.Lifecycle.IsBusy() and t < 5 do
+        if m.sidebar.bossStrike:IsShown() then early = true end
+        stub2.advance(0.03)
+        t = t + 0.03
+        floatSeen = floatSeen or stub2.findText("Boss disabled!") ~= nil
+      end
+      check(not early, "no strike while the blind-select layout shows")
+      check(floatSeen, "the float shows over the play area")
+      stub2.advance(1)
+      check(m.sidebar.bossStrike:IsShown(), "the play render shows the strike")
+      eq(m.sidebar.bossRule:GetText(), "Disabled", "and Disabled")
+      unstub(ns2, defs)
+    end
+    step("boss_disabled_at_blind_start")
+
+    do -- two_consumables_never_flash
+      local defs = { { id = "S_TWO", before = function()
+        return { createConsumable = { kind = "scroll" } }
+      end }, { id = "S_TWO2", before = function()
+        return { createConsumable = { kind = "scroll" } }
+      end } }
+      local w2, panel2, m, r = lifeBoard({ "S_TWO", "S_TWO2" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      r.consumables = {}
+      m.Render(r, true)
+      stub2.advance(0.5)
+      handWidgets(m)[1]:Click()
+      m.buttons.play:Click()
+      local popped, early, t = {}, false, 0
+      while (ns2.UI.Tally.IsBusy() or ns2.UI.HandView.IsBusy()) and t < 15 do
+        stub2.advance(0.02)
+        t = t + 0.02
+        for i = 1, 2 do
+          local slot = m.consumableRow.slots[i]
+          if slot.item then
+            if slot.holder:GetScale() < 1 then popped[i] = true end
+            if not popped[i] and slot.holder:GetAlpha() >= 1 then early = true end
+          end
+        end
+      end
+      eq(#r.consumables, 2, "two Scrolls were made")
+      check(popped[1] and popped[2], "both popped")
+      check(not early, "neither showed before its own pop")
+      for i = 1, 2 do eq(m.consumableRow.slots[i].holder:GetAlpha(), 1, "slot " .. i .. " ends visible") end
+      unstub(ns2, defs)
+    end
+    step("two_consumables_never_flash")
+
+    do -- tally_extras_capped
+      local w2, panel2, m, r = lifeBoard({}, "play")
+      local stub2, ns2 = w2.stub, w2.ns
+      local effects = {}
+      for i = 1, 10 do
+        local c = ns2.Deck.add(r, { rank = 5, suit = "C" })
+        r.hand[#r.hand + 1] = c
+        effects[i] = { kind = "createCard", toHand = true, card = c }
+      end
+      local done, c0 = false, stub2.clock
+      ns2.UI.Tally.Play({ events = { { kind = "total" } }, total = 0, chips = 1, mult = 1, sideEffects = effects },
+        {}, function() done = true end)
+      while not done and stub2.clock - c0 < 10 do stub2.advance(0.02) end
+      local t = stub2.clock - c0
+      check(done and t > 1.5 and t < 2.6, "ten made cards add about 1.5s, not 2.25s: " .. t)
+    end
+    step("tally_extras_capped")
   end
 
   do -- 11e. A client without SetRotation / SetDesaturation still gets a working carousel
