@@ -1,4 +1,8 @@
-# Azeroth Ante
+<p align="center">
+  <img src="docs/logo.png" alt="Azeroth Ante logo" width="160">
+</p>
+
+<h1 align="center">Azeroth Ante</h1>
 
 [![Lint](https://github.com/lgulliver/azeroth-ante/actions/workflows/lint.yml/badge.svg)](https://github.com/lgulliver/azeroth-ante/actions/workflows/lint.yml) [![Test](https://github.com/lgulliver/azeroth-ante/actions/workflows/test.yml/badge.svg)](https://github.com/lgulliver/azeroth-ante/actions/workflows/test.yml)
 
