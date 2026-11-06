@@ -64,13 +64,15 @@ types, grouped by suit. Hover a card for details.
 
 **Vouchers**: each stage's shop offers one voucher in its own tile. Buying one is a
 permanent upgrade for the rest of the run (extra hands, discards or hand size, cheaper
-or bigger shops, higher interest caps, and more). Each of the 16 base vouchers has a
+or bigger shops, higher interest caps, and more). Most vouchers are upgrades; the two
+hourglasses trade off (a stage back, and a hand or discard fewer each round). Each of the 16 base vouchers has a
 stronger tier-two upgrade that can only appear once you own the base voucher and have
 earned its achievement. The voucher changes after each stage's boss. Discounts never
 apply to rerolls or the boss reroll.
 
 **Boss reroll**: the Bounty Board voucher lets you reroll the upcoming boss once per
-stage for 10 gold; its upgrade, Infinite Bounty, removes the limit.
+stage for 10g; its upgrade, Infinite Bounty, removes the limit. It is only offered on the
+blind screen, and never at the final stage.
 
 **Achievements** are addon-internal. They are tracked and stored in the addon's own
 SavedVariables (`AzerothAnteDB`) and are never WoW achievements: they do not touch

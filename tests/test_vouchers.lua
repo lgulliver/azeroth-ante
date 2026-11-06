@@ -222,3 +222,15 @@ T.test("v3_save_preserves_voucher_state", function()
   ns.Save.store(db, run)
   T.eq(ns.Save.load(db).shopVoucher, false)
 end)
+
+T.test("descriptions_are_ascii_with_g_currency", function()
+  local function clean(text, what)
+    T.ok(not text:find("%$"), what .. " uses $ instead of g: " .. text)
+    T.ok(not text:gsub("\195\151", "x"):find("[\128-\255]"), what .. " has a non-Latin-1 or non-ASCII glyph: " .. text)
+  end
+  for id, def in pairs(ns.Vouchers.def) do clean(def.desc, id) end
+  for id, def in pairs(ns.Decks.def) do clean(def.desc or "", id) end
+  for _, group in ipairs({ ns.CardTypes.enh, ns.CardTypes.ed, ns.CardTypes.seal }) do
+    for id, def in pairs(group) do clean(def.desc or "", id) end
+  end
+end)

@@ -128,7 +128,7 @@ local function makeBlind(p, i, host)
 
   if i == 3 and host.rerollBoss then
     -- Director's Cut / Retcon: just under the boss panel, shown only while owned.
-    slot.reroll = host.button(slot, "Reroll Boss ($" .. ns.Run.BOSS_REROLL_COST .. ")", 160, 24, host.rerollBoss)
+    slot.reroll = host.button(slot, "Reroll Boss (" .. ns.Run.BOSS_REROLL_COST .. "g)", 160, 24, host.rerollBoss)
     slot.reroll:SetPoint("TOP", slot, "TOP", 0, -(PANEL_H + 6))
     host.reasonTip(slot.reroll)
     slot.reroll:Hide()
@@ -183,7 +183,7 @@ local function refreshOne(b, run, i, bossId)
   b.rule:SetText(boss and boss.desc or "")
   b.target:SetText(tostring(ns.Run.target(run.stage, i, i == 3 and bossId or nil)))
   Theme.setColor(b.target, current and Theme.gold or Theme.parchment)
-  b.reward:SetText("Reward: " .. GOLD_HEX .. string.rep("$", ns.Run.BLIND_REWARDS[i]) .. "|r")
+  b.reward:SetText("Reward: " .. GOLD_HEX .. ns.Run.BLIND_REWARDS[i] .. "g|r")
 
   local tint = i == 3 and (BlindSelect.BOSS_TINT[bossId] or NO_TINT) or NO_TINT
   b.chip:SetVertexColor(tint[1], tint[2], tint[3])

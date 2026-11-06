@@ -107,7 +107,7 @@ local def = {
     select = { min = 1, max = 1 }, use = setEnhancement("GLASS"),
   },
   GREED = {
-    name = "Scroll of Greed", desc = "Double your gold (max +$20).",
+    name = "Scroll of Greed", desc = "Double your gold (max +20g).",
     untargeted = true,
     use = function(run, _, api) api.gold(math.max(0, math.min(run.gold, 20))) end,
   },
@@ -158,7 +158,7 @@ local def = {
     end,
   },
   THRIFT = {
-    name = "Scroll of Thrift", desc = "Gain the total sell value of your trinkets (max $50).",
+    name = "Scroll of Thrift", desc = "Gain the total sell value of your trinkets (max 50g).",
     untargeted = true,
     use = function(_, _, api)
       local total = 0
@@ -237,12 +237,12 @@ local AFFECTS = {
   WILDGROWTH = "1 selected card -> Wild",
   THORIUM = "1 selected card -> Steel",
   CRYSTAL = "1 selected card -> Glass",
-  GREED = "Gives gold: doubles it (max +$20)",
+  GREED = "Gives gold: doubles it (max +20g)",
   CHANCE = "1 random trinket may gain an edition (1 in 4)",
   STRENGTH = "Up to 2 selected cards: rank +1",
   SACRIFICE = "Destroys up to 2 selected cards",
   UNDEATH = "Left selected card becomes a copy of the right",
-  THRIFT = "Gives gold (trinket sell value, max $50)",
+  THRIFT = "Gives gold (trinket sell value, max 50g)",
   FEL = "1 selected card -> Gold",
   EARTH = "1 selected card -> Stone",
   GEMS = "Up to 3 selected cards -> Diamonds",

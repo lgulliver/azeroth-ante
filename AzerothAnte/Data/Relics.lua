@@ -163,7 +163,7 @@ local def = {
   },
   LICH = {
     name = "Relic of the Lich",
-    desc = "Create a rare trinket; set gold to $0.",
+    desc = "Create a rare trinket; set gold to 0g.",
     untargeted = true, check = createRareCheck,
     use = function(run, _, api)
       api.gold(-run.gold)
@@ -214,7 +214,7 @@ local def = {
   },
   FLAME = {
     name = "Relic of Flame",
-    desc = "Destroy up to 5 random cards in hand; gain $20.",
+    desc = "Destroy up to 5 random cards in hand; gain 20g.",
     untargeted = true, check = handCheck(1),
     use = function(run, _, api)
       local pool = {}
@@ -309,11 +309,11 @@ local AFFECTS = {
   NUMBERS = "Destroys 1 random card in hand; adds 4 enhanced numbered cards",
   GOLD = "1 selected card gains a Gold seal",
   RADIANCE = "1 selected card gains Foil, Holo or Polychrome",
-  LICH = "Creates a rare trinket - sets gold to $0",
+  LICH = "Creates a rare trinket - sets gold to 0g",
   UNITY = "All cards in hand -> one random suit",
   WHISPERS = "All cards in hand -> one rank; -1 hand size",
   VOID = "1 random trinket -> Negative; -1 hand size (grows each use)",
-  FLAME = "Destroys up to 5 random cards in hand; gives $20",
+  FLAME = "Destroys up to 5 random cards in hand; gives 20g",
   REBIRTH = "Copies 1 random trinket, destroys the other trinkets",
   RECURRENCE = "1 selected card gains a Red seal",
   HEXES = "1 random trinket -> Polychrome; destroys the other trinkets",

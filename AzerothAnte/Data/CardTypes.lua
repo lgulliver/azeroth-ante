@@ -10,8 +10,8 @@ CardTypes.enh = {
   GLASS = { name = "Glass", desc = "x2 mult when scored. 1 in 4 chance to be destroyed after scoring." },
   STEEL = { name = "Steel", desc = "x1.5 mult while held in hand." },
   STONE = { name = "Stone", desc = "+50 chips. No rank or suit. Always scores." },
-  GOLD = { name = "Gold", desc = "$3 if held in hand at end of round." },
-  LUCKY = { name = "Lucky", desc = "When scored: 1 in 5 chance of +20 mult, 1 in 15 chance of $20." },
+  GOLD = { name = "Gold", desc = "3g if held in hand at end of round." },
+  LUCKY = { name = "Lucky", desc = "When scored: 1 in 5 chance of +20 mult, 1 in 15 chance of 20g." },
 }
 
 CardTypes.ed = {
@@ -23,7 +23,7 @@ CardTypes.ed = {
 }
 
 CardTypes.seal = {
-  GOLD = { name = "Gold Seal", desc = "$3 when this card is played and scores." },
+  GOLD = { name = "Gold Seal", desc = "3g when this card is played and scores." },
   RED = { name = "Red Seal", desc = "Retrigger this card once." },
   BLUE = { name = "Blue Seal",
     desc = "If held in hand at end of round, create the Tome for the final hand played (needs a free slot)." },

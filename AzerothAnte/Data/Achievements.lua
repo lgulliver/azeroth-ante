@@ -19,7 +19,7 @@ function Achievements.bossCount(profile)
   return count
 end
 
-add("OVERSTOCK_PLUS", "Spend $2500 in shops across all runs.", "spend", 2500)
+add("OVERSTOCK_PLUS", "Spend 2500g in shops across all runs.", "spend", 2500)
 add("LIQUIDATION", "Buy 10 vouchers across all runs.", "voucherBought", 10)
 add("GLOW_UP", "Have 5 trinkets with an edition at once at blind start.", "editionTrinkets", 5)
 add("REROLL_GLUT", "Reroll the shop 100 times across all runs.", "reroll", 100)

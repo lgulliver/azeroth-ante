@@ -141,7 +141,7 @@ local function run(w)
     check(not DS.Card("GOBLIN"):IsShown(), "decks two away are hidden")
     eq(p.name:GetText(), "Rogue Deck", "deck name")
     eq(p.desc:GetText(), "+1 discard every round", "rule text")
-    eq(p.stats:GetText(), "4 hands \194\183 4 discards \194\183 $4", "deck numbers")
+    eq(p.stats:GetText(), "4 hands \194\183 4 discards \194\183 4g", "deck numbers")
     eq(p.best:GetText(), "Best: Stage 0 \194\183 Wins: 0", "profile stats for the deck")
     check(p.play:IsEnabled(), "Rogue is playable")
     check(not p.progress:IsShown(), "no progress bar on an unlocked deck")
@@ -219,7 +219,7 @@ local function run(w)
       end
       return n
     end
-    local function dollars(t) return select(2, t:gsub("%$", "")) end
+    local function rewardG(t) return tonumber(t:match("|cffffd100(%d+)g|r")) end
     -- mid-entrance: staggered, the last panel has not started yet
     stub.advance(0.05)
     check(Tw.Count() > 0 or bs.panels[1]:GetAlpha() == 1, "entrance tweens run")
@@ -244,9 +244,9 @@ local function run(w)
     eq(bs.panels[1].target:GetText(), tostring(ns.Run.target(1, 1)), "small target")
     eq(bs.panels[2].target:GetText(), tostring(ns.Run.target(1, 2)), "big target")
     eq(bs.panels[3].target:GetText(), tostring(ns.Run.target(1, 3, "MUTANUS")), "Mutanus target matches Run.target")
-    eq(dollars(bs.panels[1].reward:GetText()), 3, "small reward $$$")
-    eq(dollars(bs.panels[2].reward:GetText()), 4, "big reward $$$$")
-    eq(dollars(bs.panels[3].reward:GetText()), 5, "boss reward $$$$$")
+    eq(rewardG(bs.panels[1].reward:GetText()), 3, "small reward 3g")
+    eq(rewardG(bs.panels[2].reward:GetText()), 4, "big reward 4g")
+    eq(rewardG(bs.panels[3].reward:GetText()), 5, "boss reward 5g")
     eq(bs.panels[3].name:GetText(), "Mutanus the Devourer", "boss name")
     eq(bs.panels[3].rule:GetText(), ns.Bosses.def.MUTANUS.desc, "the boss rule text is shown")
     eq(bs.panels[1].rule:GetText(), "", "small blind has no rule")
@@ -1453,7 +1453,7 @@ local function run(w)
     for _ in pairs(w2.ns.UI.BlindSelect.BOSS_TINT) do nTint = nTint + 1 end
     eq(nTint, 9, "nine boss tints")
     for i = 1, 3 do
-      eq(select(2, bs2.panels[i].reward:GetText():gsub("%$", "")), w2.ns.Run.BLIND_REWARDS[i], "reward $ count matches Run.BLIND_REWARDS")
+      eq(tonumber(bs2.panels[i].reward:GetText():match("|cffffd100(%d+)g|r")), w2.ns.Run.BLIND_REWARDS[i], "reward g amount matches Run.BLIND_REWARDS")
     end
     -- Play mid-entrance starts the blind, and a reload into play shows the pile
     local db2 = deepCopy(db)
@@ -2392,12 +2392,12 @@ local function run(w)
     run.gold = 50
     m.Render(run, true)
     check(boss.reroll:IsShown() and boss.reroll:IsEnabled(), "Reroll Boss shows and is live")
-    eq(boss.reroll:GetText(), "Reroll Boss ($10)", "label")
+    eq(boss.reroll:GetText(), "Reroll Boss (10g)", "label")
     local oldBoss = run.bosses[run.stage]
     clickOn(boss.reroll, "Reroll Boss")
     stub2.advance(1)
     check(run.bosses[run.stage] ~= oldBoss, "the boss changed")
-    eq(run.gold, 40, "boss reroll costs $10")
+    eq(run.gold, 40, "boss reroll costs 10g")
     eq(boss.name:GetText(), ns2.Bosses.def[run.bosses[run.stage]].name, "the chip shows the new boss")
     eq(boss.rule:GetText(), ns2.Bosses.def[run.bosses[run.stage]].desc, "and its rule")
     check(not boss.reroll:IsEnabled(), "once per stage")

@@ -178,7 +178,7 @@ local function fire(e)
   elseif kind == "seal" or kind == "money" then
     local w = s.widgets[e.index]
     if w then w:Pop() end
-    stackedFloat(s, w, "$" .. (e.gold or 0), Theme.gold)
+    stackedFloat(s, w, "+" .. (e.gold or 0) .. "g", Theme.gold)
   elseif kind == "held" then
     local w = s.held[e.heldIndex]
     if w then w:Pop() end -- pulses in place; the card does not lift
