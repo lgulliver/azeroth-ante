@@ -44,8 +44,9 @@ end
 function Shop.rollTrinket(run, taken)
   local byRarity = { common = {}, uncommon = {}, rare = {} }
   local any = {}
+  local dupes = ns.TrinketRules.has(run.trinkets, "SHOWMAN")
   for _, id in ipairs(ns.Trinkets.order) do
-    if not taken[id] and not owns(run, id) and ns.Trinkets.inPool(run, id) then
+    if not taken[id] and (dupes or not owns(run, id)) and ns.Trinkets.inPool(run, id) then
       any[#any + 1] = id
       local list = byRarity[ns.Trinkets.def[id].rarity]
       list[#list + 1] = id
@@ -61,6 +62,28 @@ function Shop.rollTrinket(run, taken)
   local ed = Shop.rollEdition(run, true)
   return { type = "trinket", id = id, ed = ed,
     cost = ns.Trinkets.def[id].cost + (ns.CardTypes.ED_COST[ed] or 0) }
+end
+
+-- Voucher-discounted price of an offer; Astronomer makes Tomes and Celestial packs free.
+function Shop.priceOf(run, item)
+  local free = ns.TrinketRules.has(run.trinkets, "ASTRONOMER")
+    and (item.type == "tome" or item.type == "CELESTIAL")
+  if free then return 0 end
+  return ns.Vouchers.price(run, item.baseCost or item.cost)
+end
+
+-- Re-prices every open offer; called after anything that can change prices mid-shop.
+function Shop.reprice(run)
+  local shop = run.shop
+  if not shop then return end
+  for _, stock in ipairs({ shop.cards, shop.packs }) do
+    for _, item in ipairs(stock) do
+      if item then
+        item.baseCost = item.baseCost or item.cost
+        item.cost = Shop.priceOf(run, item)
+      end
+    end
+  end
 end
 
 local function generateCards(run, cards)
@@ -91,7 +114,7 @@ local function generateCards(run, cards)
       end
     end
     cards[i].baseCost = cards[i].cost
-    cards[i].cost = ns.Vouchers.price(run, cards[i].baseCost)
+    cards[i].cost = Shop.priceOf(run, cards[i])
   end
   return cards
 end
@@ -101,16 +124,17 @@ function Shop.open(run)
   run.shop = {
     cards = generateCards(run),
     packs = { ns.Packs.random(run), ns.Packs.random(run) },
-    rerollCost = 5,
+    rerollCost = 5, freeRerolls = ns.TrinketRules.count(run.trinkets, "CHAOS"),
   }
+  Shop.reprice(run)
 end
 
-function Shop.buy(run, i)
+local function buyItem(run, i)
   local shop = run.shop
   if shop and shop.openPack then return false, "pack" end
   local item = shop and shop.cards[i]
   if not item then return false, "gone" end
-  if run.gold < item.cost then return false, "gold" end
+  if not ns.Run.canAfford(run, item.cost) then return false, "gold" end
   if item.type == "trinket" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
@@ -134,12 +158,16 @@ function Shop.buy(run, i)
   return true
 end
 
+function Shop.buy(run, i)
+  return ns.Run.withMods(run, function() return buyItem(run, i) end)
+end
+
 function Shop.buyVoucher(run)
   if run.shop and run.shop.openPack then return false, "pack" end
   local offer = run.shopVoucher
   if not offer or ns.Vouchers.owns(run, offer.id) then return false, "gone" end
   local paid = ns.Vouchers.price(run, ns.Vouchers.def[offer.id].cost)
-  if run.gold < paid then return false, "gold" end
+  if not ns.Run.canAfford(run, paid) then return false, "gold" end
   offer.paid = paid
   run.gold = run.gold - paid
   run.vouchers[offer.id] = true
@@ -148,16 +176,7 @@ function Shop.buyVoucher(run)
   if run.shop and (offer.id == "OVERSTOCK" or offer.id == "OVERSTOCK_PLUS") then
     generateCards(run, run.shop.cards)
   end
-  if run.shop and (offer.id == "CLEARANCE_SALE" or offer.id == "LIQUIDATION") then
-    for _, stock in ipairs({ run.shop.cards, run.shop.packs }) do
-      for _, item in ipairs(stock) do
-        if item then
-          item.baseCost = item.baseCost or item.cost
-          item.cost = ns.Vouchers.price(run, item.baseCost)
-        end
-      end
-    end
-  end
+  if run.shop and (offer.id == "CLEARANCE_SALE" or offer.id == "LIQUIDATION") then Shop.reprice(run) end
   if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("voucher", offer.id) end
   event("spend", paid)
   event("voucherBought", 1)
@@ -175,25 +194,24 @@ function Shop.sellValue(trinket)
   return math.max(1, math.floor(cost / 2)) + (trinket.sellBonus or 0)
 end
 
+-- Kept for the shop UI; Run.sellTrinket does the work (and works in a blind too).
 function Shop.sellTrinket(run, slot)
-  local trinket = run.trinkets[slot]
-  if not trinket then return 0 end
-  local gained = Shop.sellValue(trinket)
-  run.gold = run.gold + gained
-  table.remove(run.trinkets, slot)
-  return gained
+  return ns.Run.sellTrinket(run, slot) or 0
 end
 
 function Shop.reroll(run)
   local shop = run.shop
   if shop.openPack then return false, "pack" end
-  local cost = math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
-  if run.gold < cost then return false, "gold" end
+  local free = (shop.freeRerolls or 0) > 0
+  local cost = free and 0 or math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
+  if not ns.Run.canAfford(run, cost) then return false, "gold" end
   run.gold = run.gold - cost
-  shop.rerollCost = shop.rerollCost + 1
+  if free then shop.freeRerolls = shop.freeRerolls - 1 else shop.rerollCost = shop.rerollCost + 1 end
   shop.cards = generateCards(run)
+  Shop.reprice(run)
   event("reroll", 1)
   event("spend", cost)
+  ns.TrinketEngine.fire(run, "onShopReroll")
   return true
 end
 

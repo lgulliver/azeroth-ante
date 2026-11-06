@@ -71,13 +71,24 @@ end
 function Run.blindHands(run)
   local bossId = Run.bossId(run)
   local boss = bossId and ns.Bosses.def[bossId]
-  return math.max(1, (boss and boss.hands or ns.Decks.def[run.deckId].hands) + ns.Vouchers.extraHands(run))
+  return math.max(1, (boss and boss.hands or ns.Decks.def[run.deckId].hands) + ns.Vouchers.extraHands(run)
+    + ns.Trinkets.mods(run).hands)
 end
 
 function Run.blindDiscards(run)
   local bossId = Run.bossId(run)
   local boss = bossId and ns.Bosses.def[bossId]
-  return math.max(0, (boss and boss.discards or ns.Decks.def[run.deckId].discards) + ns.Vouchers.extraDiscards(run))
+  return math.max(0, (boss and boss.discards or ns.Decks.def[run.deckId].discards) + ns.Vouchers.extraDiscards(run)
+    + ns.Trinkets.mods(run).discards)
+end
+
+-- Hands, discards and hand size derived from trinkets; applyMods settles a change in the live round.
+function Run.goldFloor(run)
+  return ns.TrinketRules.has(run.trinkets, "CREDIT_CARD") and -20 or 0
+end
+
+function Run.canAfford(run, cost)
+  return run.gold - cost >= Run.goldFloor(run)
 end
 
 function Run.startBlind(run)
@@ -164,6 +175,57 @@ end
 local function refill(run)
   ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run) - #run.hand)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
+end
+
+-- Call after any trinket acquire, sell or destroy with `before = Trinkets.mods(run)` taken first.
+-- In a live blind the change moves hands and discards left; a bigger hand draws up to the new size,
+-- a smaller one never discards. A blind already won is being tallied, so it is left alone.
+function Run.applyMods(run, before)
+  local after = ns.Trinkets.mods(run)
+  if run.phase == "play" and run.score < run.target then
+    if after.hands ~= before.hands then
+      run.handsLeft = math.max(1, run.handsLeft + after.hands - before.hands)
+    end
+    if after.discards ~= before.discards then
+      run.discardsLeft = math.max(0, run.discardsLeft + after.discards - before.discards)
+    end
+    if after.handSize > before.handSize then refill(run) end
+  end
+  -- Astronomer arriving or leaving changes what the open offers cost.
+  if run.phase == "shop" and run.shop then ns.Shop.reprice(run) end
+end
+
+-- Runs fn and settles trinket changes it made. Nested calls settle once, at the outermost.
+local modsDepth = 0
+function Run.withMods(run, fn)
+  if modsDepth > 0 then return fn() end
+  local before = ns.Trinkets.mods(run)
+  modsDepth = 1
+  local out = { pcall(fn) }
+  modsDepth = 0
+  if not out[1] then error(out[2], 0) end
+  Run.applyMods(run, before)
+  return unpack(out, 2, table.maxn(out))
+end
+
+-- Sells the trinket in `slot` in a shop or a blind. Returns the gold gained, or nil and a reason.
+function Run.sellTrinket(run, slot)
+  if run.phase ~= "shop" and run.phase ~= "play" then return nil, "phase" end
+  if not run.trinkets[slot] then return nil, "gone" end
+  return Run.withMods(run, function()
+    local trinket = run.trinkets[slot]
+    local def = ns.Trinkets.def[trinket.id]
+    -- Before removal, original only (a copier never runs its target's farewell).
+    local effect = def and def.onSelfSold and def.onSelfSold(run, trinket)
+    if type(effect) == "table" then ns.TrinketEngine.applyAll(run, slot, trinket.uid, effect, false) end
+    for i, t in ipairs(run.trinkets) do
+      if t == trinket then table.remove(run.trinkets, i) break end
+    end
+    local gained = ns.Shop.sellValue(trinket)
+    run.gold = run.gold + gained
+    ns.TrinketEngine.fire(run, "onSell", { kind = "trinket", item = trinket })
+    return gained
+  end)
 end
 
 -- Never leaves the player with nothing to do. An empty hand refills from the
@@ -267,8 +329,9 @@ function Run.winBlind(run, opts)
   }
   if opts and opts.saved then payout.reward, payout.saved, payout.savedId = 0, run.savedBy, run.savedById end
   local cap = ns.Vouchers.interestCap(run)
-  if not deck.noInterest then payout.interest = math.min(cap, math.floor(run.gold / 5)) end
-  local streak = (payout.interest == cap and payout.interest > 0) and run.streak.maxInterest + 1 or 0
+  local units = deck.noInterest and 0 or math.min(cap, math.floor(math.max(0, run.gold) / 5))
+  payout.interest = units * (1 + ns.Trinkets.interestBonus(run))
+  local streak = (units == cap and units > 0) and run.streak.maxInterest + 1 or 0
   if streak ~= run.streak.maxInterest then
     run.streak.maxInterest = streak
     event("maxInterestStreak", streak, run)
@@ -324,7 +387,7 @@ function Run.canRerollBoss(run)
   if run.stage >= 8 then return false, "The final boss cannot be rerolled." end
   if run.phase ~= "blind" then return false, "Only on the blind screen" end
   if run.bossRerollsUsed >= ns.Vouchers.bossRerolls(run) then return false, "No boss rerolls left." end
-  if run.gold < Run.BOSS_REROLL_COST then return false, "Not enough gold." end
+  if not Run.canAfford(run, Run.BOSS_REROLL_COST) then return false, "Not enough gold." end
   return true
 end
 
