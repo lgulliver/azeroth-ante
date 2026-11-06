@@ -83,3 +83,11 @@ T.test("v4_save_migrates_lifecycle_fields", function()
   run.shop = nil
   T.eq(ns.Save.load({ version = 4, run = run }).shop, nil)
 end)
+
+T.test("load_does_not_replay_lifecycle_events", function()
+  local run = playing()
+  run.lifecycleEvents = { { kind = "money", amount = 3 } }
+  local db = {}
+  ns.Save.store(db, run)
+  T.eq(ns.Save.load(db).lifecycleEvents, {})
+end)

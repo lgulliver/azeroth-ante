@@ -66,8 +66,7 @@ local HANDLERS = {
       if not id then break end
       local instance = ns.Trinkets.create(run, id)
       run.trinkets[#run.trinkets + 1] = instance
-      local def = ns.Trinkets.def[id]
-      if def.onObtain then def.onObtain(run, instance) end
+      if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", id) end
       emit({ kind = "trinketCreated", uid = instance.uid, slot = #run.trinkets, id = id, by = ctx.uid })
     end
   end,
@@ -94,11 +93,11 @@ local HANDLERS = {
   end,
 }
 
-local DESTROYS = { destroySelf = true, destroyTrinket = true }
+local GROUP = { destroySelf = "destroy", destroyTrinket = "destroy", createTrinkets = "create" }
 local ORDER = { "msg", "gold", "sellBonusAll", "handsDelta", "discardsSet", "levelHand", "destroyCard",
   "createTrinkets", "save", "destroySelf", "destroyTrinket" }
 
--- Applies one lifecycle effect for the trinket `uid` in `slot`. With `only` ("now" or "destroy")
+-- Applies one lifecycle effect for the trinket `uid` in `slot`. With `only` ("now", "destroy" or "create")
 -- it applies just that group of fields. Returns the events it produced.
 function TrinketEngine.apply(run, slot, uid, effect, isCopy, only)
   local events = {}
@@ -106,7 +105,7 @@ function TrinketEngine.apply(run, slot, uid, effect, isCopy, only)
   local function emit(e) events[#events + 1] = e end
   for _, field in ipairs(ORDER) do
     local value = effect[field]
-    local group = DESTROYS[field] and "destroy" or "now"
+    local group = GROUP[field] or "now"
     if value ~= nil and value ~= false and (not only or only == group) then
       HANDLERS[field](run, ctx, value, isCopy, emit)
     end
@@ -114,22 +113,34 @@ function TrinketEngine.apply(run, slot, uid, effect, isCopy, only)
   return events
 end
 
+-- True while a fire is running and `uid` is already marked for destruction.
+function TrinketEngine.isMarked(run, uid)
+  return run.pendingDestroy ~= nil and run.pendingDestroy[uid] == true
+end
+
 -- Runs an update hook, hook(run, self, ..., isCopy), on every real instance (copies included),
--- collects the effects, then applies them in slot order; destructions come last.
+-- collects the effects, then applies them in slot order: plain fields, destructions, creations.
+-- A uid marked for destruction (run.pendingDestroy) skips its own hook; hooks may check isMarked.
 -- Returns the events and appends them to run.lifecycleEvents for the UI.
 function TrinketEngine.fire(run, hook, ...)
   local n = select("#", ...)
   local args = { ... }
   local pending = {}
+  run.pendingDestroy = {}
   TrinketEngine.each(run.trinkets, function(slot, instance, def, isCopy)
     local fn = def[hook]
-    if not fn then return end
+    local uid = run.trinkets[slot].uid
+    if not fn or run.pendingDestroy[uid] then return end
     args[n + 1] = isCopy
     local effect = fn(run, instance, unpack(args, 1, n + 1))
-    if effect then pending[#pending + 1] = { slot = slot, uid = run.trinkets[slot].uid, effect = effect, isCopy = isCopy } end
+    if type(effect) ~= "table" then return end
+    if effect.destroyTrinket then run.pendingDestroy[effect.destroyTrinket] = true end
+    if effect.destroySelf and not isCopy then run.pendingDestroy[uid] = true end
+    pending[#pending + 1] = { slot = slot, uid = uid, effect = effect, isCopy = isCopy }
   end)
+  run.pendingDestroy = nil
   local events = {}
-  for _, phase in ipairs({ "now", "destroy" }) do
+  for _, phase in ipairs({ "now", "destroy", "create" }) do
     for _, p in ipairs(pending) do
       for _, e in ipairs(TrinketEngine.apply(run, p.slot, p.uid, p.effect, p.isCopy, phase)) do events[#events + 1] = e end
     end
