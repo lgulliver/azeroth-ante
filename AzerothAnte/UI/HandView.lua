@@ -26,7 +26,7 @@ local hoveredButton
 HandView.run = nil
 
 -- Task 12 replaces this with the tally. Must call done() exactly once.
-HandView.OnPlayed = function(result, playedWidgets, done) done() end
+HandView.OnPlayed = function(result, playedWidgets, done, info) done() end
 
 -- Task 13 sets ns.UI.OnRunChanged (persistence).
 function HandView.AfterAction()
@@ -97,6 +97,22 @@ local function deckOrigin()
   local cx = hand:GetWidth() - DECK_INSET - DECK_W / 2
   local cy = hand:GetHeight() + Theme.margin + play:GetHeight() / 2
   return cx - CARD_W / 2, cy - CARD_H / 2
+end
+
+-- Where the Deck button's card sits in hand-area points (the card's bottom-left), for a card made
+-- mid-hand to fly out of. Falls back to the pile when frame positions are not available.
+local function deckButtonOrigin()
+  local btn = main().sidebar and main().sidebar.deckButton
+  local area = handArea()
+  if btn and btn.GetCenter and area and area.GetLeft then
+    local bx, by = btn:GetCenter()
+    local ax, ay = area:GetLeft(), area:GetBottom()
+    if bx and by and ax and ay then
+      local k = btn:GetEffectiveScale() / area:GetEffectiveScale()
+      return bx * k - ax - CARD_W / 2, by * k - ay - CARD_H / 2
+    end
+  end
+  return deckOrigin()
 end
 
 local function playSlot(k, n)
@@ -255,6 +271,44 @@ local function onCardClick(w)
   HandView.RefreshButtons()
 end
 
+-- A card made while the hand is on screen (DNA, a hook): a widget flies from the Deck button to its
+-- slot in run.hand (0.25s / speed) and joins the hand like a dealt card, so the next Update only
+-- settles it. Returns the widget, or nil when the card is not in a hand that is showing.
+function HandView.FlyIn(card, speed)
+  local run, area = HandView.run, handArea()
+  if not run or not area or not area:IsShown() or not card or widgetOf[card] then return nil end
+  local index
+  for i, c in ipairs(run.hand) do
+    if c == card then index = i; break end
+  end
+  if not index then return nil end
+  local w = CardWidget.Acquire(area)
+  w:SetCard(card)
+  w.onClick = onCardClick
+  widgetOf[card] = w
+  w:SetBaseLevel(area:GetFrameLevel() + 2 + index * 4)
+  local x = rowX(index, #run.hand, area:GetWidth())
+  local ox, oy = deckButtonOrigin()
+  place(w, ox, oy)
+  w.lx, w.ly = x, BASE_Y
+  w:SetAlpha(0)
+  w:SetFaceUp(false)
+  w:EnableMouse(false) -- not clickable until it has landed
+  local function landed()
+    if w.locked then return end
+    w:SetFaceUp(true)
+    w:EnableMouse(true)
+  end
+  Tween.To(w, { x = x, y = BASE_Y, alpha = 1 }, DEAL_TIME / (speed or 1), landed, 0, landed)
+  return w
+end
+
+-- A disabled boss: the debuff markers clear at once, on the hand and on cards mid-play.
+function HandView.ClearDebuffs()
+  for _, w in ipairs(list) do w:SetDebuffed(false) end
+  for _, w in ipairs(held) do w:SetDebuffed(false) end
+end
+
 -- Lays the hand out from run.hand. Existing cards tween to their slot; new
 -- cards appear in place, or (animate) fly in from the deck, staggered.
 function HandView.Update(run, animate)
@@ -386,6 +440,7 @@ local function doPlay()
   ns.UI.DeckView.Hide() -- it covers the play area the cards fly into
   local myGen = gen
   local widgets = detach(sel)
+  local info = { consumables = #run.consumables } -- the tally tells made consumables from old ones
   local ok, result = pcall(ns.Run.play, run, sel)
   if not ok or not result then
     restore(run, widgets)
@@ -428,7 +483,7 @@ local function doPlay()
 
   local arrived = afterAll(#widgets, function()
     if myGen ~= gen then return end
-    local ok, err = pcall(HandView.OnPlayed, result, widgets, doneOnce)
+    local ok, err = pcall(HandView.OnPlayed, result, widgets, doneOnce, info)
     if not ok then
       geterrorhandler()(err)
       doneOnce() -- a broken hook must not leave the board locked
