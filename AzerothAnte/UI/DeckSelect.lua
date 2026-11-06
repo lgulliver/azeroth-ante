@@ -184,7 +184,7 @@ local function refreshInfo()
   local stats = ns.Profile.get(db()).stats[id] or {}
   panel.name:SetText(def.name)
   panel.flavour:SetText("\"" .. (def.flavour or "") .. "\"")
-  panel.stats:SetText(("%d hands %s %d discards %s $%d"):format(def.hands, DOT, def.discards, DOT, def.gold))
+  panel.stats:SetText(("%d hands %s %d discards %s %dg"):format(def.hands, DOT, def.discards, DOT, def.gold))
   panel.best:SetText(("Best: Stage %d %s Wins: %d"):format(stats.bestStage or 0, DOT, stats.wins or 0))
   if isUnlocked(id) then
     panel.desc:SetText(def.desc)
