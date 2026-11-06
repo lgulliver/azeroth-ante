@@ -123,14 +123,13 @@ ns.Trinkets.add {
 -- 29: Fist of Justice.
 ns.Trinkets.add {
   id = "FIST_JUSTICE", name = "Fist of Justice", rarity = "common", cost = 5,
-  desc = "Adds double the nominal value of the lowest held card to Mult (Ace 11, faces 10)",
+  desc = "Adds double the nominal value of the lowest-ranked held card to Mult (Ace 11, faces 10)",
   icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
   onHeld = function(ctx, _, card, heldIndex)
     local lowest, lowestIndex
     for i, held in ipairs(ctx.held) do
       if not ns.Cards.isStone(held) then
-        local value = ns.Cards.chipValue(held)
-        if not lowest or value <= lowest then lowest, lowestIndex = value, i end
+        if not lowest or held.rank <= lowest then lowest, lowestIndex = held.rank, i end
       end
     end
     if heldIndex == lowestIndex then return { mult = 2 * ns.Cards.chipValue(card) } end
@@ -254,8 +253,13 @@ ns.Trinkets.add {
 }
 
 -- Round targets are rolled only on acquisition and real round-end hooks.
+-- A re-roll never lands on the suit it already has (Balatro's Ancient Joker).
 local function rollAncientSuit(self, run)
-  self.state.suit = ns.RNG.pick(run.rng, ns.Cards.SUITS)
+  local pool = {}
+  for _, suit in ipairs(ns.Cards.SUITS) do
+    if suit ~= self.state.suit then pool[#pool + 1] = suit end
+  end
+  self.state.suit = ns.RNG.pick(run.rng, pool)
 end
 
 local function rollIdolCard(self, run)

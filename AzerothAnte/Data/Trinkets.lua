@@ -56,8 +56,7 @@ end
 -- Description with "{N}" tokens replaced by N times the owner's probability multiplier
 -- (Loaded Dice), so "{1} in 2" reads "2 in 2" with one owned.
 function Trinkets.describe(def, run)
-  local trinkets = run and run.trinkets
-  return ((def.desc or ""):gsub("{(%d+)}", function(n) return tostring(ns.Prob.odds(trinkets, tonumber(n))) end))
+  return ns.Prob.describe(run and run.trinkets, def.desc)
 end
 
 -- An unowned (unless Showman is owned), in-pool id of `rarity`, drawn with run.rng; nil if none.
@@ -129,7 +128,10 @@ local LEGACY_DEFS = {
     onHand = function(_, self)
       if (self.state.hands or 0) % 6 == 0 then return { xmult = 4 } end
     end,
-    status = function(self) return (6 - (self.state.hands or 0) % 6) .. " remaining" end,
+    status = function(self)
+      local played = (self.state.hands or 0) % 6
+      return played == 5 and "Active!" or (5 - played) .. " remaining"
+    end,
   },
   ARCANE_INTELLECT = {
     id = "ARCANE_INTELLECT", name = "Arcane Intellect", rarity = "common", cost = 2,

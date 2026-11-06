@@ -28,7 +28,17 @@ local VALID_RARITY = { common = true, uncommon = true, rare = true }
 local ICON_PREFIX = "Interface\\Icons\\"
 
 T.test("trinkets_complete", function()
-  T.eq(#ns.Trinkets.order, 117) -- Wave 1 catalog plus all 37 wave 2 E defs.
+  -- The catalog size is derived from the data files: one top-level `id = "X", name = ` per def.
+  local defined = 0
+  for _, file in ipairs({ "Trinkets", "TrinketsS", "TrinketsE" }) do
+    local f = assert(io.open("AzerothAnte/Data/" .. file .. ".lua", "r"))
+    for line in f:lines() do
+      if line:match('^%s*id = "[A-Z_0-9]+", name = ') then defined = defined + 1 end
+    end
+    f:close()
+  end
+  T.eq(#ns.Trinkets.order, defined)
+  T.ok(defined >= 117, "catalog shrank to " .. defined)
   local seen = {}
   for _, id in ipairs(ns.Trinkets.order) do
     local def = trinket(id)

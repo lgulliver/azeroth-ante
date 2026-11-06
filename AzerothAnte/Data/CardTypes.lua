@@ -7,11 +7,11 @@ CardTypes.enh = {
   BONUS = { name = "Bonus", desc = "+30 chips when scored." },
   MULT = { name = "Mult", desc = "+4 mult when scored." },
   WILD = { name = "Wild", desc = "Counts as every suit." },
-  GLASS = { name = "Glass", desc = "x2 mult when scored. 1 in 4 chance to be destroyed after scoring." },
+  GLASS = { name = "Glass", desc = "x2 mult when scored. {1} in 4 chance to be destroyed after scoring." },
   STEEL = { name = "Steel", desc = "x1.5 mult while held in hand." },
   STONE = { name = "Stone", desc = "+50 chips. No rank or suit. Always scores." },
   GOLD = { name = "Gold", desc = "3g if held in hand at end of round." },
-  LUCKY = { name = "Lucky", desc = "When scored: 1 in 5 chance of +20 mult, 1 in 15 chance of 20g." },
+  LUCKY = { name = "Lucky", desc = "When scored: {1} in 5 chance of +20 mult, {1} in 15 chance of 20g." },
 }
 
 CardTypes.ed = {

@@ -5,6 +5,7 @@ return function(ns)
   local Vouchers = ns.Vouchers
   local bot = {}
 
+  -- Every purchase below checks price <= gold itself: the bot never goes into debt, even with Credit Card.
   -- Trinkets are bought by rarity (rare over uncommon over common); the bot never reorders them.
   local RARITY_WEIGHT = { common = 1, uncommon = 2, rare = 3 }
   local function trinketWeight(offer)
@@ -216,7 +217,7 @@ return function(ns)
     -- Tomes for the most-played hand.
     local favourite = mostPlayed(run)
     for i, offer in ipairs(run.shop.cards) do
-      if offer and offer.type == "tome" and offer.id == favourite then Shop.buy(run, i) end
+      if offer and offer.type == "tome" and offer.id == favourite and offer.cost <= run.gold then Shop.buy(run, i) end
     end
     -- Packs: Arcana or Celestial when flush enough.
     for i, offer in ipairs(run.shop.packs) do
@@ -227,7 +228,8 @@ return function(ns)
     end
     -- Scrolls on offer.
     for i, offer in ipairs(run.shop.cards) do
-      if offer and offer.type == "scroll" and SCROLL_RANK[offer.id] and run.gold >= SCROLL_BUY_RESERVE then
+      if offer and offer.type == "scroll" and SCROLL_RANK[offer.id] and run.gold >= SCROLL_BUY_RESERVE
+        and offer.cost <= run.gold then
         Shop.buy(run, i)
       end
     end

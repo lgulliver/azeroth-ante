@@ -21,4 +21,10 @@ function Prob.odds(trinkets, num)
   return num * Prob.mult(trinkets)
 end
 
+-- Replaces "{N}" tokens in `text` with N times the owner's probability multiplier, so
+-- "{1} in 4" reads "2 in 4" with Loaded Dice owned.
+function Prob.describe(trinkets, text)
+  return ((text or ""):gsub("{(%d+)}", function(n) return tostring(Prob.odds(trinkets, tonumber(n))) end))
+end
+
 ns.Prob = Prob
