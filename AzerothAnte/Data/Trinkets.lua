@@ -2,16 +2,40 @@ local _, ns = ...
 
 -- Hooks: onCard(ctx, card) -> {chips=,mult=,xmult=}|nil, onHand(ctx) -> effect|nil,
 -- onRoundEnd(run) -> goldDelta|nil.
-local Trinkets = {}
+local Trinkets = { order = {}, def = {} }
 
-Trinkets.order = {
+-- Instances: { id, ed, paid, sellBonus, state, uid }. Defs may set rule (a TrinketRules key),
+-- init(instance, run) and inPool(run).
+function Trinkets.add(def)
+  assert(not Trinkets.def[def.id], "duplicate trinket id " .. tostring(def.id))
+  Trinkets.order[#Trinkets.order + 1] = def.id
+  Trinkets.def[def.id] = def
+end
+
+-- Does not insert into run.trinkets or call onObtain; callers do both.
+function Trinkets.create(run, id, ed, paid)
+  local instance = { id = id, ed = ed, paid = paid, sellBonus = 0, state = {},
+    uid = run.nextTrinketUid }
+  run.nextTrinketUid = run.nextTrinketUid + 1
+  local def = Trinkets.def[id]
+  if def and def.init then def.init(instance, run) end
+  return instance
+end
+
+function Trinkets.inPool(run, id)
+  local def = Trinkets.def[id]
+  if def and def.inPool then return def.inPool(run) and true or false end
+  return true
+end
+
+local LEGACY_ORDER = {
   "BLOODLUST", "ARCANE_INTELLECT", "FORTITUDE", "WHETSTONE", "HEALTHSTONE",
   "OGRE_CUDGEL", "JEWELERS_KIT", "HEARTHSTONE", "LUCKY_CHARM", "EXECUTE",
   "COMBO_POINTS", "TWIN_BLADES", "CLEAVE", "MULTI_SHOT", "ELEMENTAL",
   "ROYAL_GUARD", "BATTLE_SHOUT", "GOBLIN_BANK", "AVENGING_WRATH", "HUNTERS_MARK",
 }
 
-Trinkets.def = {
+local LEGACY_DEFS = {
   BLOODLUST = {
     id = "BLOODLUST", name = "Drums of Bloodlust", rarity = "rare", cost = 8,
     desc = "Hands played: x3 mult on every 5th hand.",
@@ -159,5 +183,7 @@ Trinkets.def = {
     end,
   },
 }
+
+for _, id in ipairs(LEGACY_ORDER) do Trinkets.add(LEGACY_DEFS[id]) end
 
 ns.Trinkets = Trinkets

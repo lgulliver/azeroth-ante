@@ -45,7 +45,7 @@ function Shop.rollTrinket(run, taken)
   local byRarity = { common = {}, uncommon = {}, rare = {} }
   local any = {}
   for _, id in ipairs(ns.Trinkets.order) do
-    if not taken[id] and not owns(run, id) then
+    if not taken[id] and not owns(run, id) and ns.Trinkets.inPool(run, id) then
       any[#any + 1] = id
       local list = byRarity[ns.Trinkets.def[id].rarity]
       list[#list + 1] = id
@@ -114,7 +114,7 @@ function Shop.buy(run, i)
   if item.type == "trinket" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
-    run.trinkets[#run.trinkets + 1] = { id = item.id, ed = item.ed, paid = item.cost }
+    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, item.cost)
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
   elseif item.type == "card" then
     ns.Deck.add(run, { rank = item.rank, suit = item.suit, enh = item.enh,
@@ -166,9 +166,11 @@ function Shop.buyVoucher(run)
 end
 
 function Shop.sellValue(trinket)
-  if trinket.paid ~= nil then return math.floor(trinket.paid / 2) end
-  local cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
-  return math.floor(cost / 2)
+  local cost = trinket.paid
+  if cost == nil then
+    cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
+  end
+  return math.max(1, math.floor(cost / 2)) + (trinket.sellBonus or 0)
 end
 
 function Shop.sellTrinket(run, slot)

@@ -25,16 +25,11 @@ local function setSuit(suit)
   end
 end
 
-local function trinketSellValue(trinket)
-  local cost = ns.Trinkets.def[trinket.id].cost + (ns.CardTypes.ED_COST[trinket.ed] or 0)
-  return math.floor(cost / 2)
-end
-
-local function unownedTrinkets(trinkets)
+local function unownedTrinkets(run, trinkets)
   local owned, pool = {}, {}
   for _, trinket in ipairs(trinkets) do owned[trinket.id] = true end
   for _, id in ipairs(ns.Trinkets.order) do
-    if not owned[id] then pool[#pool + 1] = id end
+    if not owned[id] and ns.Trinkets.inPool(run, id) then pool[#pool + 1] = id end
   end
   return pool
 end
@@ -49,7 +44,7 @@ end
 
 local function trinketRoom(run)
   if #run.trinkets >= ns.Run.trinketSlots(run) then return false, "No trinket slot" end
-  if #unownedTrinkets(run.trinkets) == 0 then return false, "No eligible trinket" end
+  if #unownedTrinkets(run, run.trinkets) == 0 then return false, "No eligible trinket" end
   return true
 end
 
@@ -162,7 +157,7 @@ local def = {
     untargeted = true,
     use = function(_, _, api)
       local total = 0
-      for _, trinket in ipairs(api.trinkets()) do total = total + trinketSellValue(trinket) end
+      for _, trinket in ipairs(api.trinkets()) do total = total + ns.Shop.sellValue(trinket) end
       api.gold(math.min(total, 50))
     end,
   },
@@ -195,7 +190,7 @@ local def = {
     name = "Scroll of Summoning", desc = "Create a random trinket (needs a free slot).",
     untargeted = true, check = trinketRoom,
     use = function(run, _, api)
-      local pool = unownedTrinkets(api.trinkets())
+      local pool = unownedTrinkets(run, api.trinkets())
       if #pool == 0 or #api.trinkets() >= ns.Run.trinketSlots(run) then return end
       local roll, rarity, acc = ns.RNG.next(api.rng) * 100, "rare", 0
       for _, band in ipairs(TRINKET_WEIGHTS) do
@@ -208,9 +203,8 @@ local def = {
       end
       if #ofRarity == 0 then ofRarity = pool end
       local trinkets = api.trinkets()
-      local trinket = {
-        id = ns.RNG.pick(api.rng, ofRarity), ed = ns.CardTypes.rollEdition(api.rng, true),
-      }
+      local id = ns.RNG.pick(api.rng, ofRarity)
+      local trinket = ns.Trinkets.create(run, id, ns.CardTypes.rollEdition(api.rng, true))
       trinkets[#trinkets + 1] = trinket
       api.touch(trinket)
     end,
