@@ -2,6 +2,7 @@
 -- Usage: local bot = dofile("tools/sim/bot.lua")(ns); bot.playRun(run)
 return function(ns)
   local Run, Scoring, Shop, Packs, Consumables = ns.Run, ns.Scoring, ns.Shop, ns.Packs, ns.Consumables
+  local Vouchers = ns.Vouchers
   local bot = {}
 
   -- Trinket buy order: xmult first, then mult, then chips and the rest.
@@ -23,6 +24,14 @@ return function(ns)
   local SCROLL_BUY_RESERVE = 8
   local SCROLL_RANK = {}
   for i, id in ipairs(SCROLL_PRIORITY) do SCROLL_RANK[id] = i end
+
+  -- Vouchers worth buying when affordable (either tier); anything else is skipped.
+  local VOUCHER_PRIORITY = {
+    "GRABBER", "NACHO_TONG", "WASTEFUL", "RECYCLOMANCY", "PAINT_BRUSH", "PALETTE",
+    "SEED_MONEY", "MONEY_TREE", "OVERSTOCK", "OVERSTOCK_PLUS",
+  }
+  local VOUCHER_RANK = {}
+  for i, id in ipairs(VOUCHER_PRIORITY) do VOUCHER_RANK[id] = i end
 
   local function combos(n, maxK)
     local out = {}
@@ -200,6 +209,11 @@ return function(ns)
       end
       if bestI and Shop.buy(run, bestI) then progress = true end
     end
+    -- The stage's voucher, when it is one the bot likes and it is affordable.
+    local offer = run.shopVoucher
+    if offer and VOUCHER_RANK[offer.id] and run.gold >= Vouchers.price(run, Vouchers.def[offer.id].cost) then
+      Shop.buyVoucher(run)
+    end
     -- Tomes for the most-played hand.
     local favourite = mostPlayed(run)
     for i, offer in ipairs(run.shop.cards) do
@@ -224,7 +238,7 @@ return function(ns)
   -- Decision pieces, exposed so a UI harness can drive the same choices through clicks.
   bot.bestPlay, bot.discardPlan, bot.usePlan = bestPlay, discardPlan, usePlan
   bot.choosePick, bot.mostPlayed = choosePick, mostPlayed
-  bot.TRINKET_RANK, bot.SCROLL_RANK = TRINKET_RANK, SCROLL_RANK
+  bot.TRINKET_RANK, bot.SCROLL_RANK, bot.VOUCHER_RANK = TRINKET_RANK, SCROLL_RANK, VOUCHER_RANK
 
   function bot.playRun(run)
     run.bot = { played = {} }

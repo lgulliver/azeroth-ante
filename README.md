@@ -62,6 +62,22 @@ Arcana and Spectral packs also show a hand to aim Scrolls at. A pack left open s
 **Deck view**: the Deck button in the sidebar lists every card you own, with its
 types, grouped by suit. Hover a card for details.
 
+**Vouchers**: each stage's shop offers one voucher in its own tile. Buying one is a
+permanent upgrade for the rest of the run (extra hands, discards or hand size, cheaper
+or bigger shops, higher interest caps, and more). Each of the 16 base vouchers has a
+stronger tier-two upgrade that can only appear once you own the base voucher and have
+earned its achievement. The voucher changes after each stage's boss. Discounts never
+apply to rerolls or the boss reroll.
+
+**Boss reroll**: the Bounty Board voucher lets you reroll the upcoming boss once per
+stage for 10 gold; its upgrade, Infinite Bounty, removes the limit.
+
+**Achievements** are addon-internal. They are tracked and stored in the addon's own
+SavedVariables (`AzerothAnteDB`) and are never WoW achievements: they do not touch
+your character's Blizzard achievements. Each unlocks a tier-two voucher, shows a toast
+when earned, and is listed with its progress in the Achievements view. Progress is
+kept across runs, and saves from before vouchers existed are upgraded, not discarded.
+
 ## Running the tests
 
 From the repository root, with LuaJIT and Python 3 installed:
@@ -81,7 +97,8 @@ A greedy bot plays whole runs headless and reports the win rate:
 luajit tools/sim/sim.lua [runs=200] [deckId=ROGUE] [seed=1]
 ```
 
-It prints wins, where runs ended, and mean final gold. The target curve in
+The bot also buys the vouchers it likes (extra hands, discards, hand size, interest and
+shop slots). It prints wins, where runs ended, and mean final gold. The target curve in
 `Core/Run.lua` is tuned so ROGUE at 200 runs and seed 1 wins 10-25%.
 
 ## In-game test checklist
@@ -110,6 +127,11 @@ Run these checks in Retail and Forever:
 - [ ] `/reload` with a pack open resumes on the same pack and choices.
 - [ ] A hand of more than 8 cards still fits the play area.
 - [ ] The deck view opens, shows every card and its types, and closes.
+- [ ] Buying the shop's voucher works: the tile stamps BOUGHT, then reads "Sold out this stage", and its effect applies.
+- [ ] The boss reroll works (with the Bounty Board voucher) and is limited as described.
+- [ ] Earning an achievement shows a toast.
+- [ ] The Achievements view opens, lists every achievement with progress, and closes.
+- [ ] `/reload` mid-run after updating the addon keeps the run (the old save migrates).
 - [ ] Abandon Run asks for a second click (and reverts after 3 seconds), then returns to the deck screen.
 
 ## Art
