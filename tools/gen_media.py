@@ -1139,6 +1139,33 @@ def chip_tga(kind):
     return tga_bytes(CHIP_SIZE, CHIP_SIZE, render(CHIP_SIZE, CHIP_SIZE, chip_fn(kind)))
 
 
+# ------------------------------------------------------------ window chrome
+# White textures with the shape in alpha: the UI tints them with SetVertexColor, so the
+# window theme needs no SetGradient (its signature differs between client generations).
+def ui_gradient(px, py):
+    """UI_Gradient (16x64): vertical ramp, opaque white at the top to transparent at the bottom."""
+    t = min(1.0, max(0.0, (py - 1.0) / 61.0))  # the first row is solid, the last two clear
+    return (255, 255, 255, round(255 * (1 - t) ** 1.4))
+
+
+def ui_shadow(px, py):
+    """UI_Shadow (64x64): a soft rounded blob. Stretched behind a frame (anchored a few
+    pixels outside it) it reads as a soft drop shadow; tint it black."""
+    x, y = abs(px - 32.0) / 32.0, abs(py - 32.0) / 32.0
+    edge = 1.0 - max(x, y) ** 3  # flat middle, soft falloff towards every edge
+    corner = max(0.0, 1.0 - math.hypot(x, y) * 0.72)
+    a = max(0.0, min(1.0, (edge * 0.5 + corner * 0.5) * 1.15)) ** 1.6
+    if max(x, y) > 0.94:
+        a = 0.0  # fully clear on the outermost texel ring
+    return (255, 255, 255, round(255 * a))
+
+
+UI_JOBS = {
+    "UI_Gradient": (16, 64, ui_gradient),
+    "UI_Shadow": (64, 64, ui_shadow),
+}
+
+
 # ---------------------------------------------------------------- output
 def render(width, height, fn):
     """Supersample fn(sample_x, sample_y) -> (r,g,b,a) and average to RGBA bytes.
@@ -1232,12 +1259,14 @@ def main(argv):
     jobs.append(("Lock", 64, 64, render(64, 64, padlock)))
     for kind in CHIPS:
         jobs.append(("Chip_" + kind, CHIP_SIZE, CHIP_SIZE, render(CHIP_SIZE, CHIP_SIZE, chip_fn(kind))))
+    for name, (w, h, fn) in UI_JOBS.items():
+        jobs.append((name, w, h, render(w, h, fn)))
     jobs = [j for j in jobs if j[0].startswith(only)]
     for name, w, h, rgba in jobs:
         write_tga(os.path.join(MEDIA, name + ".tga"), w, h, rgba)
         print("wrote %s.tga (%dx%d)" % (name, w, h))
         if png_dir:
-            write_png(os.path.join(png_dir, name + ".png"), w, h, rgba, bg=(70, 70, 80) if name.startswith(("Suit", "Seal", "Ed_", "Face_GLASS", "Chip_")) else None)
+            write_png(os.path.join(png_dir, name + ".png"), w, h, rgba, bg=(70, 70, 80) if name.startswith(("Suit", "Seal", "Ed_", "Face_GLASS", "Chip_", "UI_")) else None)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,9 @@ CHIPS = ("SMALL", "BIG", "BOSS")
 for _chip in CHIPS:
     EXPECTED["Chip_%s.tga" % _chip] = (64, 64)
 
+EXPECTED["UI_Gradient.tga"] = (16, 64)
+EXPECTED["UI_Shadow.tga"] = (64, 64)
+
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0
 CARD_H = 179  # the card occupies the top 128x179 of the 128x256 canvas
@@ -127,6 +130,38 @@ def check_chips():
         with open(os.path.join(MEDIA, "Chip_%s.tga" % chip), "rb") as f:
             if f.read() != gen_media.chip_tga(chip):
                 return "Chip_%s.tga differs from the generator output" % chip
+    return None
+
+
+def check_ui_chrome():
+    """UI_Gradient is a white vertical ramp (opaque top, clear bottom, uniform across);
+    UI_Shadow is a white blob, solid in the middle and clear at the edge. Both are reproducible."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+    import gen_media
+    px = _pixels("UI_Gradient.tga")
+    a = px[3::4]
+    if any(px[i] != 255 for i in range(len(px)) if i % 4 != 3):
+        return "UI_Gradient is not pure white"
+    if a[0] != 255 or a[16 * 63] > 8:
+        return "UI_Gradient does not run opaque to clear"
+    col = [a[y * 16] for y in range(64)]
+    if any(col[y] < col[y + 1] for y in range(63)):
+        return "UI_Gradient is not monotonic"
+    if any(a[y * 16 + x] != a[y * 16] for y in range(64) for x in range(16)):
+        return "UI_Gradient varies horizontally"
+    px = _pixels("UI_Shadow.tga")
+    a = px[3::4]
+    if a[32 * 64 + 32] < 240:
+        return "UI_Shadow centre is not solid"
+    edge = [a[x] for x in range(64)] + [a[63 * 64 + x] for x in range(64)] + [a[y * 64] for y in range(64)] + [a[y * 64 + 63] for y in range(64)]
+    if max(edge) != 0:
+        return "UI_Shadow edge ring is not clear"
+    if a[8 * 64 + 32] >= a[32 * 64 + 32] or a[2 * 64 + 32] >= a[8 * 64 + 32]:
+        return "UI_Shadow does not fall off outwards"
+    for name, (w, h, fn) in gen_media.UI_JOBS.items():
+        with open(os.path.join(MEDIA, name + ".tga"), "rb") as f:
+            if f.read() != gen_media.tga_bytes(w, h, gen_media.render(w, h, fn)):
+                return "%s.tga differs from the generator output" % name
     return None
 
 
@@ -237,6 +272,10 @@ def main():
     if err:
         failed += 1
         print("FAIL chips: " + err)
+    err = check_ui_chrome()
+    if err:
+        failed += 1
+        print("FAIL ui chrome: " + err)
     if failed:
         sys.exit(1)
     print("all media ok")

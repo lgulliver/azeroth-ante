@@ -110,21 +110,16 @@ end
 
 local function create()
   local m = ns.UI.Main
-  local p = CreateFrame("Frame", nil, m.content, "BackdropTemplate")
+  local p = CreateFrame("Frame", nil, m.content)
   p:SetSize(m.playArea:GetWidth(), m.playArea:GetHeight())
   p:SetPoint("TOPLEFT", m.playArea, "TOPLEFT", 0, 0)
   p:SetFrameLevel(m.content:GetFrameLevel() + LEVEL)
-  p:SetBackdrop({
-    bgFile = "Interface\\Buttons\\WHITE8x8",
-    edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1,
-  })
-  p:SetBackdropColor(0.1, 0.08, 0.06, 0.98)
-  p:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
+  Theme.Inset(p)
   p:EnableMouse(true) -- swallows clicks meant for what is underneath
 
   p.deckTitle = p:CreateFontString(nil, "OVERLAY", Theme.fonts.title)
   p.deckTitle:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -6)
-  Theme.setColor(p.deckTitle, Theme.gold)
+  Theme.Value(p.deckTitle, true)
   p.suitCounts = p:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
   p.suitCounts:SetPoint("TOPLEFT", p, "TOPLEFT", PAD, -27)
   p.typeCounts = p:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
@@ -133,10 +128,8 @@ local function create()
   p.typeCounts:SetJustifyH("LEFT")
   Theme.setColor(p.typeCounts, Theme.parchment)
 
-  local close = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
-  close:SetSize(70, 22)
-  close:SetPoint("TOPRIGHT", p, "TOPRIGHT", -8, -6)
-  close:SetText("Close")
+  local close = Theme.NewButton(p, "Close", 72, 24)
+  close:SetPoint("TOPRIGHT", p, "TOPRIGHT", -8, -8)
   close:SetScript("OnClick", function() DeckView.Hide() end)
   p.close = close
 

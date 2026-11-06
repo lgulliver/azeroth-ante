@@ -8,7 +8,6 @@ local CardWidget = ns.UI.CardWidget
 local DeckSelect = {}
 
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
-local FLAT = "Interface\\Buttons\\WHITE8x8"
 local DOT = "\194\183" -- middle dot
 
 local SLIDE = 0.2                                -- seconds per slide
@@ -434,6 +433,11 @@ function DeckSelect.Build(host)
   p.nextBtn = host.button(p, ">", 40, 56, function() DeckSelect.Step(1) end)
   p.nextBtn:SetPoint("CENTER", p.carousel, "CENTER", SIDE_X + 118, 0)
 
+  -- The chosen deck's details sit on a raised tile (a sibling below p.info, so its text draws above).
+  p.plate = CreateFrame("Frame", nil, p)
+  p.plate:SetSize(496, 136)
+  p.plate:SetPoint("TOP", p, "TOP", 0, -268)
+  Theme.Raised(p.plate)
   p.info = CreateFrame("Frame", nil, p)
   p.info:SetAllPoints(p)
   p.name = text(p.info, Theme.fonts.title, -276, 480)
@@ -441,12 +445,10 @@ function DeckSelect.Build(host)
   p.desc = text(p.info, Theme.fonts.text, -304, 440)
   p.desc:SetHeight(36)
   p.desc:SetJustifyV("TOP")
-  p.progress = CreateFrame("Frame", nil, p.info, "BackdropTemplate")
+  p.progress = CreateFrame("Frame", nil, p.info)
   p.progress:SetSize(BAR_W, 10)
   p.progress:SetPoint("TOP", p.info, "TOP", 0, -326)
-  p.progress:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 1 })
-  p.progress:SetBackdropColor(0.05, 0.04, 0.03, 0.95)
-  p.progress:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
+  Theme.Inset(p.progress)
   p.progressFill = p.progress:CreateTexture(nil, "ARTWORK")
   p.progressFill:SetPoint("LEFT", p.progress, "LEFT", 1, 0)
   p.progressFill:SetHeight(8)
@@ -461,8 +463,8 @@ function DeckSelect.Build(host)
   p.play = host.button(p, "Play", 170, 32, function()
     local id = DeckSelect.Selected()
     if isUnlocked(id) then host.start(id) end
-  end)
-  p.play:SetPoint("BOTTOM", p, "BOTTOM", 0, 28)
+  end, "primary")
+  p.play:SetPoint("BOTTOM", p, "BOTTOM", 0, 24)
   host.reasonTip(p.play)
 
   driver = CreateFrame("Frame", nil, p)

@@ -224,8 +224,9 @@ function M.install(env)
   function methods.CreateTexture(self, name) return newObject("Texture", name, self) end
   function methods.CreateFontString(self, name) return newObject("FontString", name, self) end
 
-  local function createFrame(kind, name, parent)
+  local function createFrame(kind, name, parent, template)
     local o = newObject(kind or "Frame", name, parent or UIParent)
+    o._template = template -- recorded so tests can assert on stock templates (UIPanelButtonTemplate...)
     if name then rawset(env, name, o) end
     return o
   end

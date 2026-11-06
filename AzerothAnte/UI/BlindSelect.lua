@@ -14,7 +14,6 @@ local Tween = ns.UI.Tween
 local BlindSelect = {}
 
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
-local FLAT = "Interface\\Buttons\\WHITE8x8"
 
 local PANEL_W, PANEL_H, GAP = 184, 330, 12
 local TOP_Y = -46                       -- slot top, below the stage header
@@ -26,8 +25,7 @@ local POP_UP, POP_DOWN, POP_SCALE = 0.1, 0.14, 1.06
 local STAMP_T, STAMP_FROM = 0.2, 2.4
 
 local RED = { 1, 0.25, 0.2 }
-local RED_EDGE = { 0.65, 0.18, 0.15 }
-local EDGE = { 0.4, 0.33, 0.2 }
+local RED_BAR = { 0.55, 0.14, 0.12 }  -- the boss's muted accent strip
 local GOLD_HEX = "|cffffd100"
 local NAMES = { "Small Blind", "Big Blind" }
 local CHIPS = { "Chip_SMALL", "Chip_BIG", "Chip_BOSS" }
@@ -85,31 +83,21 @@ local function makeBlind(p, i, host)
   slot.dx = dx
   placeSlot(slot, dx, TOP_Y)
 
-  -- Soft glow: stacked translucent gold rims behind the body.
-  local glow = CreateFrame("Frame", nil, slot)
-  glow:SetAllPoints(slot)
-  glow:SetFrameLevel(slot:GetFrameLevel()) -- pinned under the body
-  for k, pad in ipairs({ 7, 4, 2 }) do
-    local t = glow:CreateTexture(nil, "BACKGROUND")
-    t:SetPoint("TOPLEFT", slot, "TOPLEFT", -pad, pad)
-    t:SetPoint("BOTTOMRIGHT", slot, "BOTTOMRIGHT", pad, -pad)
-    t:SetColorTexture(Theme.gold[1], Theme.gold[2], Theme.gold[3], 0.07 * k)
-  end
-  glow:Hide()
-  slot.glow = glow
-
-  local body = CreateFrame("Frame", nil, slot, "BackdropTemplate")
-  body:SetFrameLevel(glow:GetFrameLevel() + 1)
+  -- A raised tile; the current one also gets the thin gold outline and soft glow.
+  local body = CreateFrame("Frame", nil, slot)
+  body:SetFrameLevel(slot:GetFrameLevel() + 1)
   body:SetSize(PANEL_W, PANEL_H)
   body:SetPoint("CENTER", slot, "CENTER", 0, 0)
-  body:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 2 })
+  Theme.Raised(body)
+  Theme.Selected(body, false)
   slot.body = body
+  slot.glow = body.selectedGlow -- shown exactly while this is the current blind
 
   local bar = body:CreateTexture(nil, "ARTWORK") -- the boss's red accent
-  bar:SetPoint("TOPLEFT", body, "TOPLEFT", 2, -2)
-  bar:SetPoint("TOPRIGHT", body, "TOPRIGHT", -2, -2)
+  bar:SetPoint("TOPLEFT", body, "TOPLEFT", 0, 0)
+  bar:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, 0)
   bar:SetHeight(4)
-  bar:SetColorTexture(RED[1], RED[2], RED[3], 0.9)
+  bar:SetColorTexture(RED_BAR[1], RED_BAR[2], RED_BAR[3], 1)
   bar:Hide()
   slot.bar = bar
 
@@ -129,13 +117,13 @@ local function makeBlind(p, i, host)
   Theme.setColor(slot.rule, RED)
   local label = text(body, Theme.fonts.small, "TOP", 0, -212, PANEL_W - 12)
   label:SetText("Score at least")
-  Theme.setColor(label, Theme.parchment)
+  Theme.Label(label)
   slot.target = text(body, Theme.fonts.big, "TOP", 0, -228, PANEL_W - 12)
   slot.reward = text(body, Theme.fonts.text, "TOP", 0, -268, PANEL_W - 12)
   Theme.setColor(slot.reward, Theme.parchment)
 
-  slot.play = host.button(body, "Play", 120, 28, host.start)
-  slot.play:SetPoint("BOTTOM", body, "BOTTOM", 0, 14)
+  slot.play = host.button(body, "Play", 120, 28, host.start, "primary")
+  slot.play:SetPoint("BOTTOM", body, "BOTTOM", 0, 16)
   host.reasonTip(slot.play)
 
   local stamp = CreateFrame("Frame", nil, slot)
@@ -171,22 +159,13 @@ end
 ---------------------------------------------------------------------------
 -- Refresh: the static look from the run. Never disturbs a running tween.
 
-local function setBorder(body, c, w)
-  if body.borderWidth ~= w then -- the backdrop only changes with the width
-    body:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = w })
-    body.borderWidth = w
-  end
-  body.borderColor = c
-  body:SetBackdropBorderColor(c[1], c[2], c[3], 1)
-end
-
 local function refreshOne(b, run, i, bossId)
   local st = stateOf(run, i)
   local boss = i == 3 and ns.Bosses.def[bossId] or nil
   local current = st == "CURRENT"
   b.state = st
   b.tag:SetText(st)
-  Theme.setColor(b.tag, current and Theme.gold or Theme.parchment)
+  if current then Theme.Value(b.tag, true) else Theme.Label(b.tag) end
   b.kind:SetText(i == 3 and "BOSS" or "")
   Theme.setColor(b.kind, RED)
   b.bar:SetShown(i == 3)
@@ -201,13 +180,7 @@ local function refreshOne(b, run, i, bossId)
   local tint = i == 3 and (BlindSelect.BOSS_TINT[bossId] or NO_TINT) or NO_TINT
   b.chip:SetVertexColor(tint[1], tint[2], tint[3])
 
-  if current then
-    setBorder(b.body, Theme.gold, 2)
-  else
-    setBorder(b.body, i == 3 and RED_EDGE or EDGE, 1)
-  end
-  b.body:SetBackdropColor(current and 0.18 or 0.13, current and 0.13 or 0.1, current and 0.08 or 0.07, 0.98)
-  b.glow:SetShown(current)
+  Theme.Selected(b.body, current)
 
   -- Play: live on the current panel, visibly disabled on upcoming ones, gone on beaten ones.
   b.play:SetShown(st ~= "DEFEATED")

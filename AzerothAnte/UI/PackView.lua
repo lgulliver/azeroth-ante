@@ -609,19 +609,17 @@ end
 
 local function build()
   local m = main()
-  local p = CreateFrame("Frame", nil, m.content, "BackdropTemplate")
+  local p = CreateFrame("Frame", nil, m.content)
   p:SetPoint("TOPLEFT", m.playArea, "TOPLEFT", 0, -SELL_GAP)
   p:SetPoint("BOTTOMRIGHT", m.buttons, "BOTTOMRIGHT", 0, 0)
   p:SetFrameLevel(m.content:GetFrameLevel() + PANEL_LEVEL)
-  p:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
-  p:SetBackdropColor(Theme.bg[1], Theme.bg[2], Theme.bg[3], 1) -- fully opaque: nothing from the shop shows through
-  p:SetBackdropBorderColor(0.4, 0.33, 0.2, 1)
+  Theme.Inset(p) -- its fill is fully opaque: nothing from the shop shows through
   p:EnableMouse(true) -- swallows clicks meant for the screen under it
   p.packChoices = entries
   frame = p
 
   p.title = W.text(p, Theme.fonts.title, "TOP", 0, -10, 400, "CENTER")
-  Theme.setColor(p.title, Theme.gold)
+  Theme.Value(p.title, true)
   p.picksLeft = W.text(p, Theme.fonts.text, "TOPRIGHT", -16, -14, 120, "RIGHT")
   Theme.setColor(p.picksLeft, Theme.parchment)
 
@@ -650,11 +648,11 @@ local function build()
   Theme.setColor(p.err, RED)
   p.err:Hide()
 
-  p.pick = W.button(p, "Pick", 120, 28, doPick)
-  p.pick:SetPoint("BOTTOM", p, "BOTTOM", -70, 14)
+  p.pick = W.button(p, "Pick", 120, 28, doPick, "primary")
+  p.pick:SetPoint("BOTTOM", p, "BOTTOM", -68, 16)
   W.reasonTip(p.pick)
   p.skip = W.button(p, "Skip", 120, 28, doSkip)
-  p.skip:SetPoint("BOTTOM", p, "BOTTOM", 70, 14)
+  p.skip:SetPoint("BOTTOM", p, "BOTTOM", 68, 16)
   W.reasonTip(p.skip)
   p:Hide()
   return p

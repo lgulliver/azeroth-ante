@@ -803,7 +803,7 @@ local function run(w)
   local tslots = Main.trinketRow.slots
   check(tslots[8]:IsShown() and crow.slots[5]:IsShown(), "all 13 slots are shown")
   check(tslots[8]._points[1][4] + 44 <= Main.trinketRow:GetWidth() + 1e-6, "trinket slots fit their row")
-  check(Main.trinketRow:GetWidth() + Main.consumableRow:GetWidth() + 10 <= Main.rowsWidth + 1e-6, "trinket and consumable rows do not overlap")
+  check(Main.trinketRow:GetWidth() + Main.consumableRow:GetWidth() + ns.UI.Theme.margin <= Main.rowsWidth + 1e-6, "trinket and consumable rows do not overlap")
   check(tslots[2]._points[1][4] - tslots[1]._points[1][4] >= 44, "trinket slots never overlap each other")
   runC.maxTrinkets, runC.maxConsumables, runC.trinkets = 5, 2, {}
   Main.Render(runC)
@@ -1187,9 +1187,8 @@ local function run(w)
     check(r.shop.openPack == nil, "the last pick closed the pack in the run")
     check(pv:IsVisible(), "the overlay stays up while the last pick animates")
     do
-      local br, bg, bb, ba = pv:GetBackdropColor()
-      local bgc = ns.UI.Theme.bg
-      check(ba == 1 and br == bgc[1] and bg == bgc[2] and bb == bgc[3], "pack overlay is fully opaque in the theme bg colour")
+      local fillc = pv.insetFillColor
+      check(pv.themeInset and fillc and fillc[4] == 1, "pack overlay is a set-in panel with a fully opaque fill")
     end
     stub.advance(0.15)
     check(a.face:GetWidth() < 80 and not a.released, "the last pick's flip ran on the pack card")
@@ -2074,6 +2073,86 @@ local function run(w)
     eq(m.run and m.run.deckId, "WARRIOR", "a run still starts")
   end
   step("11e carousel and flourish survive missing rotation and desaturation APIs")
+
+  -- 12. The window theme: set-in panels, raised tiles, outline-free chips and mult, themed buttons.
+  do
+    local Theme = ns.UI.Theme
+    local sb = Main.sidebar
+    -- chips and mult are filled tiles with no outline
+    check(sb.chipsBox.themeTile == "chips" and sb.multBox.themeTile == "mult", "chips and mult are Theme tiles")
+    for _, box in ipairs({ sb.chipsBox, sb.multBox }) do
+      check(box.themeEdges == nil and box.selectedEdges == nil and not box.themeSelected, "a tile has no edge textures")
+      check(box._template == nil, "a tile uses no stock template")
+      local n = 0
+      for _, c in ipairs(box._children) do
+        if c._kind == "Texture" then n = n + 1 end
+      end
+      eq(n, 3, "a tile is a base, a gradient and a bottom lip only")
+    end
+    check(stub.unknown.SetBackdrop == nil and stub.unknown.SetBackdropBorderColor == nil,
+      "no backdrop borders anywhere in the window")
+    -- inset (set-in) panels
+    check(sb.themeInset and #sb.themeEdges == 4, "the sidebar is set in")
+    check(Main.stage and Main.stage.themeInset, "the table behind the hand is set in")
+    for _, field in ipairs({ "carousel", "stageText", "payout", "head", "deckTitle", "packChoices" }) do
+      local p = panel(field)
+      check(p and p.themeInset, "panel with " .. field .. " is set in")
+      check(p.insetFillColor[4] == 1, field .. " panel fill is opaque")
+    end
+    -- raised tiles
+    for i = 1, 3 do
+      local body = panel("stageText").panels[i].body
+      check(body.themeRaised, "blind panel " .. i .. " is raised")
+    end
+    check(panel("payout").offerCards[1].themeRaised and panel("payout").packOffers[2].themeRaised, "shop items are raised")
+    check(panel("carousel").plate.themeRaised, "the deck details tile is raised")
+    check(panel("use").themeRaised, "the consumable popover is raised")
+    -- selected: outline and glow only while on
+    local cur = panel("stageText").panels[1].body
+    Theme.Selected(cur, true)
+    check(cur.themeSelected and #cur.selectedEdges == 4, "Theme.Selected adds the gold outline")
+    Theme.Selected(cur, false)
+    check(not cur.themeSelected, "and removes it")
+    -- every Button in the window is themed; none uses a stock template
+    local function inWindow(f)
+      while f do
+        if f == Main.frame then return true end
+        f = f._parent
+      end
+      return false
+    end
+    local buttons = 0
+    for _, f in ipairs(stub.frames) do
+      if f._kind == "Button" and inWindow(f) then
+        check(f._template ~= "UIPanelButtonTemplate" and f._template ~= "UIPanelCloseButton",
+          "a Button uses a stock red template")
+        if f ~= Main.grip then
+          local hit = f._text == nil and f.themeButton == nil -- card and slot hit areas carry no text
+          if not hit then
+            check(f.themeButton, "Button " .. tostring(f._text) .. " uses the theme")
+            check(f.themeEdges and #f.themeEdges == 4 and f.label, "Button " .. tostring(f._text) .. " has the themed parts")
+            buttons = buttons + 1
+          end
+        end
+      end
+    end
+    check(buttons >= 15, "the themed buttons were found (" .. buttons .. ")")
+    for _, b in ipairs({ Main.buttons.play, Main.buttons.discard, Main.buttons.sortRank, Main.buttons.sortSuit,
+      sb.deckButton, Main.close }) do
+      check(b.themeButton, "main-frame button is themed")
+    end
+    eq(Main.buttons.play.themeButton, "primary", "Play is the primary variant")
+    eq(panel("stageText").abandon.themeButton, "danger", "Abandon Run is the danger variant")
+    -- disabled dims, hover brightens (state tracking)
+    local b = Main.buttons.discard
+    local was = b:IsEnabled()
+    b:Disable()
+    eq(b.themeState, "disabled", "a disabled button dims")
+    b:Enable()
+    eq(b.themeState, "normal", "and returns when enabled")
+    b:SetEnabled(was)
+  end
+  step("12 window theme: inset, raised, outline-free tiles, themed buttons")
 
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w, unpack(extraWorlds) }) do
