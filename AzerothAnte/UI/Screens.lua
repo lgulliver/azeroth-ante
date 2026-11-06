@@ -783,7 +783,7 @@ function Screens.Track(run)
   -- of a won or lost save never records it again. Abandoning never records.
   if run and (run.phase == "won" or run.phase == "lost") and not run.recorded and AzerothAnteDB then
     run.recorded = true
-    ns.Profile.recordRun(AzerothAnteDB, run)
+    pcall(ns.Profile.recordRun, AzerothAnteDB, run)
     persist()
   end
 end

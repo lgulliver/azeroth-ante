@@ -107,8 +107,13 @@ end
 ---------------------------------------------------------------------------
 -- Layout: every card is positioned from its continuous offset to the centre.
 
+-- Optional texture APIs: a client lacking one just loses that effect.
 local function setDesaturation(tex, amount)
-  if tex.SetDesaturation then tex:SetDesaturation(amount) else tex:SetDesaturated(amount > 0.5) end
+  if tex.SetDesaturation then
+    tex:SetDesaturation(amount)
+  elseif tex.SetDesaturated then
+    tex:SetDesaturated(amount > 0.5)
+  end
 end
 
 local function layout()
@@ -140,7 +145,7 @@ local function layout()
       card:SetAlpha(alpha)
       local side = w * SQ / ART
       card.art:SetSize(side, side)
-      card.art:SetRotation(tilt)
+      if card.art.SetRotation then card.art:SetRotation(tilt) end
       local look = lookOf(id)
       if card.hover and a > 0.5 then dim = math.min(1, dim + 0.2) end
       local shade = dim * (0.35 + 0.65 * look)
@@ -222,8 +227,11 @@ local function goTo(raw, instant)
     layout()
   else
     slide = { from = pos, to = raw, t = 0 }
-    fade = { t = 0 }
-    panel.info:SetAlpha(0)
+    -- One cross-fade per burst of clicks: a running fade is left alone.
+    if not fade then
+      fade = { t = 0 }
+      panel.info:SetAlpha(0)
+    end
     wake()
   end
   refreshInfo()
@@ -304,16 +312,22 @@ end
 
 function DeckSelect.Select(id, instant)
   if not panel or not indexOf(id) then return end
+  if flourish then DeckSelect.Finish() end
   goTo(rawFor(id), instant)
 end
 
+-- The flourish owns the carousel for its ~1.5s: arrow and card clicks are ignored
+-- meanwhile, so the text, flash and padlock never end up over another deck.
 function DeckSelect.Step(dir)
-  if not panel then return end
+  if not panel or flourish then return end
   goTo(selRaw + dir, false)
 end
 
+local finishAll
+function DeckSelect.Finish() finishAll() end
+
 -- Window closed or the screen left: finish everything instantly, marking decks seen.
-local function finishAll()
+finishAll = function()
   if flourish then markSeen(flourish.id) end
   for _, id in ipairs(queue) do markSeen(id) end
   flourish, queue = nil, {}
