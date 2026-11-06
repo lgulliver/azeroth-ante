@@ -10,7 +10,7 @@ Legend:
 
 ## Intent
 
-Trinkets are our jokers. Balatro has 150 jokers and we have 20, and the joker variety is what makes Balatro runs feel different from each other. Port the whole non-legendary set: 145 jokers, of which 143 now and 2 (Diet Cola, Throwback) with skip tags with WoW names and Balatro's exact effects. **[Liam: "full set, in waves"; standing rule "reskin with WoW names, keep Balatro effects"]**
+Trinkets are our jokers. Balatro has 150 jokers and we have 20, and the joker variety is what makes Balatro runs feel different from each other. Port the whole non-legendary set: 145 jokers, of which 143 now and 2 (Diet Cola, Throwback) with skip tags. Each gets a WoW name and Balatro's exact effect. **[Liam: "full set, in waves"; standing rule "reskin with WoW names, keep Balatro effects"]**
 
 ## Goals
 
