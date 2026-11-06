@@ -377,7 +377,7 @@ local function run(w)
   -- Rank and suit print straight onto the face: no plates, no halo, a text colour per face.
   check(cw1.plateTL == nil and cw1.plateBR == nil and cw1.halo == nil, "no index plates or halo on a card")
   do
-    local known = { cw1.border, cw1.paper, cw1.art, cw1.suitBig, cw1.suitSmall, cw1.seal, cw1.shade, cw1.back }
+    local known = { cw1.border, cw1.paper, cw1.art, cw1.suitBig, cw1.suitSmall, cw1.seal, cw1.shade, cw1.flash, cw1.back }
     local isKnown, extra = {}, 0
     for _, t in ipairs(known) do isKnown[t] = true end
     for _, ch in ipairs(cw1.face._children) do
@@ -2898,6 +2898,275 @@ local function run(w)
       eq(m3.trinketRow.slots[1].def, nil, "and gone from the row")
     end
     step("discard_and_play_drain")
+
+    -- Wave 3 UI: card changes, created cards and consumables, a disabled boss, the bonus-chips tooltip.
+    local function handWidgets(m)
+      local ws = {}
+      for _, c in ipairs(m.handArea._children) do
+        if c.card and not c.released and c:IsShown() then ws[#ws + 1] = c end
+      end
+      table.sort(ws, function(a, b) return a._points[1][4] < b._points[1][4] end)
+      return ws
+    end
+    local function settle(w2, limit)
+      local ns2, stub2, waited = w2.ns, w2.stub, 0
+      while (ns2.UI.Tally.IsBusy() or ns2.UI.HandView.IsBusy()) and waited < (limit or 15) do
+        stub2.advance(0.05)
+        waited = waited + 0.05
+      end
+      stub2.advance(1)
+    end
+
+    do -- midas_gold_flash: a Gold tint, a desaturate flash and "+13" in one beat after the total
+      local defs = {
+        { id = "S_MIDAS", before = function(ctx)
+          return { changeCard = { id = ctx.cards[1].id, enh = "GOLD", bonusChips = 13 } }
+        end },
+        { id = "S_VAMP", before = function(ctx)
+          return { changeCard = { id = ctx.held[1].id, enh = false } }
+        end },
+      }
+      local w2, panel2, m, r = lifeBoard({ "S_MIDAS", "S_VAMP" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      for _, c in ipairs(r.deck) do c.enh, c.ed, c.seal, c.bonusChips = nil, nil, nil, nil end
+      local played, held = r.hand[1], r.hand[2]
+      held.enh = "BONUS"
+      ns2.UI.HandView.Update(r, false)
+      stub2.advance(1)
+      local pw, hw = ns2.UI.HandView.WidgetForCard(played.id), ns2.UI.HandView.WidgetForCard(held.id)
+      pw:Click()
+      m.buttons.play:Click()
+      local goldAt, greyAt, floatSeen, reskinned, t = nil, nil, false, false, 0
+      while (ns2.UI.Tally.IsBusy() or ns2.UI.HandView.IsBusy()) and t < 15 do
+        stub2.advance(0.05)
+        t = t + 0.05
+        local pf, hf = pw.flash, hw.flash
+        if pf and pf:IsShown() and (pf._alpha or 0) > 0 and not goldAt then
+          local c = pf._color
+          check(c[1] > c[3], "the Midas flash is gold")
+          goldAt = t
+        end
+        if hf and hf:IsShown() and (hf._alpha or 0) > 0 and not greyAt then
+          local c = hf._color
+          check(math.abs(c[1] - c[3]) < 0.15, "the strip flash is grey")
+          greyAt = t
+        end
+        floatSeen = floatSeen or stub2.findText("+13") ~= nil
+        reskinned = reskinned or (pw.cardKey and pw.cardKey:find("GOLD", 1, true) ~= nil)
+      end
+      check(goldAt, "the played card flashed gold")
+      check(greyAt, "the stripped held card flashed grey")
+      check(math.abs(goldAt - greyAt) <= 0.06, "both changes flash in one beat")
+      check(floatSeen, "the bonus chips floated")
+      check(reskinned, "the face re-skinned under the flash")
+      eq(played.enh, "GOLD", "the real card is Gold")
+      eq(played.bonusChips, 13, "and kept its bonus chips")
+      eq(held.enh, nil, "the held card lost its enhancement")
+      stub2.advance(1)
+      eq(ns2.UI.HandView.WidgetForCard(held.id).cardKey:find("BONUS", 1, true), nil, "the held card shows plain")
+      unstub(ns2, defs)
+    end
+    step("midas_gold_flash")
+
+    do -- dna_card_flies_to_hand
+      local defs = {
+        { id = "S_DNA", before = function()
+          return { createCard = { card = { rank = 9, suit = "H" }, toHand = true } }
+        end },
+        { id = "S_DECKONLY", before = function()
+          return { createCard = { card = { rank = 4, suit = "C" }, toHand = false } }
+        end },
+      }
+      local w2, panel2, m, r = lifeBoard({ "S_DNA" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      local before = #r.deck
+      handWidgets(m)[1]:Click()
+      m.buttons.play:Click()
+      local newCard, w, firstSeen, landedAt, lastX, moved, t = nil, nil, nil, nil, nil, 0, 0
+      while (ns2.UI.Tally.IsBusy() or ns2.UI.HandView.IsBusy()) and t < 15 do
+        stub2.advance(0.05)
+        t = t + 0.05
+        if not w then
+          for _, c in ipairs(m.handArea._children) do
+            if c.card and not c.released and c:IsShown() and c.card.rank == 9 and c.card.suit == "H"
+              and c.card.id == r.nextCardId - 1 then
+              w, firstSeen = c, t
+            end
+          end
+        end
+        if w and not landedAt then
+          local x = w._points[1][4]
+          if lastX and x ~= lastX then moved = moved + 1 end
+          lastX = x
+          if moved > 0 and w.lx and math.abs(x - w.lx) < 0.5 then landedAt = t end
+        end
+      end
+      check(w, "a widget for the created card appeared during the tally")
+      check(moved >= 2, "the created card travelled over several frames: " .. moved)
+      check(landedAt and landedAt - firstSeen <= 0.4, "and landed in about 0.25s")
+      stub2.advance(1)
+      eq(#r.deck, before + 1, "the card joined the deck")
+      local ws = handWidgets(m)
+      eq(#ws, #r.hand, "one widget per hand card, no duplicate flyer")
+      for i, c in ipairs(r.hand) do
+        check(ws[i].card == c, "slot " .. i .. " shows hand card " .. i)
+        eq(ws[i]:GetAlpha(), 1, "slot " .. i .. " is fully visible")
+        check(not ws[i].back:IsShown(), "slot " .. i .. " is face up")
+      end
+      eq(m.sidebar.deckButton:GetText(), "Deck (" .. #r.deck .. ")", "the Deck count ticked up")
+      unstub(ns2, defs)
+      -- A card that goes only to the deck pulses the Deck button instead.
+      local w3, panel3, m3, r3 = lifeBoard({ "S_DECKONLY" }, "play", defs)
+      local stub3, ns3 = w3.stub, w3.ns
+      handWidgets(m3)[1]:Click()
+      m3.buttons.play:Click()
+      local pulsed, t3 = false, 0
+      while (ns3.UI.Tally.IsBusy() or ns3.UI.HandView.IsBusy()) and t3 < 15 do
+        stub3.advance(0.05)
+        t3 = t3 + 0.05
+        pulsed = pulsed or m3.sidebar.deckButton:GetScale() > 1.01
+      end
+      check(pulsed, "the Deck button pulsed")
+      eq(#handWidgets(m3), #r3.hand, "no extra card appeared in the hand")
+      unstub(ns3, defs)
+      -- The lifecycle player flies a card made into a displayed hand, then the settle keeps it in place.
+      local w4, panel4, m4, r4 = lifeBoard({}, "play")
+      local stub4, ns4 = w4.stub, w4.ns
+      local made = ns4.Deck.add(r4, { rank = 6, suit = "D" })
+      r4.hand[#r4.hand + 1] = made
+      r4.lifecycleEvents[#r4.lifecycleEvents + 1] = { kind = "cardCreated", uid = 1, slot = 1, cardId = made.id, toHand = true }
+      local done4 = false
+      ns4.UI.Lifecycle.Drain(r4, function() done4 = true end)
+      check(ns4.UI.Lifecycle.IsBusy(), "cardCreated is visual")
+      stub4.advance(0.05)
+      local fw = ns4.UI.HandView.WidgetForCard(made.id)
+      check(fw and fw:GetAlpha() < 1, "a widget is flying in for the created card")
+      while not done4 do stub4.advance(0.05) end
+      ns4.UI.HandView.Update(r4, true)
+      stub4.advance(1)
+      eq(#handWidgets(m4), #r4.hand, "one widget per card after the settle")
+      eq(ns4.UI.HandView.WidgetForCard(made.id), fw, "the flyer is the card's widget")
+      eq(fw:GetAlpha(), 1, "and fully visible")
+    end
+    step("dna_card_flies_to_hand")
+
+    do -- consumable_created_pops: scale 0.6 -> 1 in 0.2s, in a tally and in a lifecycle queue
+      local defs = { { id = "S_SCRIBE", before = function()
+        return { createConsumable = { kind = "scroll" } }
+      end } }
+      local w2, panel2, m, r = lifeBoard({ "S_SCRIBE" }, "play", defs)
+      local stub2, ns2 = w2.stub, w2.ns
+      r.consumables = {}
+      m.Render(r, true)
+      stub2.advance(0.5)
+      handWidgets(m)[1]:Click()
+      m.buttons.play:Click()
+      local minScale, shownAt, t = 1, nil, 0
+      while (ns2.UI.Tally.IsBusy() or ns2.UI.HandView.IsBusy()) and t < 15 do
+        stub2.advance(0.02)
+        t = t + 0.02
+        local holder = m.consumableRow.slots[1].holder
+        if m.consumableRow.slots[1].item and holder:GetScale() < 1 then
+          minScale = math.min(minScale, holder:GetScale())
+          shownAt = shownAt or t
+        end
+      end
+      eq(#r.consumables, 1, "a Scroll was made")
+      check(shownAt and minScale <= 0.7, "the new consumable popped in from a small scale: " .. minScale)
+      stub2.advance(0.5)
+      eq(m.consumableRow.slots[1].holder:GetScale(), 1, "it ends full size")
+      eq(m.consumableRow.slots[1].holder:GetAlpha(), 1, "and fully visible")
+      check(m.consumableRow.slots[1].item == r.consumables[1], "the slot shows the live item")
+      unstub(ns2, defs)
+      -- The lifecycle player does the same for a consumableCreated event.
+      local w3, panel3, m3, r3 = lifeBoard({}, "play")
+      local stub3, ns3 = w3.stub, w3.ns
+      r3.consumables = {}
+      local item = { kind = "scroll", id = ns3.Scrolls.order[1] }
+      ns3.Consumables.add(r3, item)
+      r3.lifecycleEvents[#r3.lifecycleEvents + 1] = { kind = "consumableCreated", uid = 1, slot = 1, item = item }
+      local done = false
+      ns3.UI.Lifecycle.Drain(r3, function() done = true end)
+      check(ns3.UI.Lifecycle.IsBusy(), "a consumableCreated event is visual")
+      local min3, t3 = 1, 0
+      while not done and t3 < 5 do
+        stub3.advance(0.02)
+        t3 = t3 + 0.02
+        local h = m3.consumableRow.slots[1].holder
+        if m3.consumableRow.slots[1].item == item then min3 = math.min(min3, h:GetScale()) end
+      end
+      check(done and min3 <= 0.7, "the lifecycle queue popped it in: " .. min3)
+    end
+    step("consumable_created_pops")
+
+    do -- boss_disabled_display
+      local w2, panel2, m, r = lifeBoard({}, "play")
+      local stub2, ns2 = w2.stub, w2.ns
+      r.blind, r.bosses[r.stage] = 3, "HOGGER"
+      m.Render(r, true)
+      stub2.advance(1)
+      local ws = handWidgets(m)
+      local flagged = 0
+      for _, c in ipairs(ws) do if c.debuffed then flagged = flagged + 1 end end
+      -- Face cards in a random hand are not guaranteed: mark them by hand.
+      for _, c in ipairs(r.hand) do c.rank = 13 end
+      ns2.UI.HandView.Update(r, false)
+      stub2.advance(1)
+      for _, c in ipairs(handWidgets(m)) do check(c.debuffed, "face cards are debuffed under Hogger") end
+      eq(m.sidebar.bossRule:GetText(), "Face cards are debuffed.", "the boss rule shows")
+      ns2.Run.disableBoss(r)
+      r.lifecycleEvents[#r.lifecycleEvents + 1] = { kind = "bossDisabled" }
+      local done, clearedAtFire, sawFloat, t = false, nil, false, 0
+      ns2.UI.Lifecycle.Drain(r, function() done = true end)
+      check(ns2.UI.Lifecycle.IsBusy(), "bossDisabled is visual")
+      while not done and t < 5 do
+        stub2.advance(0.05)
+        t = t + 0.05
+        sawFloat = sawFloat or stub2.findText("Boss disabled!") ~= nil
+        if clearedAtFire == nil then
+          local all = true
+          for _, c in ipairs(handWidgets(m)) do if c.debuffed then all = false end end
+          if all and m.sidebar.bossRule:GetText() == "Disabled" then clearedAtFire = not done end
+        end
+      end
+      check(clearedAtFire, "the debuff markers and the panel changed before the queue finished")
+      check(sawFloat, "Boss disabled! floated")
+      eq(m.sidebar.bossRule:GetText(), "Disabled", "the panel says Disabled")
+      local dim, label = m.sidebar.blindName._textColor, ns2.UI.Theme.label
+      check(dim and dim[1] == label[1] and dim[2] == label[2], "the boss name is dim")
+      check(m.sidebar.bossStrike and m.sidebar.bossStrike:IsShown(), "and struck through")
+      -- A re-render keeps it, and the next boss is normal again.
+      m.Render(r, true)
+      eq(m.sidebar.bossRule:GetText(), "Disabled", "a re-render keeps Disabled")
+      check(m.sidebar.bossStrike:IsShown(), "and the strike")
+      r.bossDisabled = false
+      m.Render(r, true)
+      eq(m.sidebar.bossRule:GetText(), "Face cards are debuffed.", "an active boss shows its rule again")
+      check(not m.sidebar.bossStrike:IsShown(), "with no strike")
+    end
+    step("boss_disabled_display")
+
+    do -- bonus_chips_tooltip
+      local w2, panel2, m, r = lifeBoard({}, "play")
+      local stub2, ns2 = w2.stub, w2.ns
+      for _, c in ipairs(r.deck) do c.enh, c.ed, c.seal, c.bonusChips = nil, nil, nil, nil end
+      local card = r.hand[1]
+      card.bonusChips = 5
+      ns2.UI.HandView.Update(r, false)
+      stub2.advance(1)
+      local cw = ns2.UI.HandView.WidgetForCard(card.id)
+      cw._scripts.OnEnter(cw)
+      stub2.advance(0.6)
+      check(stub2.tooltip:IsShown() and stub2.tooltip:GetOwner() == cw, "a bonus-chips card has a tooltip")
+      check(table.concat(stub2.tooltip._lines, "|"):find("+5 chips", 1, true), "it says +5 chips")
+      cw._scripts.OnLeave(cw)
+      local plain = ns2.UI.HandView.WidgetForCard(r.hand[2].id)
+      plain._scripts.OnEnter(plain)
+      stub2.advance(0.6)
+      check(not stub2.tooltip:IsShown(), "a plain card still has none")
+      plain._scripts.OnLeave(plain)
+    end
+    step("bonus_chips_tooltip")
   end
 
   do -- 11e. A client without SetRotation / SetDesaturation still gets a working carousel

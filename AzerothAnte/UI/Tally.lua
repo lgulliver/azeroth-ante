@@ -19,6 +19,9 @@ local GREY = { 0.7, 0.7, 0.7 }
 local SHAKE = { 4, -4, 4, -4, 4, 0 }
 local STACK = 16             -- rise between floats stacked on one target
 local CREAM = { 1, 0.95, 0.75 }
+local EXTRA = 0.25               -- most one step after `total` adds (a card change, a made card or consumable)
+local GAIN_TINT = Theme.goldBright -- a card gains an enhancement, edition or seal
+local LOSS_TINT = { 0.8, 0.8, 0.8 } -- a card loses one (desaturates)
 local ED_COLOR = {           -- Foil blue, Holo red, Poly purple
   FOIL = Theme.chips, HOLO = Theme.mult, POLY = { 0.75, 0.4, 1 },
 }
@@ -149,6 +152,21 @@ local function widgetFor(s, e)
   if e.heldIndex then return s.held[e.heldIndex] end
 end
 
+-- One card's change landing: the tint flashes (the face swaps at its peak), a bonus floats up.
+local function changeCard(s, ch)
+  local w = ch.w
+  if w.released or not w.card then return end
+  local function reskin()
+    w.cardKey = nil -- force the re-skin even when only a seal or edition changed
+    w:SetCard(w.card)
+  end
+  if ch.tint then w:Flash(ch.tint, reskin, s.speed, ch.desat) else reskin() end
+  if ch.bonus and ch.bonus > 0 then
+    w:Pop()
+    stackedFloat(s, w, "+" .. ch.bonus, Theme.chips)
+  end
+end
+
 local function fire(e)
   local s = state
   if not s or HandView.run ~= s.run then return end
@@ -241,7 +259,100 @@ local function fire(e)
       s.destroyed[w] = true -- it does not slide away afterwards
       ns.UI.Outcome.Shatter(w, 0, function() end)
     end
+  elseif kind == "cardChanges" then
+    -- Every change of the hand lands together in one beat.
+    for _, ch in ipairs(e.changes) do changeCard(s, ch) end
+    for _, w in ipairs(e.destroy) do
+      if not s.destroyed[w] then
+        s.destroyed[w] = true
+        ns.UI.Outcome.Shatter(w, 0, function() end)
+      end
+    end
+  elseif kind == "cardMade" then
+    -- A card made into the hand flies out of the Deck button; one for the deck only just pulses it.
+    ns.UI.Screens.PulseDeckButton(s.run)
+    if e.card then HandView.FlyIn(e.card, s.speed) end
+  elseif kind == "consumableMade" then
+    ns.UI.ConsumableRow.PopIn(s.run, e.item, s.speed)
   end
+end
+
+---------------------------------------------------------------------------
+-- Steps after `total`: what the hand changed, made or destroyed. Run.play has already applied all of it;
+-- the widgets still show the cards as they were, so each change is found by comparing with what they last showed.
+
+local function planChanges(result, played, held)
+  local byId = {}
+  for _, list in ipairs({ played, held }) do
+    for _, w in ipairs(list) do
+      if w.card then byId[w.card.id] = w end
+    end
+  end
+  local gone = {}
+  for _, id in ipairs(result.destroyed or {}) do gone[id] = true end
+  local destroy = {}
+  for _, fx in ipairs(result.sideEffects or {}) do
+    if fx.kind == "destroyCard" then
+      gone[fx.id] = true
+      if byId[fx.id] then destroy[#destroy + 1] = byId[fx.id] end
+    end
+  end
+  local changes = {}
+  for id, fields in pairs(result.cardsAfter or {}) do
+    local w = byId[id]
+    if w and not gone[id] then
+      local gain = (fields.enh and fields.enh ~= w.seenEnh) or (fields.ed and fields.ed ~= w.seenEd)
+        or (fields.seal and fields.seal ~= w.seenSeal)
+      local loss = (w.seenEnh and not fields.enh) or (w.seenEd and not fields.ed) or (w.seenSeal and not fields.seal)
+      changes[#changes + 1] = { w = w, tint = (gain and GAIN_TINT) or (loss and LOSS_TINT) or nil,
+        desat = not gain and loss and true or false, bonus = (fields.bonusChips or 0) - (w.seenBonus or 0) }
+    end
+  end
+  table.sort(changes, function(a, b) return a.w.card.id < b.w.card.id end) -- pairs() order is not stable
+  if #changes == 0 and #destroy == 0 then return nil end
+  return { kind = "cardChanges", changes = changes, destroy = destroy }
+end
+
+-- The items the hand's createConsumable effects added, in order. `before` is the consumable count before the play.
+local function planConsumables(run, effects, before)
+  local wanted = {}
+  for _, fx in ipairs(effects) do
+    if fx.kind == "createConsumable" then wanted[#wanted + 1] = fx end
+  end
+  local cursor = before and before + 1 or math.max(1, #run.consumables - #wanted + 1)
+  local out = {}
+  for _, fx in ipairs(wanted) do
+    for i = cursor, #run.consumables do
+      local item = run.consumables[i]
+      if item.kind == fx.consumableKind and (not fx.id or item.id == fx.id) then
+        out[#out + 1] = { kind = "consumableMade", item = item }
+        cursor = i + 1
+        break
+      end
+    end
+  end
+  return out
+end
+
+local function planExtras(run, result, played, held, info)
+  local out = {}
+  local changes = planChanges(result, played, held)
+  if changes then out[#out + 1] = changes end
+  local effects = result.sideEffects or {}
+  local deckOnly = false
+  for _, fx in ipairs(effects) do
+    if fx.kind == "createCard" then
+      local card = fx.card and ns.Deck.find(run, fx.card.id)
+      if card and fx.toHand then
+        out[#out + 1] = { kind = "cardMade", card = card }
+      else
+        deckOnly = true
+      end
+    end
+  end
+  if deckOnly then out[#out + 1] = { kind = "cardMade" } end
+  for _, e in ipairs(planConsumables(run, effects, info and info.consumables)) do out[#out + 1] = e end
+  return out
 end
 
 ---------------------------------------------------------------------------
@@ -350,7 +461,8 @@ local function hookHide()
 end
 
 -- HandView.OnPlayed hook. Calls done() exactly once.
-function Tally.Play(result, playedWidgets, done)
+-- `info.consumables` is the consumable count before the play, to tell the made ones from the old.
+function Tally.Play(result, playedWidgets, done, info)
   if state then finish(true) end -- never leave an earlier tally's done() uncalled
   local run = HandView.run
   local m = main()
@@ -366,11 +478,20 @@ function Tally.Play(result, playedWidgets, done)
   end
   -- Long tallies stay brisk (about 6s at most at 1x).
   local step = math.max(0.12, math.min(STEP, 6 / math.max(1, #list)))
-  local steps, at, totalAt = {}, 0, 0
+  local steps, at, totalAt, lastAt = {}, 0, 0, 0
   for i, e in ipairs(list) do
     steps[i] = { at = at, event = e }
     if e.kind == "total" then totalAt = at end
+    lastAt = at
     at = at + step
+  end
+  -- What the hand changed or made comes after `total`, each step at most EXTRA apart.
+  local xstep = math.min(step, EXTRA)
+  at = lastAt + step
+  for _, e in ipairs(planExtras(run, result, playedWidgets or {}, HandView.HeldWidgets(), info)) do
+    steps[#steps + 1] = { at = at, event = e }
+    lastAt = at
+    at = at + xstep
   end
   -- The total step starts the count-up; the last step is `total`.
   local from = (run.score or 0) - (result.total or 0)
@@ -379,7 +500,7 @@ function Tally.Play(result, playedWidgets, done)
     steps = steps, next = 1, clock = 0, real = 0, speed = 1,
     from = from, floats = {}, destroyed = {}, held = HandView.HeldWidgets(),
     -- The count-up and any shatter after `total` both finish before the hold.
-    endAt = math.max(totalAt + COUNT_TIME, (at - step) + SHATTER) + HOLD,
+    endAt = math.max(totalAt + COUNT_TIME, lastAt + SHATTER) + HOLD,
   }
   if #steps == 0 then state.endAt = HOLD end
 

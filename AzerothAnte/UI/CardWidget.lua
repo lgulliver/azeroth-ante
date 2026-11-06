@@ -40,6 +40,7 @@ local PAPER = ns.UI.Theme.parchment
 local PAPER_GLASS = { 0.12, 0.18, 0.24 } -- opaque, so the see-through Glass face hides cards behind it
 local SEAL_SIZE = 20
 local TIP_DELAY = 0.4
+local FLASH_TIME, FLASH_PEAK = 0.25, 0.7 -- a card change: tint up (the face swaps), tint down
 local V = ns.UI.Theme.cardV
 
 CardWidget.WIDTH, CardWidget.HEIGHT = WIDTH, HEIGHT
@@ -99,7 +100,8 @@ local function showTip(w)
   local CardTypes = ns.CardTypes
   local defs = { CardTypes.enh[card.enh], CardTypes.ed[card.ed], CardTypes.seal[card.seal] }
   local named = w.mini and not ns.Cards.isStone(card)
-  if not named and not next(defs) then return end
+  local bonus = card.bonusChips and card.bonusChips > 0 and card.bonusChips
+  if not named and not bonus and not next(defs) then return end
   local gold = ns.UI.Theme.gold
   local owner = ns.UI.Main and ns.UI.Main.run
   GameTooltip:SetOwner(w, "ANCHOR_TOP", 0, LIFT_SELECTED + 4) -- anchored to the fixed hit area, not the lifting body
@@ -113,6 +115,10 @@ local function showTip(w)
       GameTooltip:AddLine(ns.Prob.describe(owner and owner.trinkets, def.desc), 1, 1, 1, true)
     end
   end
+  if bonus then
+    local chips = ns.UI.Theme.chips
+    GameTooltip:AddLine("+" .. bonus .. " chips", chips[1], chips[2], chips[3])
+  end
   GameTooltip:Show()
 end
 
@@ -124,7 +130,7 @@ end
 local function armTip(w)
   local card = w.card
   if not card or w.locked then return end
-  if not (w.mini or card.enh or card.ed or card.seal) then return end
+  if not (w.mini or card.enh or card.ed or card.seal or (card.bonusChips and card.bonusChips > 0)) then return end
   w.tipToken = (w.tipToken or 0) + 1
   local token = w.tipToken
   C_Timer.After(TIP_DELAY, function()
@@ -133,6 +139,8 @@ local function armTip(w)
 end
 
 function Methods.SetCard(w, card)
+  -- What the face last showed: a later change to the card flashes from this (see Flash).
+  w.seenEnh, w.seenEd, w.seenSeal, w.seenBonus = card.enh, card.ed, card.seal, card.bonusChips or 0
   local key = ("%s%s|%s|%s|%s"):format(card.rank, card.suit, card.enh or "", card.ed or "", card.seal or "")
   if w.card == card and w.cardKey == key then return end
   w.card, w.cardKey = card, key
@@ -247,7 +255,29 @@ function Methods.Pop(w)
   end)
 end
 
+-- A quick tint over the face: up, `onPeak` at the top (swap the face there), then down. 0.25s / speed.
+-- `desat` also drains the art's colour for the beat.
+function Methods.Flash(w, color, onPeak, speed, desat)
+  local f, half = w.flash, FLASH_TIME / 2 / (speed or 1)
+  Tween.Cancel(f)
+  f:SetColorTexture(color[1], color[2], color[3], 1)
+  f:SetAlpha(0)
+  f:Show()
+  if desat and w.art.SetDesaturated then w.art:SetDesaturated(true) end
+  local function clear()
+    f:Hide()
+    if desat and w.art.SetDesaturated then w.art:SetDesaturated(false) end
+  end
+  Tween.To(f, { alpha = FLASH_PEAK }, half, function()
+    if onPeak and not w.released then onPeak() end
+    Tween.To(f, { alpha = 0 }, half, clear, 0, clear)
+  end, 0, clear)
+end
+
 function Methods.Reset(w)
+  Tween.Cancel(w.flash)
+  w.flash:Hide()
+  if w.art.SetDesaturated then w.art:SetDesaturated(false) end
   Tween.Cancel(w)
   Tween.Cancel(w.body)
   Tween.Cancel(w.face)
@@ -320,6 +350,10 @@ local function create(parent)
   w.shade:SetPoint("TOPLEFT", 2, -2)
   w.shade:SetPoint("BOTTOMRIGHT", -2, 2)
   w.shade:SetColorTexture(0.35, 0.35, 0.35, 0.65)
+  w.flash = face:CreateTexture(nil, "OVERLAY", nil, 6) -- a change's tint, under the card back
+  w.flash:SetPoint("TOPLEFT", 2, -2)
+  w.flash:SetPoint("BOTTOMRIGHT", -2, 2)
+  w.flash:Hide()
   w.back = face:CreateTexture(nil, "OVERLAY", nil, 7)
   w.back:SetAllPoints()
   w.back:SetTexture(MEDIA .. "CardBack")

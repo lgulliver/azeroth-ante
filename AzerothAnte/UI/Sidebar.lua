@@ -46,6 +46,12 @@ function Sidebar.Build(frame)
   Theme.setColor(frame.bossRule, Theme.parchment)
   frame.bossRule:SetHeight(32)
   frame.bossRule:SetJustifyV("TOP")
+  -- Strikes the boss's name through once a trinket has disabled it.
+  frame.bossStrike = frame:CreateTexture(nil, "OVERLAY")
+  frame.bossStrike:SetHeight(2)
+  frame.bossStrike:SetColorTexture(Theme.label[1], Theme.label[2], Theme.label[3], 1)
+  frame.bossStrike:SetPoint("LEFT", frame.blindName, "LEFT", 0, 0)
+  frame.bossStrike:Hide()
   rule("round", -72)
 
   frame.targetLabel = fontString(frame, Theme.fonts.small, "TOPLEFT", m, -80, w)
@@ -177,7 +183,7 @@ local function updateVouchers(frame, run)
 end
 
 -- The round stats show during a run; the profile totals show on the deck-select screen.
-local ROUND_WIDGETS = { "blindName", "bossRule", "targetLabel", "target", "scoreLabel", "score", "chipsBox",
+local ROUND_WIDGETS = { "blindName", "bossRule", "bossStrike", "targetLabel", "target", "scoreLabel", "score", "chipsBox",
   "multBox", "xMark", "handName", "hands", "discards", "gold", "stage", "deckButton" }
 -- The blind screen shows run info instead of the blind and the round score.
 local BLIND_WIDGETS = { "deckIcon", "deckName", "hands", "discards", "gold", "stage", "deckButton" }
@@ -232,6 +238,32 @@ local function setGold(frame, gold)
   end
 end
 
+-- The blind's name and rule. A disabled boss reads "Disabled" with its name dim and struck through.
+local function showBoss(frame, run)
+  local boss = ns.Run.bossId(run) and ns.Bosses.def[ns.Run.bossId(run)]
+  local off = boss and run.bossDisabled
+  if boss then
+    frame.blindName:SetText(boss.name)
+    frame.bossRule:SetText(off and "Disabled" or boss.desc or "")
+  else
+    frame.blindName:SetText(BLIND_NAMES[run.blind] or "")
+    frame.bossRule:SetText("")
+  end
+  if off then
+    Theme.setColor(frame.blindName, Theme.label)
+    frame.bossStrike:SetWidth(math.max(1, math.min(frame.blindName:GetStringWidth(), frame.blindName:GetWidth())))
+  else
+    Theme.Value(frame.blindName, true)
+  end
+  frame.bossStrike:SetShown(off and true or false)
+end
+
+-- Refreshes only the boss panel (a boss disabled mid-play), leaving the score boxes alone.
+function Sidebar.ShowBoss(run)
+  local frame = ns.UI.Main and ns.UI.Main.sidebar
+  if frame and frame.bossStrike and run then showBoss(frame, run) end
+end
+
 -- chips and mult are optional (shown as 0 when nil), for live scoring display.
 function Sidebar.Update(run, chips, mult)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
@@ -282,14 +314,7 @@ function Sidebar.Update(run, chips, mult)
   showGroup(frame, ROUND_WIDGETS, true)
 
   local bossId = ns.Run.bossId(run)
-  local boss = bossId and ns.Bosses.def[bossId]
-  if boss then
-    frame.blindName:SetText(boss.name)
-    frame.bossRule:SetText(run.bossDisabled and "Disabled." or boss.desc or "")
-  else
-    frame.blindName:SetText(BLIND_NAMES[run.blind] or "")
-    frame.bossRule:SetText("")
-  end
+  showBoss(frame, run)
   -- Run.nextBlind leaves the old target/score in place, so the blind screen
   -- shows the upcoming blind's target and a zero score. The shop screen shows
   -- the just-finished blind's values, labelled as such.

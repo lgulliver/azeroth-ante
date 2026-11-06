@@ -62,6 +62,7 @@ local function visual(e)
     return TR().SlotByUid(e.uid) ~= nil
   end
   return kind == "money" or kind == "trinketCreated" or kind == "levelUp" or kind == "cardDestroyed"
+    or kind == "cardCreated" or kind == "consumableCreated" or kind == "bossDisabled"
 end
 
 local function fire(s, e)
@@ -87,6 +88,21 @@ local function fire(s, e)
     stackedFloat(s, sb and sb.handName, "Level up!", Theme.gold)
   elseif kind == "cardDestroyed" then
     ns.UI.Outcome.Play({ destroyed = { e.cardId or e.id } })
+  elseif kind == "cardCreated" then
+    -- With the hand on screen a card made into it flies out of the Deck button; otherwise (a card for the
+    -- deck, or a hand not dealt yet: the render deals it) the Deck button just pulses.
+    row.PulseUid(e.uid)
+    local card = ns.Deck.find(s.run, e.cardId)
+    ns.UI.Screens.PulseDeckButton(s.run)
+    if e.toHand then ns.UI.HandView.FlyIn(card, s.speed) end
+  elseif kind == "consumableCreated" then
+    row.PulseUid(e.uid)
+    ns.UI.ConsumableRow.PopIn(s.run, e.item, s.speed)
+  elseif kind == "bossDisabled" then
+    -- Markers and the boss panel change now; the render after the queue only confirms it.
+    ns.UI.HandView.ClearDebuffs()
+    ns.UI.Sidebar.ShowBoss(s.run)
+    stackedFloat(s, sb and sb.blindName, "Boss disabled!", Theme.gold)
   end
 end
 

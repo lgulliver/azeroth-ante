@@ -11,6 +11,7 @@ local MAX_SLOTS = 5
 local SLOT_W, SLOT_H, SLOT_GAP = 44, 62, 6   -- 5:7, like a card
 local ICON_SIZE = 26
 local POP_W, POP_H = 150, 124
+local POP_FROM, POP_TIME = 0.6, 0.2          -- a created consumable pops into its slot
 local POPOVER_LEVEL = 700                    -- above the shop and blind panels (600)
 
 ConsumableRow.HEIGHT = SLOT_H
@@ -173,6 +174,18 @@ function ConsumableRow.HolderFor(item)
     local slot = row.slots[i]
     if slot.item == item and slot:IsShown() then return slot.holder end
   end
+end
+
+-- Shows an item just added to run.consumables: the row catches up, then its slot pops in
+-- (scale 0.6 to 1, 0.2s / speed). Returns the holder, or nil when it has no slot.
+function ConsumableRow.PopIn(run, item, speed)
+  ConsumableRow.Update(run)
+  local holder = ConsumableRow.HolderFor(item)
+  if not holder then return nil end
+  holder:SetScale(POP_FROM)
+  holder:SetAlpha(0)
+  ns.UI.Tween.To(holder, { scale = 1, alpha = 1 }, POP_TIME / (speed or 1))
+  return holder
 end
 
 ---------------------------------------------------------------------------
