@@ -62,6 +62,7 @@ function Save.load(db)
     run.startDeckSize = run.startDeckSize or 52
   end
   run.pendingDestroy = nil
+  run.cardLog = { added = {}, destroyed = {} } -- Like events: a reload never replays pending notifications.
   run.lifecycleEvents = {} -- Events are for the live UI only; never replayed after a reload.
   ns.Deck.relink(run)
   return run
