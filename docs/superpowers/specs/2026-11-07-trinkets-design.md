@@ -442,5 +442,5 @@ Same as before:
   - `ctx.deckCards` is a view with that hand's scratch copies swapped in.
   - Every deck change is reported once per action through `flushCards`.
 - Boss disable uses `Run.activeBoss`. A boss with no rule (Ragnaros) can't be disabled.
-- Balance: 4-seed means (seeds 1-4, 200 runs each) at targets `300…16000` are ROGUE 19.0, WARRIOR 26.5, GOBLIN 20.9, MONK 23.3 and WARLOCK 7.4. **Warlock is just under the 8% floor, which is an open decision for Liam.**
+- Balance: 4-seed means (seeds 1-4, 200 runs each) at targets `300…16000` are ROGUE 19.0, WARRIOR 26.5, GOBLIN 20.9, MONK 23.3 and WARLOCK 7.4. **Warlock (7.4%) is accepted as the hardest deck [Liam, 2026-11-07]: it unlocks last, so being toughest fits.**
 - Remaining roadmap: legendary trinkets plus The Soul, skip tags (with Diet Cola and Throwback), stakes, the other Balatro decks, and endless mode.
