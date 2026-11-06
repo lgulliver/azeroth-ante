@@ -5,11 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Install LuaJIT
         run: sudo apt-get update && sudo apt-get install -y luajit
@@ -25,7 +30,11 @@ jobs:
       - name: UI smoke, seeds 1-30
         run: |
           for s in $(seq 1 30); do
-            SMOKE_SEED=$s luajit tests/smoke_ui.lua > /dev/null || { echo "smoke failed for seed $s"; exit 1; }
+            if ! out=$(SMOKE_SEED=$s luajit tests/smoke_ui.lua 2>&1); then
+              echo "$out"
+              echo "smoke failed for seed $s"
+              exit 1
+            fi
           done
 
       - name: Syntax
