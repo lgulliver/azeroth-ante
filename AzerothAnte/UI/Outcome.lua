@@ -52,17 +52,17 @@ local function acquireFloat()
   return f
 end
 
--- Rises above `target` and fades.
-function Outcome.Float(target, text, color)
+-- Rises above `target` and fades. `lift` starts it higher, so floats close together stack.
+function Outcome.Float(target, text, color, lift)
   if not target then return end
   local f = acquireFloat()
   f.text:SetText(text)
   Theme.setColor(f.text, color)
   f:ClearAllPoints()
-  f:SetPoint("BOTTOM", target, "TOP", 0, 0)
+  f:SetPoint("BOTTOM", target, "TOP", 0, lift or 0)
   f:SetAlpha(1)
   f:Show()
-  Tween.To(f, { y = FLOAT_RISE, alpha = 0 }, FLOAT_TIME, function()
+  Tween.To(f, { y = (lift or 0) + FLOAT_RISE, alpha = 0 }, FLOAT_TIME, function()
     f:Hide()
     f:ClearAllPoints()
     floatPool[#floatPool + 1] = f

@@ -601,7 +601,11 @@ local function doSkip()
   if not run or not currentPack() or busy or handBusy() then return end
   ns.Packs.skip(run)
   persist()
-  main().Render(run, true) -- the shop returns; this closes the overlay
+  -- onPackSkipped hooks play their events over the pack, then the shop returns.
+  ns.UI.Lifecycle.Drain(run, function()
+    main().Render(run, true) -- the shop returns; this closes the overlay
+    persist()
+  end)
 end
 
 ---------------------------------------------------------------------------

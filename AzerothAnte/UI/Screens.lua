@@ -10,6 +10,7 @@ local SELL_GAP = 22            -- room under the trinket row for the sell button
 local PANEL_LEVEL, PAUSE_LEVEL = 600, 900
 local RED = { 1, 0.25, 0.2 }
 local GREY = { 0.6, 0.6, 0.6 }
+local WHITE = { 1, 1, 1 }
 local BUY_ERRORS = { gold = "Not enough gold", slots = "Slots full", gone = "Sold out", pack = "Finish the open pack first" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 
@@ -26,8 +27,9 @@ end
 
 local function blocked()
   local HandView, Tally, PackView = ns.UI.HandView, ns.UI.Tally, ns.UI.PackView
+  local Lifecycle = ns.UI.Lifecycle
   return (HandView and HandView.IsBusy()) or (Tally and Tally.IsBusy())
-    or (PackView and PackView.IsBusy()) or false
+    or (PackView and PackView.IsBusy()) or (Lifecycle and Lifecycle.IsBusy()) or false
 end
 
 local function persist()
@@ -177,9 +179,12 @@ local function startBlind()
   local run = main().run
   if not run or run.phase ~= "blind" then return end
   ns.Run.startBlind(run)
-  main().Render(run)
-  ns.UI.HandView.Update(run, true)
-  persist()
+  -- onBlindSelect hooks may have melted or made trinkets: their events play, then the table renders.
+  ns.UI.Lifecycle.Drain(run, function()
+    main().Render(run)
+    ns.UI.HandView.Update(run, true)
+    persist()
+  end)
 end
 
 -- Director's Cut / Retcon: re-draws this stage's boss. The button is only live
@@ -414,23 +419,24 @@ end
 -- Runs a Shop action, reports a failure inline, then re-renders everything
 -- (sidebar gold, trinket row, shop buttons) and persists. onOk(run) plays the
 -- success animation after the render; the gold change floats over the sidebar.
+-- Lifecycle events the action fired (a reroll hook, a pack skip) play before the render.
 local function shopAction(fn, onOk, offerType, ...)
   local run = main().run
   if blocked() or not run or run.phase ~= "shop" then return end
   local before = run.gold
   local ok, why = fn(run, ...)
   if ok == false then showError(panels.shop, why, offerType) end
-  main().Render(run, true)
-  persist()
-  if ok ~= false then
-    ns.UI.Outcome.FloatGold(run.gold - before)
-    if onOk then onOk(run) end
-  end
+  if ok ~= false then ns.UI.Outcome.FloatGold(run.gold - before) end
+  ns.UI.Lifecycle.Drain(run, function()
+    main().Render(run, true)
+    persist()
+    if ok ~= false and onOk then onOk(run) end
+  end)
 end
 
 local function onSell(slot, id)
   local run = main().run
-  if blocked() or not run or run.phase ~= "shop" then return end
+  if blocked() or not run or (run.phase ~= "shop" and run.phase ~= "play") then return end
   -- A sell shifts the next trinket's button under the cursor: ignore the
   -- follow-up click, and ignore clicks whose trinket is no longer in that slot.
   local now = GetTime()
@@ -438,10 +444,17 @@ local function onSell(slot, id)
   local owned = run.trinkets[slot]
   if not owned or owned.id ~= id then return end
   lastSell = now
-  local gained = ns.Shop.sellTrinket(run, slot)
-  main().Render(run, true) -- a pack open on this screen re-checks its Pick button
+  local uid = owned.uid
+  local gained = ns.Run.sellTrinket(run, slot)
+  if not gained then return end
   ns.UI.Outcome.FloatGold(gained)
-  persist()
+  -- A farewell effect (onSelfSold) or an onSell hook plays its events first; the sold slot melts.
+  if run.lifecycleEvents and #run.lifecycleEvents > 0 then ns.UI.TrinketRow.Destroy(uid, 0.15) end
+  ns.UI.Lifecycle.Drain(run, function()
+    main().Render(run, true) -- a pack open on this screen re-checks its Pick button
+    if run.phase == "play" then ns.UI.HandView.Update(run, true) end -- hand size may have changed
+    persist()
+  end)
 end
 
 -- A bought playing card goes to the deck: update the sidebar count and pulse the button.
@@ -703,7 +716,7 @@ local function refreshVoucher(p, run)
   v.soldBox:Hide()
   v.content:Show()
   local price = ns.Vouchers.price(run, def.cost)
-  local afford = run.gold >= price
+  local afford = ns.Run.canAfford(run, price)
   local blockedByPack = run.shop and run.shop.openPack ~= nil
   v.face.voucherId = def.id
   v.face.art:SetTexture(voucherArt(def))
@@ -851,8 +864,9 @@ local function refreshShop(p, run)
   local deck = ns.Decks.def[run.deckId] or {}
   local interestLabel = "Interest"
   if deck.noInterest then interestLabel = "Interest (none: " .. (deck.name or ""):gsub(" Deck$", "") .. ")" end
+  local savedBy = pay.saved and ns.Trinkets.def[pay.savedId]
   local lines = {
-    reward = { "Blind reward", pay.reward },
+    reward = { pay.saved and ("Saved by " .. (savedBy and savedBy.name or "a trinket")) or "Blind reward", pay.reward },
     hands = { "Hands left (" .. (run.handsLeft or 0) .. " x " .. (deck.goldPerHand or 1) .. "g)", pay.hands },
     discards = { "Discards left (" .. (run.discardsLeft or 0) .. " x " .. (deck.goldPerDiscard or 0) .. "g)", pay.discards },
     interest = { interestLabel, pay.interest },
@@ -889,6 +903,10 @@ local function refreshShop(p, run)
     if show then
       row.label:SetText(lines[key][1])
       row.value:SetText("+" .. (lines[key][2] or 0) .. "g")
+      -- A saved blind pays no reward: its line names the trinket instead, with no amount.
+      local saved = key == "reward" and pay.saved
+      row.value:SetShown(not saved)
+      Theme.setColor(row.label, saved and Theme.gold or WHITE)
       row.label:ClearAllPoints()
       row.value:ClearAllPoints()
       row.label:SetPoint("TOPLEFT", p, "TOPLEFT", 16, y)
@@ -922,7 +940,7 @@ local function refreshShop(p, run)
       else
         full = #run.consumables >= ns.Consumables.slots(run)
       end
-      local afford = run.gold >= offer.cost
+      local afford = ns.Run.canAfford(run, offer.cost)
       if offer.type == "card" then
         c.face:Hide()
         showCard(c, offer)
@@ -949,7 +967,7 @@ local function refreshShop(p, run)
     setColumn(c, offer and true or false)
     if offer then
       local info = Screens.PackInfo(offer)
-      local afford = run.gold >= offer.cost
+      local afford = ns.Run.canAfford(run, offer.cost)
       c.face.pack = info
       c.face.art:SetVertexColor(info.tint[1], info.tint[2], info.tint[3])
       c.face.size:SetText(info.sizeText)
@@ -962,9 +980,11 @@ local function refreshShop(p, run)
   end
 
   -- Lucky Coin and Gambler's Charm make rerolls cheaper (Shop.reroll's formula).
-  local rerollCost = math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
-  p.reroll:SetText("Reroll (" .. rerollCost .. "g)")
-  local canReroll = run.gold >= rerollCost and not blockedByPack
+  -- A Chaos Theory reroll is free and does not raise the price (Shop.reroll).
+  local free = (shop.freeRerolls or 0) > 0
+  local rerollCost = free and 0 or math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
+  p.reroll:SetText(free and "Reroll (free)" or ("Reroll (" .. rerollCost .. "g)"))
+  local canReroll = ns.Run.canAfford(run, rerollCost) and not blockedByPack
   if canReroll then p.reroll:Enable() else p.reroll:Disable() end
   setReason(p.reroll, blockedByPack and BUY_ERRORS.pack or ((not canReroll) and BUY_ERRORS.gold or nil))
 end
@@ -1083,7 +1103,7 @@ function Screens.Show(name, run)
   if not entry then -- "play": the hand view owns the canvas
     if current ~= "play" then
       hideAll()
-      ns.UI.TrinketRow.SetSellMode(false)
+      ns.UI.TrinketRow.SetSellMode(true, onSell) -- trinkets sell in a blind too
       m.buttons:Show()
       m.handArea:Show()
       ns.UI.HandView.SetDeckShown(true)
