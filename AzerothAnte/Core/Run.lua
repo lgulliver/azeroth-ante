@@ -29,6 +29,7 @@ function Run.new(seed, deckId)
     bossesFought = {}, streak = { maxInterest = 0 },
     handsPlayedTotal = 0, bosses = {}, score = 0,
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
+    discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
@@ -90,19 +91,24 @@ function Run.startBlind(run)
   run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
   run.roundHandPlays = {}
+  run.discardsUsedRound = 0
+  run.savedBy, run.savedById = nil, nil
   run.target = Run.target(run.stage, run.blind, bossId)
   if bossId then
     run.bossesFought[bossId] = true
     event("bossFought", bossId, run)
   end
+  ns.TrinketEngine.fire(run, "onBlindSelect")
   event("handSize", ns.Deck.handSize(run), run)
   editionTrinkets(run)
   Run.checkHand(run)
 end
 
--- Ends the run as lost, once.
+-- Ends the run as lost, once, unless an onLose trinket (Mr. Bones) saves the blind.
 local function lose(run)
   if run.phase == "lost" then return end
+  ns.TrinketEngine.fire(run, "onLose")
+  if run.savedBy then return Run.winBlind(run, { saved = true }) end
   run.phase = "lost"
   event("runEnded", 0, run)
 end
@@ -221,11 +227,15 @@ function Run.discard(run, idx)
   run.discardsLeft = run.discardsLeft - 1
   event("cardsDiscarded", #idx, run)
   local outcome = { created = {} }
+  local cards = {}
+  for i, index in ipairs(idx) do cards[i] = run.hand[index] end
+  -- Before the count moves, so a first-discard trinket sees 0; hooks may destroy cards in hand.
+  ns.TrinketEngine.fire(run, "onDiscard", cards)
+  run.discardsUsedRound = run.discardsUsedRound + 1
   if ns.Consumables then
     local boss = ns.Bosses.def[Run.bossId(run) or ""]
     local rules = ns.TrinketRules.set(run.trinkets)
-    for _, index in ipairs(idx) do
-      local card = run.hand[index]
+    for _, card in ipairs(cards) do
       local debuffed = boss and boss.debuff and boss.debuff(card, rules)
       if card.seal == "PURPLE" and not debuffed and #run.consumables < ns.Consumables.slots(run) then
         local item = ns.Consumables.random(run, "scroll")
@@ -234,20 +244,28 @@ function Run.discard(run, idx)
       end
     end
   end
-  removeSelected(run, idx)
+  local gone = {}
+  for _, card in ipairs(cards) do gone[card] = true end
+  for i = #run.hand, 1, -1 do
+    if gone[run.hand[i]] then table.remove(run.hand, i) end
+  end
   refill(run)
   Run.checkHand(run)
   return outcome
 end
 
-function Run.winBlind(run)
+-- opts.saved: a loss prevented by an onLose trinket; the blind reward is replaced by the save.
+function Run.winBlind(run, opts)
   if run.blind == 3 then run.shopVoucher = nil end
+  ns.TrinketEngine.fire(run, "roundUpdate")
+  if run.blind == 3 then ns.TrinketEngine.fire(run, "onBossDefeated") end
   local deck = ns.Decks.def[run.deckId]
   local payout = {
     reward = Run.BLIND_REWARDS[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),
     discards = run.discardsLeft * (deck.goldPerDiscard or 0),
     interest = 0, trinkets = 0, held = 0,
   }
+  if opts and opts.saved then payout.reward, payout.saved, payout.savedId = 0, run.savedBy, run.savedById end
   local cap = ns.Vouchers.interestCap(run)
   if not deck.noInterest then payout.interest = math.min(cap, math.floor(run.gold / 5)) end
   local streak = (payout.interest == cap and payout.interest > 0) and run.streak.maxInterest + 1 or 0

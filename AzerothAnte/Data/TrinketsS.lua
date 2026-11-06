@@ -426,7 +426,7 @@ ns.Trinkets.add {
   onCard = function(ctx, self, card)
     if ns.Cards.hasSuit(card, self.state.suit, ctx.rules) then return { xmult = 1.5 } end
   end,
-  onRoundEnd = function(run, self, isCopy)
+  roundUpdate = function(run, self, isCopy)
     if not isCopy then rollAncientSuit(self, run) end
   end,
   status = function(self) return "Suit: " .. ns.Cards.SUIT_NAMES[self.state.suit] end,
@@ -626,7 +626,7 @@ ns.Trinkets.add {
     if self.state.rank and not ns.Cards.isStone(card) and card.rank == self.state.rank
       and ns.Cards.hasSuit(card, self.state.suit, ctx.rules) then return { xmult = 2 } end
   end,
-  onRoundEnd = function(run, self, isCopy)
+  roundUpdate = function(run, self, isCopy)
     if not isCopy then rollIdolCard(self, run) end
   end,
   status = function(self)

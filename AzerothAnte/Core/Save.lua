@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Save = {}
 
-Save.VERSION = 4
+Save.VERSION = 5
 
 local function deepCopy(value)
   if type(value) ~= "table" then return value end
@@ -43,6 +43,12 @@ function Save.load(db)
       local def = ns.Trinkets.def[trinket.id]
       if def and def.init then def.init(trinket, run) end
     end
+  end
+  if db.version < 5 then
+    run.discardsUsedRound = run.discardsUsedRound or 0
+    run.flags = run.flags or {}
+    run.lifecycleEvents = run.lifecycleEvents or {}
+    if run.shop then run.shop.freeRerolls = run.shop.freeRerolls or 0 end
   end
   ns.Deck.relink(run)
   return run
