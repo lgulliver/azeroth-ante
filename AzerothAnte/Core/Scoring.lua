@@ -175,17 +175,28 @@ function Scoring.score(ctx)
     if boss and boss.debuff and boss.debuff(card) then
       if card.enh == "STEEL" then emit({ kind = "debuff", heldIndex = h }) end
     else
-      local extra = retriggers(card, "heldRetrigger", h)
-      for pass = 1, #extra + 1 do
-        if pass > 1 then emit(sourceFields({ kind = "retrigger", heldIndex = h }, extra[pass - 1])) end
+      -- A held card only repeats when its first evaluation did something.
+      local function evaluate()
+        local fired = false
         if card.enh == "STEEL" then
           mult = mult * 1.5
           emit({ kind = "held", heldIndex = h, xmult = 1.5 })
+          fired = true
         end
         engine.each(trinkets, function(slot, inst, def, isCopy)
           local effect = def.onHeld and def.onHeld(ctx, inst, card, h, isCopy)
-          if effect then apply(effect, slot, { heldIndex = h }) end
+          if effect then
+            apply(effect, slot, { heldIndex = h })
+            fired = true
+          end
         end)
+        return fired
+      end
+      if evaluate() then
+        for _, entry in ipairs(retriggers(card, "heldRetrigger", h)) do
+          emit(sourceFields({ kind = "retrigger", heldIndex = h }, entry))
+          evaluate()
+        end
       end
     end
   end
