@@ -4,6 +4,11 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-06
+
+### Changed
+- Supports Retail 12.1.7 (interface 120107), so the addon is no longer marked out of date on the current Retail patch.
+
 ## [0.6.1] - 2026-11-06
 
 ### Added
