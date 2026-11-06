@@ -1258,6 +1258,53 @@ local function run(w)
   end
   step("4c last pick animates, faces reset, reload pick hits the deck")
 
+  -- 4d. A playing-card offer (Magic Trick) renders as a card face, buys into the
+  -- deck, and an unbought one survives a reload.
+  do
+    local r = Main.run
+    local sp = panel("offerCards")
+    check(r.phase == "shop" and r.shop and not r.shop.openPack, "4d starts in the shop")
+    r.gold = 50
+    r.consumables = { { kind = "scroll", id = "FURY" }, { kind = "scroll", id = "FURY" } } -- slots full
+    r.shop.cards[1] = { type = "card", rank = 12, suit = "H", enh = "GLASS", ed = "FOIL", seal = "RED", cost = 5, baseCost = 5 }
+    r.shop.cards[2] = { type = "card", rank = 7, suit = "S", cost = 1, baseCost = 1 }
+    local ok, err = pcall(Main.Render, r, true)
+    check(ok, "the shop renders a playing-card offer: " .. tostring(err))
+    stub.advance(1)
+    local col = sp.offerCards[1]
+    local w = col.cardWidget
+    check(w and not w.released and w:IsShown(), "the card offer shows a CardWidget face")
+    check(w.card.rank == 12 and w.card.suit == "H" and w.card.ed == "FOIL", "the face shows the offered card")
+    check(w.face.fx ~= nil, "the card face carries its edition FX")
+    check(not col.face:IsShown(), "the item face is hidden for a card")
+    eq(col.name:GetText(), "Queen of Hearts", "card name")
+    check(col.desc:GetText():find("Glass", 1, true) and col.desc:GetText():find("Red Seal", 1, true)
+      and col.desc:GetText():find("Foil", 1, true), "description lists enhancement, seal and edition")
+    check(col.buy:IsEnabled() and col.buy:GetText() == "Buy", "a card never says Slots full")
+    local before, count = r.gold, #r.deck
+    click(col.buy, "Buy the card")
+    stub.advance(1)
+    eq(#r.deck, count + 1, "the card joined the deck")
+    eq(r.gold, before - 5, "gold dropped by the price")
+    eq(#r.consumables, 2, "no consumable was added")
+    eq(Main.sidebar.deckButton:GetText(), "Deck (" .. #r.deck .. ")", "the sidebar deck count updated")
+    check(r.shop.cards[1] == false and not col.cardWidget, "the sold column released its card face")
+    check(sp.offerCards[2].cardWidget ~= nil, "the second card offer still shows")
+    -- Reload with an unbought card offer.
+    ns.UI.OnRunChanged()
+    local w4 = newWorld(deepCopy(env.AzerothAnteDB))
+    w4.env.SlashCmdList.AZEROTHANTE()
+    w4.stub.advance(1)
+    local sp4
+    for _, c in ipairs(w4.ns.UI.Main.content._children) do
+      if c.offerCards then sp4 = c end
+    end
+    check(sp4 and sp4:IsVisible(), "the reloaded shop shows")
+    check(sp4.offerCards[2].cardWidget and sp4.offerCards[2].cardWidget.card.rank == 7, "the reloaded card offer renders")
+    r.consumables = {}
+  end
+  step("4d shop playing-card offer: render, buy into deck, reload")
+
   -- 5. Shop.
   local run = Main.run
   run.gold = 100
