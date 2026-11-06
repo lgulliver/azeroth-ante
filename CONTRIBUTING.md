@@ -53,11 +53,11 @@ python3 tests/test_media.py   # generated textures are valid
 Releases are cut by pushing a version tag that matches the `## Version` line in `AzerothAnte/AzerothAnte.toc`, for example `git tag v0.7.0 && git push origin v0.7.0`. For a pre-release tag, the TOC keeps the plain version: `v0.7.0-alpha.1` needs `## Version: 0.7.0`. The Release workflow then:
 
 1. Checks the tag matches the TOC version, and fails if not.
-2. Builds `AzerothAnte-<version>-forever.zip`. The `-forever` suffix is how WowUp matches the asset to the Forever client.
+2. Builds `AzerothAnte-<version>.zip` (Retail) and `AzerothAnte-<version>-forever.zip` (Forever). They hold the same addon; WowUp and Wago pick the client from the name (a plain `.zip` is Retail, `-forever.zip` is Forever).
 3. Publishes a GitHub release with generated notes, and includes `LICENSE` in the zip. A tag with a hyphen (`v0.7.0-alpha.1`) is a pre-release, and goes to CurseForge as alpha (if it says alpha) or beta. Re-running the workflow replaces the asset on an existing release.
-4. Uploads the same zip to CurseForge, if configured. Wago is notified by a GitHub webhook on release and reads the game version from the `-forever.zip` name.
+4. Uploads one file to CurseForge, if configured, tagged with the Forever patch and every Retail patch CurseForge knows. Wago is notified by a GitHub webhook on release and reads each zip's game version from its name (the Wago addon's Game Version setting is "Multiple").
 
-The game patch is derived from the Forever interface in the TOC `## Interface` line (`16001` becomes `1.60.1`). CurseForge must already list that Forever patch, or the upload fails.
+Game patches are derived from the TOC `## Interface` line: the five-digit Forever interface (`16001` becomes `1.60.1`) and the six-digit Retail ones (`120100` becomes `12.1.0`). CurseForge must already list the Forever patch, or the upload fails; a Retail patch it doesn't list yet is skipped with a warning.
 
 To enable the CurseForge upload, add these in the repo's Settings > Secrets and variables > Actions. The step is skipped until both are set.
 
