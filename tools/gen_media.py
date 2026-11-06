@@ -1084,9 +1084,10 @@ CHIP_SIZE = 64
 CHIPS = {
     # body, light (notches, ring, emblem), dark (outline, emblem shadow)
     "SMALL": ((52, 104, 186), (218, 232, 252), (14, 34, 86)),
-    # BOSS is a light neutral crimson: the UI multiplies it with a per-boss SetVertexColor tint.
     "BIG": ((204, 146, 44), (255, 238, 176), (92, 56, 8)),
-    "BOSS": ((204, 88, 86), (250, 234, 226), (104, 28, 34)),
+    # BOSS is near-white with dark-grey shading: the UI multiplies it by a per-boss SetVertexColor
+    # tint, so the hue stays clean (a coloured base would muddy every tint).
+    "BOSS": ((226, 224, 222), (255, 255, 255), (92, 92, 96)),
 }
 CHIP_NOTCHES = 8
 
