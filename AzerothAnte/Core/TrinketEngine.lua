@@ -199,20 +199,24 @@ end
 
 -- Tells the trinkets about the cards logged since the last flush (Deck.add / Deck.destroy), once each:
 -- onCardsAdded(run, self, cards, isCopy), onCardsDestroyed(run, self, cards, isCopy; copies of the cards).
--- The log is cleared first, so cards a handler makes wait for the next flush.
+-- The log is cleared first; cards a handler makes are flushed in a further pass (at most 5 passes).
 local flushing = false
 function TrinketEngine.flushCards(run)
-  local log = run.cardLog
-  if flushing or not log or logSize(run) == 0 then return end
-  local added, destroyed = log.added, log.destroyed
-  run.cardLog = { added = {}, destroyed = {} }
-  flushing = true
-  local ok, err = pcall(function()
-    if #added > 0 then TrinketEngine.fire(run, "onCardsAdded", added) end
-    if #destroyed > 0 then TrinketEngine.fire(run, "onCardsDestroyed", destroyed) end
-  end)
-  flushing = false
-  if not ok then error(err, 0) end
+  if flushing then return end
+  -- Cards a handler makes are logged for another pass, up to a cap so a chain cannot run forever.
+  for _ = 1, 5 do
+    local log = run.cardLog
+    if not log or logSize(run) == 0 then return end
+    local added, destroyed = log.added, log.destroyed
+    run.cardLog = { added = {}, destroyed = {} }
+    flushing = true
+    local ok, err = pcall(function()
+      if #added > 0 then TrinketEngine.fire(run, "onCardsAdded", added) end
+      if #destroyed > 0 then TrinketEngine.fire(run, "onCardsDestroyed", destroyed) end
+    end)
+    flushing = false
+    if not ok then error(err, 0) end
+  end
 end
 
 -- Trinkets created or destroyed by a hook change hands, discards and hand size, so settle them.

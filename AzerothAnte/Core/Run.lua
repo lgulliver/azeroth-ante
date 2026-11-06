@@ -96,7 +96,7 @@ function Run.blindDiscards(run) return discardsFor(run, Run.activeBoss(run)) end
 -- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable.
 function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
-  if not boss then return false end
+  if not boss or run.phase ~= "play" then return false end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
   run.bossDisabled = true
   if run.phase == "play" then
@@ -272,6 +272,7 @@ function Run.sellTrinket(run, slot)
     local gained = ns.Shop.sellValue(trinket)
     run.gold = run.gold + gained
     ns.TrinketEngine.fire(run, "onSell", { kind = "trinket", item = trinket })
+    ns.TrinketEngine.flushCards(run)
     return gained
   end)
 end
@@ -282,6 +283,26 @@ function Run.checkHand(run)
   if run.phase ~= "play" then return end
   if #run.hand == 0 then refill(run) end
   if #run.hand == 0 and run.score < run.target then lose(run) end
+end
+
+-- The scoring ctx for playing `cards` (with `held` kept) now; overrides replace fields (the bot
+-- passes its own goldRef and rng copy). Shared by Run.play, the sim bot and the test helper.
+function Run.scoreCtx(run, cards, held, overrides)
+  local boss = Run.activeBoss(run)
+  local ctx = {
+    cards = cards, held = held or {}, goldRef = { gold = run.gold }, handLevels = run.handLevels,
+    trinkets = run.trinkets, bossId = boss and boss.id, rng = run.rng,
+    handsPlayedTotal = run.handsPlayedTotal + 1, isLastHand = run.handsLeft == 1,
+    discardsLeft = run.discardsLeft, gold = run.gold,
+    consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
+    handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
+    pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
+    deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
+    firstHandOfRound = (run.handsPlayedRound or 0) == 0,
+    consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
+  }
+  for k, v in pairs(overrides or {}) do ctx[k] = v end
+  return ctx
 end
 
 function Run.play(run, idx)
@@ -296,20 +317,10 @@ function Run.play(run, idx)
     if not selected[i] then held[#held + 1] = card end
   end
   local goldRef = { gold = run.gold }
-  local activeBoss = Run.activeBoss(run)
-  local firstHandOfRound = run.handsPlayedRound == 0
+  local ctx = Run.scoreCtx(run, cards, held, { goldRef = goldRef })
   run.handsPlayedTotal = run.handsPlayedTotal + 1
   run.handsPlayedRound = run.handsPlayedRound + 1
-  local result = ns.Scoring.score({
-    cards = cards, held = held, goldRef = goldRef, handLevels = run.handLevels, trinkets = run.trinkets,
-    bossId = activeBoss and activeBoss.id, rng = run.rng, handsPlayedTotal = run.handsPlayedTotal,
-    isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
-    consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
-    handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
-    pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
-    deckCards = run.deck, startDeckSize = run.startDeckSize or 52, firstHandOfRound = firstHandOfRound,
-    consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
-  })
+  local result = ns.Scoring.score(ctx)
   removePlayed(run, cards)
   -- Scoring worked on scratch copies of the instances and cards; this is the commit. A trinket
   -- destroyed while scoring changes hands, discards and hand size, so the swap settles them.

@@ -176,3 +176,101 @@ H.test("v5_save_migrates", function()
   T.eq(loaded.startDeckSize, 52)
   T.eq(loaded.handsPlayedRound, 0)
 end)
+
+-- Fix round 1.
+H.test("score_ctx_bot_and_helper_respect_disabled_boss", function()
+  local bot = dofile("tools/sim/bot.lua")(ns)
+  local run = H.run()
+  run.blind, run.bosses[1] = 3, "HOGGER"
+  ns.Run.startBlind(run)
+  run.hand = { H.card(13, "S") }
+  local debuffed = bot.bestPlay(run)
+  T.ok(ns.Run.disableBoss(run))
+  T.eq(ns.Run.scoreCtx(run, run.hand).bossId, nil)
+  local lifted = bot.bestPlay(run)
+  T.ok(lifted > debuffed, "the bot scores the face card undebuffed: " .. lifted .. " vs " .. debuffed)
+  T.eq(lifted, H.score(run, { run.hand[1] }).total)
+end)
+
+H.test("score_ctx_usage_through_helper_and_bot", function()
+  H.stub({ id = "S_FT", before = function(ctx) return { mult = 10 * ctx.usage.scroll } end })
+  local bot = dofile("tools/sim/bot.lua")(ns)
+  local run = H.run({ trinkets = { "S_FT" } })
+  ns.Run.startBlind(run)
+  run.hand = { H.card(9, "H") }
+  local none = H.score(run, { run.hand[1] }).total
+  local botNone = bot.bestPlay(run)
+  run.usage.scroll = 3
+  T.ok(H.score(run, { run.hand[1] }).total > none, "helper sees usage")
+  T.ok(bot.bestPlay(run) > botNone, "bot sees usage")
+end)
+
+H.test("disable_boss_only_in_play", function()
+  local run = H.run()
+  run.blind, run.bosses[1] = 3, "MUTANUS"
+  run.phase = "shop"
+  T.eq(ns.Run.disableBoss(run), false)
+  T.eq(run.bossDisabled, false)
+end)
+
+H.test("save_load_clears_card_log", function()
+  local run = H.run()
+  ns.Deck.add(run, H.card(5, "H"))
+  T.eq(#run.cardLog.added, 1)
+  local db = {}
+  ns.Save.store(db, run)
+  T.eq(ns.Save.load(db).cardLog, { added = {}, destroyed = {} })
+end)
+
+H.test("sell_trinket_flushes_card_log", function()
+  local got = 0
+  H.stub({ id = "S_WATCH", onCardsDestroyed = function(_, _, cards) got = got + #cards end })
+  H.stub({ id = "S_FAREWELL", onSelfSold = function(run) return { destroyCard = run.deck[1].id } end })
+  local run = H.run({ trinkets = { "S_FAREWELL", "S_WATCH" } })
+  ns.Run.startBlind(run)
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(got, 1)
+  T.eq(run.cardLog, { added = {}, destroyed = {} })
+end)
+
+H.test("flush_loops_with_cap", function()
+  local calls = 0
+  H.stub({ id = "S_CHAIN", onCardsAdded = function()
+    calls = calls + 1
+    return { createCard = { card = { rank = 2, suit = "C" } } }
+  end })
+  local run = H.run({ trinkets = { "S_CHAIN" } })
+  ns.Deck.add(run, H.card(5, "H"))
+  ns.TrinketEngine.flushCards(run)
+  T.eq(calls, 5, "capped at five passes")
+
+  calls = 0
+  H.cleanup()
+  H.stub({ id = "S_ONCE", onCardsAdded = function(_, _, cards)
+    calls = calls + 1
+    if cards[1].rank == 5 then return { createCard = { card = { rank = 6, suit = "C" } } } end
+  end })
+  run = H.run({ trinkets = { "S_ONCE" } })
+  ns.Deck.add(run, H.card(5, "H"))
+  ns.TrinketEngine.flushCards(run)
+  T.eq(calls, 2, "the made card is announced in a second pass")
+  T.eq(run.cardLog, { added = {}, destroyed = {} })
+end)
+
+H.test("v5_mid_shop_save_migrates", function()
+  local run = H.run()
+  run.phase = "shop"
+  run.shop = { cards = {}, packs = {}, rerollCost = 5, freeRerolls = 0 }
+  local db = {}
+  ns.Save.store(db, run)
+  db.version = 5
+  db.run.usage, db.run.cardLog, db.run.bossDisabled, db.run.startDeckSize = nil, nil, nil, nil
+  local loaded = ns.Save.load(db)
+  T.eq(loaded.phase, "shop")
+  T.eq(loaded.shop.rerollCost, 5)
+  T.eq(loaded.usage, { scroll = 0, tome = 0, relic = 0, tomeIds = {} })
+  T.eq(loaded.cardLog, { added = {}, destroyed = {} })
+  T.eq(loaded.bossDisabled, false)
+  T.eq(loaded.startDeckSize, 52)
+  T.eq(loaded.handsPlayedRound, 0)
+end)

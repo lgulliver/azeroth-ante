@@ -58,7 +58,6 @@ return function(ns)
   -- Best-scoring playable selection. Fresh ctx and a copied RNG: run state never moves.
   local function bestPlay(run)
     local best, bestIdx = -1, nil
-    local bossId = Run.bossId(run)
     for _, idx in ipairs(combosFor(#run.hand)) do
       if Run.canPlay(run, idx) then
         local chosen, picked, held = {}, {}, {}
@@ -69,17 +68,7 @@ return function(ns)
         for i, card in ipairs(run.hand) do
           if not picked[i] then held[#held + 1] = card end
         end
-        local result = Scoring.score({
-          cards = chosen, held = held, goldRef = { gold = run.gold },
-          handLevels = run.handLevels, trinkets = run.trinkets, bossId = bossId,
-          rng = { s = run.rng.s }, handsPlayedTotal = run.handsPlayedTotal + 1,
-          isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
-          handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
-          pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
-          deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
-          firstHandOfRound = (run.handsPlayedRound or 0) == 0,
-          consumableRoom = ns.Consumables.slots(run) - #run.consumables,
-        })
+        local result = Scoring.score(Run.scoreCtx(run, chosen, held, { rng = { s = run.rng.s } }))
         if result.total > best then best, bestIdx = result.total, idx end
       end
     end
