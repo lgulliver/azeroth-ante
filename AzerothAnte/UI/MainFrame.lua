@@ -106,6 +106,10 @@ function Main.Create()
   abandon:HookScript("OnLeave", function() GameTooltip:Hide() end)
   abandon:Hide()
   Main.abandon = abandon
+  -- The title drag handle overlaps the abandon button; keep both buttons above it
+  -- so clicks reach them instead of starting a window drag.
+  close:SetFrameLevel(title:GetFrameLevel() + 2)
+  abandon:SetFrameLevel(title:GetFrameLevel() + 2)
   frame:SetScript("OnHide", function()
     GameTooltip:Hide()
     ns.UI.ConsumableRow.Close()

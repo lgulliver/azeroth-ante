@@ -1725,6 +1725,10 @@ local function run(w)
   do
     local ab = Main.abandon
     check(ab and ab.themeButton == "danger", "title-bar Abandon exists, danger variant")
+    -- The mouse-enabled title drag handle overlaps this button; it must sit above
+    -- the handle or the live client sends its clicks to the drag instead.
+    check(ab:GetFrameLevel() > Main.title:GetFrameLevel(), "title-bar Abandon above the drag handle")
+    check(Main.close:GetFrameLevel() > Main.title:GetFrameLevel(), "close button above the drag handle")
     check(not ab:IsShown(), "title-bar Abandon hidden on deck select")
     local function runsRecorded()
       local st = ns.Profile.get(env.AzerothAnteDB).stats.ROGUE
