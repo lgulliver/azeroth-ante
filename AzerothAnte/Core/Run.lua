@@ -88,7 +88,7 @@ function Run.goldFloor(run)
 end
 
 function Run.canAfford(run, cost)
-  return run.gold - cost >= Run.goldFloor(run)
+  return cost <= 0 or run.gold - cost >= Run.goldFloor(run)
 end
 
 function Run.startBlind(run)
