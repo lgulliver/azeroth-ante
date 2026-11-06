@@ -209,3 +209,327 @@ ns.Trinkets.add {
   icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
   onBlindSelect = function() return { createTrinkets = { rarity = "common", n = 2 } } end,
 }
+
+-- 73: Sky Golem.
+ns.Trinkets.add {
+  id = "SKY_GOLEM", name = "Sky Golem", rarity = "uncommon", cost = 7,
+  desc = "1g per 9 in full deck at round end",
+  icon = "Interface\\Icons\\INV_Misc_Enggizmos_01",
+  copyable = false,
+  onRoundEnd = function(run)
+    local n = 0
+    for _, card in ipairs(run.deck) do
+      if not ns.Cards.isStone(card) and card.rank == 9 then n = n + 1 end
+    end
+    return n
+  end,
+}
+
+-- 74: Goblin Rocket.
+ns.Trinkets.add {
+  id = "GOBLIN_ROCKET", name = "Goblin Rocket", rarity = "uncommon", cost = 6,
+  desc = "1g at round end; +2g payout per boss defeated",
+  icon = "Interface\\Icons\\INV_Misc_Enggizmos_01",
+  copyable = false,
+  init = function(self) self.state.pay = 1 end,
+  onBossDefeated = function(_, self, isCopy)
+    if not isCopy then self.state.pay = self.state.pay + 2 end
+  end,
+  onRoundEnd = function(_, self) return self.state.pay end,
+  status = function(self) return "Currently " .. self.state.pay .. "g" end,
+}
+
+-- 79: Winter Veil Gift.
+ns.Trinkets.add {
+  id = "WINTER_VEIL", name = "Winter Veil Gift", rarity = "uncommon", cost = 6,
+  desc = "+1g sell value to every trinket and consumable at round end",
+  icon = "Interface\\Icons\\INV_Misc_Bag_08",
+  copyable = false,
+  roundUpdate = function(_, _, isCopy)
+    if not isCopy then return { sellBonusAll = 1 } end
+  end,
+}
+
+-- 80: Fertile Seed.
+ns.Trinkets.add {
+  id = "FERTILE_SEED", name = "Fertile Seed", rarity = "uncommon", cost = 6,
+  desc = "+5 hand size, -1 per round",
+  icon = "Interface\\Icons\\Spell_Nature_LightningShield",
+  copyable = false,
+  init = function(self) self.state.n = 5 end,
+  handSize = function(self) return self.state.n end,
+  roundUpdate = function(_, self, isCopy)
+    if isCopy then return end
+    self.state.n = self.state.n - 1
+    if self.state.n <= 0 then return { destroySelf = true, msg = "Eaten!" } end
+  end,
+  status = function(self) return "Currently +" .. self.state.n .. " hand size" end,
+}
+
+local function pickMailRank(self, run)
+  local pool = {}
+  for _, card in ipairs(run.deck) do
+    if not ns.Cards.isStone(card) then pool[#pool + 1] = card end
+  end
+  self.state.rank = #pool > 0 and ns.RNG.pick(run.rng, pool).rank or nil
+end
+
+-- 83: Postmaster's Rebate.
+ns.Trinkets.add {
+  id = "POSTMASTER", name = "Postmaster's Rebate", rarity = "common", cost = 4,
+  desc = "5g per discarded [rank]; rank changes each round",
+  icon = "Interface\\Icons\\INV_Misc_Note_01",
+  init = pickMailRank,
+  roundUpdate = function(run, self, isCopy)
+    if not isCopy then pickMailRank(self, run) end
+  end,
+  onDiscard = function(_, self, cards)
+    local n = 0
+    for _, card in ipairs(cards) do
+      if not ns.Cards.isStone(card) and card.rank == self.state.rank then n = n + 1 end
+    end
+    if n > 0 then return { gold = 5 * n } end
+  end,
+  status = function(self)
+    return "Rank: " .. (self.state.rank and ns.Cards.label { rank = self.state.rank } or "None")
+  end,
+}
+
+-- 84: Goblin Investment.
+ns.Trinkets.add {
+  id = "GOBLIN_INVEST", name = "Goblin Investment", rarity = "uncommon", cost = 5,
+  desc = "+1g interest per 5g held",
+  icon = "Interface\\Icons\\INV_Misc_Coin_01",
+  copyable = false, interestBonus = 1,
+}
+
+-- 87: Reagent Bag.
+ns.Trinkets.add {
+  id = "REAGENT_BAG", name = "Reagent Bag", rarity = "common", cost = 4,
+  desc = "+1 hand size",
+  icon = "Interface\\Icons\\INV_Misc_Bag_08",
+  copyable = false, handSize = 1,
+}
+
+-- 88: Dwarven Stout.
+ns.Trinkets.add {
+  id = "DWARVEN_STOUT", name = "Dwarven Stout", rarity = "common", cost = 4,
+  desc = "+1 discard each round",
+  icon = "Interface\\Icons\\INV_Drink_03",
+  copyable = false, discards = 1,
+}
+
+-- 95: Trading Post.
+ns.Trinkets.add {
+  id = "TRADING_POST", name = "Trading Post", rarity = "uncommon", cost = 6,
+  desc = "First discard of round is 1 card: destroy it, 3g",
+  icon = "Interface\\Icons\\INV_Misc_Note_01",
+  onDiscard = function(run, _, cards)
+    if run.discardsUsedRound == 0 and #cards == 1 then
+      return { destroyCard = cards[1].id, gold = 3 }
+    end
+  end,
+}
+
+-- 96: Flash Heal.
+ns.Trinkets.add {
+  id = "FLASH_HEAL", name = "Flash Heal", rarity = "uncommon", cost = 5,
+  desc = "Gains +2 Mult per shop reroll",
+  icon = "Interface\\Icons\\Spell_Holy_FlashHeal",
+  init = function(self) self.state.mult = 0 end,
+  onShopReroll = function(_, self, isCopy)
+    if not isCopy then self.state.mult = self.state.mult + 2 end
+  end,
+  onHand = function(_, self) return { mult = self.state.mult } end,
+  status = function(self) return "Currently +" .. self.state.mult .. " Mult" end,
+}
+
+-- 97: Darkmoon Popcorn.
+ns.Trinkets.add {
+  id = "POPCORN", name = "Darkmoon Popcorn", rarity = "common", cost = 5,
+  desc = "+20 Mult; -4 per round; eaten at 0",
+  icon = "Interface\\Icons\\INV_Misc_Food_11",
+  init = function(self) self.state.mult = 20 end,
+  onHand = function(_, self) return { mult = self.state.mult } end,
+  roundUpdate = function(_, self, isCopy)
+    if isCopy then return end
+    self.state.mult = self.state.mult - 4
+    if self.state.mult <= 0 then return { destroySelf = true, msg = "Eaten!" } end
+  end,
+  status = function(self) return "Currently +" .. self.state.mult .. " Mult" end,
+}
+
+-- 100: Pandaren Noodles.
+ns.Trinkets.add {
+  id = "NOODLES", name = "Pandaren Noodles", rarity = "uncommon", cost = 6,
+  desc = "×2 Mult; -×0.01 per card discarded; eaten at ×1",
+  icon = "Interface\\Icons\\INV_Misc_Food_11",
+  init = function(self) self.state.x = 2 end,
+  onHand = function(_, self) return { xmult = self.state.x } end,
+  onDiscard = function(_, self, cards, isCopy)
+    if isCopy then return end
+    self.state.x = self.state.x - 0.01 * #cards
+    if self.state.x <= 1 then return { destroySelf = true, msg = "Eaten!" } end
+  end,
+  status = function(self) return "Currently ×" .. self.state.x .. " Mult" end,
+}
+
+local function pickCastleSuit(self, run)
+  local pool = {}
+  for _, suit in ipairs(ns.Cards.SUITS) do
+    if suit ~= self.state.suit then pool[#pool + 1] = suit end
+  end
+  self.state.suit = ns.RNG.pick(run.rng, pool)
+end
+
+-- 103: Stormwind Keep.
+ns.Trinkets.add {
+  id = "STORMWIND_KEEP", name = "Stormwind Keep", rarity = "uncommon", cost = 6,
+  desc = "Gains +3 Chips per discarded [suit]; suit changes each round",
+  icon = "Interface\\Icons\\INV_Shield_06",
+  init = function(self, run) self.state.chips = 0; pickCastleSuit(self, run) end,
+  roundUpdate = function(run, self, isCopy)
+    if not isCopy then pickCastleSuit(self, run) end
+  end,
+  onDiscard = function(run, self, cards, isCopy)
+    if isCopy then return end
+    local rules = ns.TrinketRules.set(run.trinkets)
+    for _, card in ipairs(cards) do
+      if ns.Cards.hasSuit(card, self.state.suit, rules) then self.state.chips = self.state.chips + 3 end
+    end
+  end,
+  onHand = function(_, self) return { chips = self.state.chips } end,
+  status = function(self) return "Suit: " .. ns.Cards.SUIT_NAMES[self.state.suit] end,
+}
+
+-- 105: Cooking Fire.
+ns.Trinkets.add {
+  id = "COOKING_FIRE", name = "Cooking Fire", rarity = "rare", cost = 9,
+  desc = "Gains ×0.25 Mult per card sold; resets on boss defeat",
+  icon = "Interface\\Icons\\Spell_Fire_Fire",
+  init = function(self) self.state.x = 1 end,
+  onSell = function(_, self, _, isCopy)
+    if not isCopy then self.state.x = self.state.x + 0.25 end
+  end,
+  onBossDefeated = function(_, self, isCopy)
+    if not isCopy then self.state.x = 1 end
+  end,
+  onHand = function(_, self)
+    if self.state.x > 1 then return { xmult = self.state.x } end
+  end,
+  status = function(self) return "Currently ×" .. self.state.x .. " Mult" end,
+}
+
+-- 107: Soulstone.
+ns.Trinkets.add {
+  id = "SOULSTONE", name = "Soulstone", rarity = "uncommon", cost = 5,
+  desc = "Prevents loss if score >= 25% of target; destroyed",
+  icon = "Interface\\Icons\\Spell_Shadow_SoulGem",
+  copyable = false,
+  onLose = function(run)
+    if run.score >= 0.25 * run.target then return { save = true, destroySelf = true, msg = "Saved!" } end
+  end,
+}
+
+-- 111: Wandering Minstrel.
+ns.Trinkets.add {
+  id = "MINSTREL", name = "Wandering Minstrel", rarity = "uncommon", cost = 6,
+  desc = "+2 hand size, -1 hand each round",
+  icon = "Interface\\Icons\\INV_Misc_Note_01",
+  copyable = false, handSize = 2, hands = -1,
+}
+
+-- 121: Ringmaster Silas.
+ns.Trinkets.add {
+  id = "SILAS", name = "Ringmaster Silas", rarity = "uncommon", cost = 5,
+  desc = "Trinkets and consumables may repeat",
+  icon = "Interface\\Icons\\INV_Crown_01",
+  copyable = false, rule = "SHOWMAN",
+}
+
+-- 125: Drunken Brawler.
+ns.Trinkets.add {
+  id = "BRAWLER", name = "Drunken Brawler", rarity = "uncommon", cost = 7,
+  desc = "+3 discards, -1 hand size",
+  icon = "Interface\\Icons\\INV_Drink_03",
+  copyable = false, discards = 3, handSize = -1,
+}
+
+-- 130: Mount Up.
+ns.Trinkets.add {
+  id = "MOUNT_UP", name = "Mount Up", rarity = "rare", cost = 8,
+  desc = "Gains ×0.5 Mult per Jack discarded this round (resets)",
+  icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
+  init = function(self) self.state.x = 1 end,
+  onDiscard = function(_, self, cards, isCopy)
+    if isCopy then return end
+    for _, card in ipairs(cards) do
+      if not ns.Cards.isStone(card) and card.rank == 11 then self.state.x = self.state.x + 0.5 end
+    end
+  end,
+  roundUpdate = function(_, self, isCopy)
+    if not isCopy then self.state.x = 1 end
+  end,
+  onHand = function(_, self)
+    if self.state.x > 1 then return { xmult = self.state.x } end
+  end,
+  status = function(self) return "Currently ×" .. self.state.x .. " Mult" end,
+}
+
+-- 136: Leeroy Jenkins.
+ns.Trinkets.add {
+  id = "LEEROY", name = "Leeroy Jenkins", rarity = "rare", cost = 7,
+  desc = "+250 Chips, -2 hand size",
+  icon = "Interface\\Icons\\Ability_Warrior_Charge",
+  handSize = -2,
+  onHand = function() return { chips = 250 } end,
+}
+
+-- 137: Invisibility Potion.
+ns.Trinkets.add {
+  id = "INVIS_POTION", name = "Invisibility Potion", rarity = "rare", cost = 8,
+  desc = "After 2 rounds, sell to duplicate a random trinket",
+  icon = "Interface\\Icons\\INV_Potion_18",
+  copyable = false,
+  init = function(self) self.state.rounds = 0 end,
+  roundUpdate = function(_, self, isCopy)
+    if not isCopy then self.state.rounds = self.state.rounds + 1 end
+  end,
+  onSelfSold = function(run, self)
+    if self.state.rounds < 2 then return end
+    local pool = {}
+    for _, instance in ipairs(run.trinkets) do
+      if instance.uid ~= self.uid then pool[#pool + 1] = instance end
+    end
+    if #pool == 0 then return end
+    local original = ns.RNG.pick(run.rng, pool)
+    local ed = original.ed ~= "NEGATIVE" and original.ed or nil
+    local copy = ns.Trinkets.duplicate(run, original, ed)
+    run.trinkets[#run.trinkets + 1] = copy
+    if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", copy.id) end
+    return { msg = "Duplicated!" }
+  end,
+  status = function(self)
+    return self.state.rounds >= 2 and "Ready!" or self.state.rounds .. "/2 rounds"
+  end,
+}
+
+-- 143: Stargazer.
+ns.Trinkets.add {
+  id = "STARGAZER", name = "Stargazer", rarity = "uncommon", cost = 8,
+  desc = "Tomes and Celestial packs in shop are free",
+  icon = "Interface\\Icons\\Spell_Holy_MagicalSentry",
+  copyable = false, rule = "ASTRONOMER",
+}
+
+-- 144: Burnt Offering.
+ns.Trinkets.add {
+  id = "BURNT_OFFERING", name = "Burnt Offering", rarity = "rare", cost = 8,
+  desc = "Level up the first discarded hand type each round",
+  icon = "Interface\\Icons\\Spell_Fire_Fire",
+  onDiscard = function(run, _, cards)
+    if run.discardsUsedRound == 0 then
+      return { levelHand = ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets)) }
+    end
+  end,
+}

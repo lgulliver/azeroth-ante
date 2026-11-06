@@ -230,3 +230,238 @@ H.test("noncopyable_economy_trinkets", function()
     T.eq(ns.TrinketEngine.source(run.trinkets, 1), nil, id)
   end
 end)
+
+H.test("SKY_GOLEM_effect", function()
+  local run = H.run { trinkets = { "SKY_GOLEM" } }
+  run.deck = { H.card(9), H.card(9, "H"), H.card(9, "S", "STONE"), H.card(8) }
+  ns.Run.winBlind(run); T.eq(run.lastPayout.trinkets, 2)
+end)
+H.test("GOBLIN_ROCKET_effect", function()
+  local run = H.run { trinkets = { "GOBLIN_ROCKET" } }
+  ns.Run.winBlind(run); T.eq(run.lastPayout.trinkets, 1)
+  run.blind = 3
+  ns.Run.winBlind(run); T.eq(run.lastPayout.trinkets, 3)
+  ns.Run.winBlind(run); T.eq(run.lastPayout.trinkets, 5)
+end)
+H.test("WINTER_VEIL_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "WINTER_VEIL", "WHELP_EGG" } }
+  run.consumables = { { kind = "tome", id = "PAIR", sellBonus = 2 } }
+  ns.Run.winBlind(run)
+  for i = 1, 2 do T.eq(run.trinkets[i].sellBonus, 1) end
+  T.eq(run.trinkets[3].sellBonus, 4); T.eq(run.consumables[1].sellBonus, 3)
+end)
+H.test("FERTILE_SEED_effect", function()
+  local run = H.run { trinkets = { "FERTILE_SEED" } }
+  T.eq(ns.Deck.handSize(run), 13)
+  ns.Run.startBlind(run); T.eq(#run.hand, 13)
+end)
+H.test("turtle_bean_decays_and_shrinks_hand", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "FERTILE_SEED" } }
+  for n = 4, 0, -1 do
+    ns.Run.winBlind(run)
+    T.eq(ns.Deck.handSize(run), 8 + n)
+  end
+  T.eq(#run.trinkets, 1); T.eq(run.lifecycleEvents[1].text, "Eaten!")
+end)
+H.test("POSTMASTER_effect", function()
+  local run = H.run()
+  run.deck = { H.card(9, "S", "STONE"), H.card(14) }
+  forced(0, function() run.trinkets = { ns.Trinkets.create(run, "POSTMASTER") } end)
+  T.eq(run.trinkets[1].state.rank, 14)
+  T.eq(ns.Trinkets.def.POSTMASTER.status(run.trinkets[1]), "Rank: A")
+  run.gold = 0
+  discard(run, { H.card(14), H.card(14, "H"), H.card(14, "S", "STONE"), H.card(9) })
+  T.eq(run.gold, 10)
+  run.deck = { H.card(12) }
+  ns.TrinketEngine.fire(run, "roundUpdate"); T.eq(run.trinkets[1].state.rank, 12)
+end)
+H.test("GOBLIN_INVEST_effect", function()
+  local run = H.run { trinkets = { "GOBLIN_INVEST" }, gold = 15 }
+  ns.Run.winBlind(run); T.eq(run.lastPayout.interest, 6)
+end)
+H.test("to_the_moon_interest", function()
+  for _, gold in ipairs({ -5, 0, 4, 5, 24, 25, 100 }) do
+    local run = H.run { trinkets = { "SCHEMATIC", "GOBLIN_INVEST", "GOBLIN_INVEST" }, gold = gold }
+    ns.Run.winBlind(run)
+    T.eq(run.lastPayout.interest, math.min(5, math.floor(math.max(0, gold) / 5)) * 3)
+  end
+end)
+H.test("REAGENT_BAG_effect", function()
+  local run = H.run { trinkets = { "REAGENT_BAG" } }
+  ns.Run.startBlind(run); T.eq(#run.hand, 9)
+end)
+H.test("DWARVEN_STOUT_effect", function()
+  local run = H.run { trinkets = { "DWARVEN_STOUT" } }
+  ns.Run.startBlind(run); T.eq(run.discardsLeft, 5)
+end)
+H.test("TRADING_POST_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "TRADING_POST" }, gold = 0 }
+  local card = H.card(9)
+  run.deck[#run.deck + 1] = card
+  discard(run, { card }); T.eq(run.gold, 6)
+  for _, c in ipairs(run.deck) do T.ok(c.id ~= card.id) end
+  discard(run, single()); T.eq(run.gold, 6)
+  run = H.run { trinkets = { "TRADING_POST" }, gold = 0 }
+  discard(run, { H.card(2), H.card(3) }); discard(run, single()); T.eq(run.gold, 0)
+end)
+H.test("FLASH_HEAL_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "FLASH_HEAL" }, gold = 20 }
+  T.eq(H.score(run, single()).mult, 1)
+  ns.Shop.open(run); T.ok(ns.Shop.reroll(run))
+  T.eq(run.trinkets[2].state.mult, 2); T.eq(H.score(run, single()).mult, 5)
+  T.ok(ns.Shop.reroll(run)); T.eq(H.score(run, single()).mult, 9)
+end)
+H.test("POPCORN_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "POPCORN" } }
+  T.eq(H.score(run, single()).mult, 41)
+  ns.Run.winBlind(run); T.eq(H.score(run, single()).mult, 33)
+  for _ = 1, 4 do ns.Run.winBlind(run) end
+  T.eq(#run.trinkets, 1); T.eq(run.lifecycleEvents[1].text, "Eaten!")
+end)
+H.test("NOODLES_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "NOODLES" } }
+  T.eq(H.score(run, single()).mult, 4)
+  discard(run, { H.card(2), H.card(3) })
+  T.ok(math.abs(run.trinkets[2].state.x - 1.98) < 1e-9)
+  T.ok(math.abs(H.score(run, single()).mult - 1.98^2) < 1e-9)
+end)
+H.test("ramen_eaten_at_one", function()
+  local run = H.run { trinkets = { "NOODLES" } }
+  run.trinkets[1].state.x = 1.01
+  discard(run, single()); T.eq(#run.trinkets, 0)
+  T.eq(run.lifecycleEvents[1].text, "Eaten!")
+end)
+H.test("STORMWIND_KEEP_effect", function()
+  local run = H.run()
+  forced(0, function() run.trinkets = { ns.Trinkets.create(run, "STORMWIND_KEEP") } end)
+  T.eq(run.trinkets[1].state.suit, "S")
+  run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, "MURKY_INK")
+  run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, "SCHEMATIC")
+  T.ok(ns.Run.moveTrinket(run, 3, 1))
+  discard(run, { H.card(2, "S"), H.card(3, "C"), H.card(4, "H", "WILD"), H.card(5, "S", "STONE") })
+  T.eq(run.trinkets[2].state.chips, 9); T.eq(H.score(run, single()).chips, 25)
+  forced(0, function() ns.TrinketEngine.fire(run, "roundUpdate") end)
+  T.eq(run.trinkets[2].state.suit, "H")
+  T.eq(ns.Trinkets.def.STORMWIND_KEEP.status(run.trinkets[2]), "Suit: Hearts")
+end)
+H.test("COOKING_FIRE_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "COOKING_FIRE", "ARCANE_INTELLECT" } }
+  T.eq(H.score(run, single()).mult, 5)
+  T.ok(ns.Run.sellTrinket(run, 3)); T.eq(run.trinkets[2].state.x, 1.25)
+  T.eq(H.score(run, single()).mult, 1.25^2)
+  run.consumables = { { kind = "tome", id = "PAIR" } }
+  T.ok(ns.Consumables.sell(run, 1)); T.eq(run.trinkets[2].state.x, 1.5)
+end)
+H.test("campfire_resets_on_boss", function()
+  local run = H.run { trinkets = { "COOKING_FIRE", "ARCANE_INTELLECT" } }
+  ns.Run.sellTrinket(run, 2)
+  ns.Run.winBlind(run); T.eq(run.trinkets[1].state.x, 1.25)
+  run.blind = 3
+  ns.Run.winBlind(run); T.eq(run.trinkets[1].state.x, 1)
+end)
+H.test("SOULSTONE_effect", function()
+  for _, score in ipairs({ 74, 75 }) do
+    local run = H.run { trinkets = { "SOULSTONE" } }
+    run.score, run.target = score, 300
+    ns.Run.checkHand(run)
+    T.eq(run.phase, score == 75 and "shop" or "lost")
+    T.eq(#run.trinkets, score == 75 and 0 or 1)
+    if score == 75 then
+      T.eq(run.lastPayout.reward, 0); T.eq(run.lastPayout.savedId, "SOULSTONE")
+      T.eq(run.lifecycleEvents[1].text, "Saved!")
+    end
+  end
+end)
+H.test("mr_bones_saves_once", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "SOULSTONE" } }
+  run.score = 75
+  ns.Run.checkHand(run); T.eq(#run.trinkets, 1)
+  ns.Run.startBlind(run)
+  run.hand, run.pile, run.score = {}, {}, 75
+  ns.Run.checkHand(run); T.eq(run.phase, "lost")
+end)
+H.test("MINSTREL_effect", function()
+  local run = H.run { trinkets = { "MINSTREL" } }
+  ns.Run.startBlind(run); T.eq(#run.hand, 10); T.eq(run.handsLeft, 3)
+end)
+H.test("SILAS_effect", function()
+  local run = H.run { trinkets = { "SILAS" } }
+  T.ok(ns.TrinketRules.has(run.trinkets, "SHOWMAN"))
+  -- Owning every common leaves no pool unless Showman allows repeats.
+  for _, id in ipairs(ns.Trinkets.order) do
+    if ns.Trinkets.def[id].rarity == "common" then
+      run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, id)
+    end
+  end
+  T.ok(ns.Trinkets.rollOfRarity(run, "common"))
+  table.remove(run.trinkets, 1)
+  T.eq(ns.Trinkets.rollOfRarity(run, "common"), nil)
+end)
+H.test("BRAWLER_effect", function()
+  local run = H.run { trinkets = { "BRAWLER" } }
+  ns.Run.startBlind(run); T.eq(#run.hand, 7); T.eq(run.discardsLeft, 7)
+end)
+H.test("MOUNT_UP_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "MOUNT_UP" } }
+  discard(run, { H.card(11), H.card(11, "H"), H.card(11, "S", "STONE"), H.card(12) })
+  T.eq(run.trinkets[2].state.x, 2); T.eq(H.score(run, single()).mult, 4)
+  ns.Run.winBlind(run); T.eq(run.trinkets[2].state.x, 1)
+end)
+H.test("LEEROY_effect", function()
+  local run = H.run { trinkets = { "LEEROY" } }
+  ns.Run.startBlind(run); T.eq(#run.hand, 6)
+  T.eq(H.score(run, single()).chips, 257)
+end)
+H.test("stuntman_chips_copyable_hand_size_not", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "LEEROY" } }
+  ns.Run.startBlind(run); T.eq(#run.hand, 6)
+  T.eq(H.score(run, single()).chips, 507)
+end)
+H.test("INVIS_POTION_effect", function()
+  for _, ed in ipairs({ "NEGATIVE", "FOIL", "HOLO", "POLY" }) do
+    local run = H.run { trinkets = { "INVIS_POTION", "FLASH_HEAL" } }
+    run.trinkets[2].ed, run.trinkets[2].state.mult, run.trinkets[2].sellBonus = ed, 8, 3
+    local original = run.trinkets[2]
+    ns.Run.winBlind(run); ns.Run.winBlind(run)
+    T.eq(ns.Trinkets.def.INVIS_POTION.status(run.trinkets[1]), "Ready!")
+    forced(0, function(draws) ns.Run.sellTrinket(run, 1); T.eq(draws(), 1) end)
+    T.eq(#run.trinkets, 2)
+    local copy = run.trinkets[2]
+    T.eq(copy.id, "FLASH_HEAL"); T.eq(copy.ed, ed ~= "NEGATIVE" and ed or nil)
+    T.ok(copy.uid ~= original.uid); T.eq(copy.state.mult, 8); T.eq(copy.sellBonus, 3)
+    copy.state.mult = 10; T.eq(original.state.mult, 8)
+  end
+end)
+H.test("invisible_needs_two_rounds", function()
+  local run = H.run { trinkets = { "INVIS_POTION", "ARCANE_INTELLECT" } }
+  T.eq(ns.Trinkets.def.INVIS_POTION.status(run.trinkets[1]), "0/2 rounds")
+  ns.Run.winBlind(run)
+  T.eq(ns.Trinkets.def.INVIS_POTION.status(run.trinkets[1]), "1/2 rounds")
+  ns.Run.sellTrinket(run, 1); T.eq(#run.trinkets, 1)
+  run = H.run { trinkets = { "INVIS_POTION" } }
+  ns.Run.winBlind(run); ns.Run.winBlind(run)
+  forced(0, function(draws) ns.Run.sellTrinket(run, 1); T.eq(draws(), 0) end)
+  T.eq(#run.trinkets, 0)
+end)
+H.test("STARGAZER_effect", function()
+  local run = H.run { trinkets = { "STARGAZER" } }
+  T.ok(ns.TrinketRules.has(run.trinkets, "ASTRONOMER"))
+  for _, kind in ipairs({ "tome", "CELESTIAL", "scroll" }) do
+    T.eq(ns.Shop.priceOf(run, { type = kind, cost = 5 }), kind == "scroll" and 5 or 0)
+  end
+end)
+H.test("BURNT_OFFERING_effect", function()
+  local run = H.run { trinkets = { "SCHEMATIC", "BURNT_OFFERING", "MURKY_INK" } }
+  discard(run, { H.card(2, "H"), H.card(5, "D"), H.card(8, "H"), H.card(10, "D"), H.card(13, "H") })
+  T.eq(run.handLevels.FLUSH, 3)
+  discard(run, { H.card(2), H.card(2, "H") }); T.eq(run.handLevels.PAIR, 1)
+end)
+H.test("part_b_noncopyable_trinkets", function()
+  for _, id in ipairs({ "WINTER_VEIL", "FERTILE_SEED", "SKY_GOLEM", "GOBLIN_ROCKET", "GOBLIN_INVEST",
+    "REAGENT_BAG", "DWARVEN_STOUT", "SOULSTONE", "MINSTREL", "SILAS", "BRAWLER", "INVIS_POTION", "STARGAZER" }) do
+    T.ok(ns.Trinkets.def[id], "missing " .. id)
+    T.eq(ns.Trinkets.def[id].copyable, false, id)
+    local run = H.run { trinkets = { "SCHEMATIC", id } }
+    T.eq(ns.TrinketEngine.source(run.trinkets, 1), nil, id)
+  end
+end)
