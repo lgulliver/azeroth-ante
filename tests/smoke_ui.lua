@@ -1389,6 +1389,47 @@ local function run(w)
     if c.preview then blind2 = c end
   end
   check(blind2 and blind2:IsVisible(), "blind screen shows after reload")
+  do -- a reload into the blind phase: panel states, run info, hidden pile
+    local bs2 = blind2
+    local st = {}
+    for i = 1, 3 do st[i] = bs2.panels[i].state end
+    eq(table.concat(st, ","), "DEFEATED,CURRENT,UPCOMING", "reloaded blind screen shows the right states")
+    check(bs2.panels[1].stamp:IsShown() and bs2.panels[1].stamp:GetScale() == 1, "reloaded: the stamp is simply there")
+    check(M2.sidebar.deckName:IsShown() and M2.sidebar.deckName:GetText() == "Rogue Deck", "reloaded sidebar shows the deck")
+    eq(M2.sidebar.gold:GetText(), "Gold: " .. M2.run.gold, "reloaded sidebar gold")
+    check(not M2.sidebar.chipsBox:IsShown(), "reloaded sidebar has no 0 x 0 boxes")
+    check(not w2.ns.UI.HandView.deck:IsShown(), "reloaded blind screen hides the deck pile")
+    for id in pairs(w2.ns.Bosses.def) do
+      check(w2.ns.UI.BlindSelect.BOSS_TINT[id], "boss tint for " .. id)
+    end
+    local nTint = 0
+    for _ in pairs(w2.ns.UI.BlindSelect.BOSS_TINT) do nTint = nTint + 1 end
+    eq(nTint, 9, "nine boss tints")
+    for i = 1, 3 do
+      eq(select(2, bs2.panels[i].reward:GetText():gsub("%$", "")), w2.ns.Run.BLIND_REWARDS[i], "reward $ count matches Run.BLIND_REWARDS")
+    end
+    -- Play mid-entrance starts the blind, and a reload into play shows the pile
+    local db2 = deepCopy(db)
+    local w3 = newWorld(db2)
+    w3.env.SlashCmdList.AZEROTHANTE()
+    w3.stub.advance(0.05)
+    local m3 = w3.ns.UI.Main
+    check(w3.ns.UI.Tween.Count() > 0, "mid-entrance: tweens still running")
+    local play3 = m3.content._children
+    local bs3
+    for _, c in ipairs(play3) do if c.preview then bs3 = c end end
+    check(bs3.panels[2].play:IsVisible() and bs3.panels[2].play:IsEnabled() and bs3.panels[2].play:IsMouseEnabled(), "Play is clickable mid-entrance")
+    bs3.panels[2].play:Click()
+    eq(m3.run.phase, "play", "clicking Play mid-entrance starts the blind")
+    w3.stub.advance(3)
+    eq(w3.ns.UI.Tween.Count(), 0, "no tweens left after starting mid-entrance")
+    check(w3.ns.UI.HandView.deck:IsShown(), "the pile shows in play")
+    local w4 = newWorld(deepCopy(db2))
+    w4.env.SlashCmdList.AZEROTHANTE()
+    w4.stub.advance(1)
+    eq(w4.ns.UI.Main.run.phase, "play", "reloaded into play")
+    check(w4.ns.UI.HandView.deck:IsShown(), "a reload into play shows the deck pile")
+  end
   step("6 persistence and reload resume")
 
   -- From here on drive the reloaded world.

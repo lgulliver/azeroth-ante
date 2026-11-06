@@ -31,21 +31,19 @@ local EDGE = { 0.4, 0.33, 0.2 }
 local GOLD_HEX = "|cffffd100"
 local NAMES = { "Small Blind", "Big Blind" }
 local CHIPS = { "Chip_SMALL", "Chip_BIG", "Chip_BOSS" }
--- Mirrors the payout in Run.winBlind (Core is not touched from the UI).
-local REWARD = { 3, 4, 5 }
 local DIM = { CURRENT = 1, UPCOMING = 0.6, DEFEATED = 0.45 }
 
--- Chip tint per boss (SetVertexColor multiplies the crimson Chip_BOSS base).
+-- Chip tint per boss (SetVertexColor multiplies the near-white Chip_BOSS base).
 BlindSelect.BOSS_TINT = {
-  HOGGER = { 1, 0.92, 0.55 },
-  VANCLEEF = { 0.55, 0.75, 1 },
-  ARUGAL = { 0.82, 0.55, 1 },
-  VAELASTRASZ = { 0.85, 0.4, 0.4 },
-  MUTANUS = { 0.6, 1, 0.55 },
-  HEROD = { 1, 0.7, 0.7 },
-  RIVENDARE = { 0.6, 1, 0.95 },
-  ONYXIA = { 0.6, 0.52, 0.68 },
-  RAGNAROS = { 1, 0.6, 0.2 },
+  HOGGER = { 1, 0.9, 0.3 },       -- yellow
+  VANCLEEF = { 0.35, 0.55, 1 },   -- blue
+  ARUGAL = { 0.75, 0.4, 1 },      -- violet
+  VAELASTRASZ = { 1, 0.28, 0.28 }, -- red
+  MUTANUS = { 0.35, 1, 0.35 },    -- green
+  HEROD = { 1, 0.55, 0.78 },      -- pink
+  RIVENDARE = { 0.35, 0.95, 0.95 }, -- cyan
+  ONYXIA = { 0.5, 0.5, 0.58 },    -- slate
+  RAGNAROS = { 1, 0.5, 0.1 },     -- orange
 }
 local NO_TINT = { 1, 1, 1 }
 
@@ -90,6 +88,7 @@ local function makeBlind(p, i, host)
   -- Soft glow: stacked translucent gold rims behind the body.
   local glow = CreateFrame("Frame", nil, slot)
   glow:SetAllPoints(slot)
+  glow:SetFrameLevel(slot:GetFrameLevel()) -- pinned under the body
   for k, pad in ipairs({ 7, 4, 2 }) do
     local t = glow:CreateTexture(nil, "BACKGROUND")
     t:SetPoint("TOPLEFT", slot, "TOPLEFT", -pad, pad)
@@ -100,6 +99,7 @@ local function makeBlind(p, i, host)
   slot.glow = glow
 
   local body = CreateFrame("Frame", nil, slot, "BackdropTemplate")
+  body:SetFrameLevel(glow:GetFrameLevel() + 1)
   body:SetSize(PANEL_W, PANEL_H)
   body:SetPoint("CENTER", slot, "CENTER", 0, 0)
   body:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = 2 })
@@ -172,7 +172,10 @@ end
 -- Refresh: the static look from the run. Never disturbs a running tween.
 
 local function setBorder(body, c, w)
-  body:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = w })
+  if body.borderWidth ~= w then -- the backdrop only changes with the width
+    body:SetBackdrop({ bgFile = FLAT, edgeFile = FLAT, edgeSize = w })
+    body.borderWidth = w
+  end
   body.borderColor = c
   body:SetBackdropBorderColor(c[1], c[2], c[3], 1)
 end
@@ -193,7 +196,7 @@ local function refreshOne(b, run, i, bossId)
   b.rule:SetText(boss and boss.desc or "")
   b.target:SetText(tostring(ns.Run.target(run.stage, i, i == 3 and bossId or nil)))
   Theme.setColor(b.target, current and Theme.gold or Theme.parchment)
-  b.reward:SetText("Reward: " .. GOLD_HEX .. string.rep("$", REWARD[i]) .. "|r")
+  b.reward:SetText("Reward: " .. GOLD_HEX .. string.rep("$", ns.Run.BLIND_REWARDS[i]) .. "|r")
 
   local tint = i == 3 and (BlindSelect.BOSS_TINT[bossId] or NO_TINT) or NO_TINT
   b.chip:SetVertexColor(tint[1], tint[2], tint[3])

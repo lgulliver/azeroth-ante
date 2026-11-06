@@ -4,6 +4,9 @@ local Run = {}
 
 Run.BASE_TARGETS = { 300, 600, 1200, 2200, 3600, 5500, 8000, 11000 }
 
+-- Gold paid for beating the small, big and boss blind.
+Run.BLIND_REWARDS = { 3, 4, 5 }
+
 function Run.target(stage, blind, bossId)
   local mult = 1
   if blind == 2 then mult = 1.5 end
@@ -180,7 +183,7 @@ end
 function Run.winBlind(run)
   local deck = ns.Decks.def[run.deckId]
   local payout = {
-    reward = ({ 3, 4, 5 })[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),
+    reward = Run.BLIND_REWARDS[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),
     discards = run.discardsLeft * (deck.goldPerDiscard or 0),
     interest = deck.noInterest and 0 or math.min(5, math.floor(run.gold / 5)), trinkets = 0, held = 0,
   }

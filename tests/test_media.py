@@ -119,10 +119,10 @@ def check_chips():
         return "Chip_SMALL is not blue"
     if not (big[0] > big[2] + 40 and big[1] > big[2] + 20):
         return "Chip_BIG is not gold/amber"
-    if not (boss[0] > boss[1] + 40 and boss[0] > boss[2] + 40):
-        return "Chip_BOSS is not crimson"
-    if max(boss) < 170 or sum(boss) / 3.0 < 110:
-        return "Chip_BOSS is too dark to tint (%s)" % (tuple(round(v) for v in boss),)
+    if max(boss) - min(boss) > 20:
+        return "Chip_BOSS is not a neutral base (%s)" % (tuple(round(v) for v in boss),)
+    if min(boss) < 170:
+        return "Chip_BOSS is too dark to tint cleanly (%s)" % (tuple(round(v) for v in boss),)
     for chip in CHIPS:
         with open(os.path.join(MEDIA, "Chip_%s.tga" % chip), "rb") as f:
             if f.read() != gen_media.chip_tga(chip):
