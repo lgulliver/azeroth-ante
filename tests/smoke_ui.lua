@@ -203,11 +203,19 @@ local function run(w)
   check(not Main.sidebar.profileRuns:IsShown(), "profile totals hide in a run")
   check(Main.trinketRow:IsShown() and Main.consumableRow:IsShown(), "item rows return in a run")
   check(HandView.deck:GetTexture():find("Back_ROGUE", 1, true), "the deck pile uses the deck's back")
+  eq(CardWidget.BackPath("ADVENTURER"):match("[^\\]+$"), "CardBack", "ADVENTURER keeps the plain back")
+  eq(CardWidget.BackPath("NOPE"):match("[^\\]+$"), "CardBack", "an unknown deck keeps the plain back")
   eq(Main.run.phase, "blind", "phase after Play")
   check(visible("preview"), "blind screen not visible")
   click(panel("preview").start, "Start Blind")
   stub.advance(3)
   eq(Main.run.phase, "play", "phase after Start Blind")
+  do
+    local w = handWidgets()[1]
+    w:SetFaceUp(false)
+    check(w.back:IsShown() and w.back:GetTexture():find("Back_ROGUE", 1, true), "a face-down card shows the deck's back")
+    w:SetFaceUp(true)
+  end
   eq(#Main.run.hand, 8, "hand size")
   eq(#handWidgets(), 8, "hand widgets")
   step("2 deck tile and Start Blind deal 8 cards")
@@ -1701,9 +1709,15 @@ local function run(w)
     local p2 = panel2("carousel")
     check(p2.unlockedText:IsShown() and p2.unlockedText:GetText() == "Unlocked!", "the Unlocked! text shows")
     check(DS2.Card("WARRIOR").lock:IsShown(), "the padlock is still up at the start")
+    local fadeAlpha = DS2.Card("WARRIOR").lock:GetAlpha()
+    check(fadeAlpha > 0.02 and fadeAlpha < 0.98, "the padlock is mid-fade at 0.2s (" .. fadeAlpha .. ")")
+    -- Navigation is ignored while the flourish plays, so it can never land on the wrong deck.
+    click(p2.nextBtn, "next arrow during the flourish")
+    click(DS2.Card("ROGUE"), "a neighbour during the flourish")
+    eq(DS2.Selected(), "WARRIOR", "arrows and cards are ignored during a flourish")
+    eq(DS2.Flourishing(), "WARRIOR", "the flourish stays on its deck")
     eq(#seen, 0, "markSeen waits for the flourish to finish")
     stub2.advance(0.5)
-    check(DS2.Card("WARRIOR").lock:GetAlpha() < 1, "the padlock fades")
     stub2.advance(2.5)
     check(not DS2.Flourishing(), "the flourish ends")
     eq(seen[1], "WARRIOR", "markSeen called for WARRIOR")
@@ -1852,10 +1866,49 @@ local function run(w)
     check(not shop.payout.discards.label:IsShown(), "no discards row when it pays nothing")
     eq(shop.payout.hands.label:GetText(), "Hands left (2 x 1g)", "default hands rate")
     eq(shop.payout.interest.label:GetText(), "Interest", "interest row for other decks")
-    sum, total = rowSum(shop)
-    eq(sum, total, "visible payout rows sum to Total (Rogue)")
+    -- Every deck's visible rows add up to Total.
+    for _, id in ipairs({ "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK", "ADVENTURER" }) do
+      local r = ns2.Run.new(9, id)
+      m.SetRun(r)
+      ns2.Run.startBlind(r)
+      r.handsLeft, r.discardsLeft, r.gold = 2, 3, 29
+      ns2.Run.winBlind(r)
+      m.Render(r, true)
+      stub2.advance(1)
+      sum, total = rowSum(shop)
+      eq(sum, total, "visible payout rows sum to Total (" .. id .. ")")
+      eq(total, r.lastPayout.total, "Total matches the run (" .. id .. ")")
+    end
   end
   step("11d payout rows for Monk add up")
+
+  do -- 11e. A client without SetRotation / SetDesaturation still gets a working carousel
+    local db = {}
+    local w2, _, panel2, m = boot(db)
+    local ns2, stub2 = w2.ns, w2.stub
+    stub2.noRotation = true
+    local DS2 = ns2.UI.DeckSelect
+    w2.env.SlashCmdList.AZEROTHANTE()
+    stub2.advance(1)
+    local p2 = panel2("carousel")
+    check(DS2.Card("ROGUE").art.SetRotation == nil, "the stub really lacks SetRotation")
+    p2.nextBtn:Click()
+    stub2.advance(0.4)
+    eq(DS2.Selected(), "WARRIOR", "arrows work without rotation")
+    p2.prevBtn:Click()
+    stub2.advance(0.4)
+    m.Hide()
+    for i = 1, 5 do ns2.Profile.get(db).discovered["test:" .. i] = true end
+    w2.env.SlashCmdList.AZEROTHANTE()
+    stub2.advance(0.3)
+    eq(DS2.Flourishing(), "WARRIOR", "the flourish plays without those APIs")
+    stub2.advance(3)
+    check(not DS2.Flourishing() and p2.play:IsEnabled(), "and completes")
+    p2.play:Click()
+    stub2.advance(1)
+    eq(m.run and m.run.deckId, "WARRIOR", "a run still starts")
+  end
+  step("11e carousel and flourish survive missing rotation and desaturation APIs")
 
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w, unpack(extraWorlds) }) do

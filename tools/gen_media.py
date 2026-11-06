@@ -883,12 +883,23 @@ def _seg(dx, dy, x0, y0, x1, y1):
 def _sigil_dist(dx, dy):
     r = math.hypot(dx, dy)
     d = abs(r - 38.5) - 0.9
-    for sign in (0, 1):
-        pts = [(28 * math.cos(math.radians(a + 60 * sign)), 28 * math.sin(math.radians(a + 60 * sign)))
-               for a in (-90, 30, 150)]
-        for i in range(3):
-            a, b = pts[i], pts[(i + 1) % 3]
-            d = min(d, _seg(dx, dy, a[0], a[1], b[0], b[1]) - 0.8)
+    # A vertical slit eye: two arcs meeting at pointed tips.
+    eye_h, eye_w = 21.0, 9.5
+    big_r = (eye_w ** 2 + eye_h ** 2) / (2 * eye_w)
+    off = big_r - eye_w
+    if abs(dy) <= eye_h + 1.0:
+        if dx <= 0:
+            d = min(d, abs(math.hypot(dx - off, dy) - big_r) - 0.9)
+        if dx >= 0:
+            d = min(d, abs(math.hypot(dx + off, dy) - big_r) - 0.9)
+    # Jagged fel-flame spikes licking out of the eye's corners.
+    flame = ((9.0, 3.5), (17.0, 6.5), (14.5, 10.0), (24.0, 15.5))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for i in range(len(flame) - 1):
+                x0, y0 = flame[i]
+                x1, y1 = flame[i + 1]
+                d = min(d, _seg(dx, dy, sx * x0, sy * y0, sx * x1, sy * y1) - 0.8)
     if 28 <= r <= 37:  # rune ticks around the rim
         ang = math.atan2(dy, dx)
         k = int(round(ang / (math.pi / 6.0)))
@@ -907,8 +918,8 @@ def _sigil_dist(dx, dy):
 def warlock_emblem(dx, dy, g):
     if g:
         return None
-    if abs(dx) / 8.0 + abs(dy) / 11.0 <= 1:  # central gem
-        return _mix((255, 245, 160), (120, 255, 110), (abs(dx) / 8.0 + abs(dy) / 11.0))
+    if abs(dx) / 4.5 + abs(dy) / 10.5 <= 1:  # the diamond pupil
+        return _mix((255, 245, 160), (120, 255, 110), (abs(dx) / 4.5 + abs(dy) / 10.5))
     d = _sigil_dist(dx, dy)
     if d <= 0.0:
         return (150, 255, 120)

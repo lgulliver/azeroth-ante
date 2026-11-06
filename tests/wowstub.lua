@@ -27,7 +27,11 @@ function M.install(env)
 
   local methods = {}
   local mt = {}
+  -- stub.noRotation removes the texture rotation and desaturation APIs, as on a client lacking them.
+  local OPTIONAL = { SetRotation = true, GetRotation = true, SetDesaturation = true,
+    SetDesaturated = true, IsDesaturated = true, GetDesaturation = true }
   function mt.__index(t, k)
+    if stub.noRotation and OPTIONAL[k] then return nil end
     local m = methods[k]
     if m then return m end
     if type(k) == "string" and k:find("^[A-Z]") then
