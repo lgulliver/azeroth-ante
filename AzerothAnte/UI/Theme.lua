@@ -45,4 +45,32 @@ function Theme.setColor(region, c, isTexture)
   end
 end
 
+-- The look of an empty trinket or consumable slot: a dark inset with a thin,
+-- soft gold outline at low alpha. One helper so both rows match. The returned
+-- frame fills `parent`; Show/Hide it as the slot empties and fills.
+local FLAT = "Interface\\Buttons\\WHITE8x8"
+Theme.emptySlotEdgeAlpha = 0.28
+function Theme.EmptySlot(parent)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetAllPoints(parent)
+  f.isEmptySlot = true
+  local inset = f:CreateTexture(nil, "BACKGROUND")
+  inset:SetAllPoints(f)
+  inset:SetColorTexture(0.04, 0.03, 0.02, 0.6)
+  local g, a = Theme.gold, Theme.emptySlotEdgeAlpha
+  local function edge(p1, p2, w, h)
+    local t = f:CreateTexture(nil, "BORDER")
+    t:SetPoint(p1, f, p1, 0, 0)
+    t:SetPoint(p2, f, p2, 0, 0)
+    if w then t:SetWidth(w) end
+    if h then t:SetHeight(h) end
+    t:SetColorTexture(g[1], g[2], g[3], a)
+  end
+  edge("TOPLEFT", "TOPRIGHT", nil, 1)
+  edge("BOTTOMLEFT", "BOTTOMRIGHT", nil, 1)
+  edge("TOPLEFT", "BOTTOMLEFT", 1, nil)
+  edge("TOPRIGHT", "BOTTOMRIGHT", 1, nil)
+  return f
+end
+
 ns.UI.Theme = Theme

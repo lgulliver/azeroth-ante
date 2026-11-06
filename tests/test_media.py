@@ -1,4 +1,5 @@
 """Checks the generated TGA textures in AzerothAnte/Media."""
+import math
 import os
 import struct
 import sys
@@ -27,6 +28,9 @@ for _enh in ("BONUS", "MULT", "WILD", "GLASS", "STEEL", "STONE", "GOLD", "LUCKY"
     EXPECTED["Face_%s.tga" % _enh] = (128, 256)
 for _seal in ("GOLD", "RED", "BLUE", "PURPLE"):
     EXPECTED["Seal_%s.tga" % _seal] = (32, 32)
+CHIPS = ("SMALL", "BIG", "BOSS")
+for _chip in CHIPS:
+    EXPECTED["Chip_%s.tga" % _chip] = (64, 64)
 
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0
@@ -73,6 +77,56 @@ def check_backs():
         for b in decks[i + 1:]:
             if sum(abs(means[a][k] - means[b][k]) for k in range(3)) < 25:
                 return "Back_%s and Back_%s are too alike" % (a, b)
+    return None
+
+
+def check_chips():
+    """Blind chips: round, opaque in the middle, notched rim, distinct hues, BOSS light enough to tint,
+    and the generator reproduces the shipped file byte for byte."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+    import gen_media
+    means = {}
+    for chip in CHIPS:
+        name = "Chip_%s.tga" % chip
+        if not os.path.exists(os.path.join(MEDIA, name)):
+            return "missing " + name
+        px = _pixels(name)
+        a = px[3::4]
+        if a[32 * 64 + 32] != 255 or a[0] != 0 or a[63] != 0 or a[63 * 64] != 0 or a[63 * 64 + 63] != 0:
+            return "%s: not a disc (centre opaque, corners clear)" % name
+        frac = sum(1 for v in a if v > 0) / 4096.0
+        if not 0.7 <= frac <= 0.82:
+            return "%s: disc coverage %.2f outside 0.70..0.82" % (name, frac)
+        # rotational symmetry of the silhouette: left/right and top/bottom mirror
+        for y in range(64):
+            for x in range(32):
+                if abs(a[y * 64 + x] - a[y * 64 + 63 - x]) > 8 or abs(a[x * 64 + y] - a[(63 - x) * 64 + y]) > 8:
+                    return "%s: silhouette not symmetric" % name
+        # the rim ring is notched: colour varies around a circle of radius ~28
+        ring = set()
+        for i in range(96):
+            t = i * 2 * 3.14159265 / 96
+            x, y = int(round(31.5 + 28 * math.cos(t))), int(round(31.5 + 28 * math.sin(t)))
+            j = (y * 64 + x) * 4
+            ring.add(tuple(px[j:j + 3]))
+        if len(ring) < 3:
+            return "%s: rim has no notches" % name
+        n = sum(1 for v in a if v > 0)
+        # TGA pixels are BGRA: read channels as R, G, B
+        means[chip] = tuple(sum(px[k::4][i] * (a[i] / 255.0) for i in range(4096)) / n for k in (2, 1, 0))
+    sm, big, boss = means["SMALL"], means["BIG"], means["BOSS"]
+    if not (sm[2] > sm[0] + 20 and sm[2] > sm[1]):
+        return "Chip_SMALL is not blue"
+    if not (big[0] > big[2] + 40 and big[1] > big[2] + 20):
+        return "Chip_BIG is not gold/amber"
+    if not (boss[0] > boss[1] + 40 and boss[0] > boss[2] + 40):
+        return "Chip_BOSS is not crimson"
+    if max(boss) < 170 or sum(boss) / 3.0 < 110:
+        return "Chip_BOSS is too dark to tint (%s)" % (tuple(round(v) for v in boss),)
+    for chip in CHIPS:
+        with open(os.path.join(MEDIA, "Chip_%s.tga" % chip), "rb") as f:
+            if f.read() != gen_media.chip_tga(chip):
+                return "Chip_%s.tga differs from the generator output" % chip
     return None
 
 
@@ -179,6 +233,10 @@ def main():
     if err:
         failed += 1
         print("FAIL backs: " + err)
+    err = check_chips()
+    if err:
+        failed += 1
+        print("FAIL chips: " + err)
     if failed:
         sys.exit(1)
     print("all media ok")

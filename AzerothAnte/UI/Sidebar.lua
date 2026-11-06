@@ -4,6 +4,7 @@ local Theme = ns.UI.Theme
 local Sidebar = {}
 
 local BLIND_NAMES = { "Small Blind", "Big Blind" }
+local ICON_W, ICON_H = 40, math.floor(40 * 7 / 5 + 0.5) -- a card back, 5:7
 
 local function fontString(parent, font, point, x, y, width)
   local fs = parent:CreateFontString(nil, "OVERLAY", font)
@@ -80,6 +81,16 @@ function Sidebar.Build(frame)
   frame.stage = fontString(frame, Theme.fonts.text, "TOPLEFT", m, -332, w)
   Theme.setColor(frame.stage, Theme.parchment)
 
+  -- Blind screen only: the deck, with its small back icon, above the run info.
+  frame.deckIcon = frame:CreateTexture(nil, "ARTWORK")
+  frame.deckIcon:SetSize(ICON_W, ICON_H)
+  frame.deckIcon:SetPoint("TOPLEFT", frame, "TOPLEFT", m, -m)
+  frame.deckIcon:SetTexCoord(0, 1, 0, Theme.cardV)
+  frame.deckName = fontString(frame, Theme.fonts.title, "TOPLEFT", m + ICON_W + 8, -m - 4, w - ICON_W - 8)
+  frame.deckName:SetHeight(ICON_H - 8)
+  frame.deckName:SetJustifyV("TOP")
+  Theme.setColor(frame.deckName, Theme.gold)
+
   local deck = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
   deck:SetSize(w, 26)
   deck:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", m, m)
@@ -93,11 +104,27 @@ end
 -- The round stats show during a run; the profile totals show on the deck-select screen.
 local ROUND_WIDGETS = { "blindName", "bossRule", "targetLabel", "target", "scoreLabel", "score", "chipsBox",
   "multBox", "xMark", "handName", "hands", "discards", "gold", "stage", "deckButton" }
+-- The blind screen shows run info instead of the blind and the round score.
+local BLIND_WIDGETS = { "deckIcon", "deckName", "hands", "discards", "gold", "stage", "deckButton" }
+-- Where the shared rows sit: below the deck line on the blind screen, as before otherwise.
+local ROW_Y = {
+  round = { hands = -250, discards = -272, gold = -302, stage = -332 },
+  blind = { stage = -86, gold = -116, hands = -158, discards = -182 },
+}
 local PROFILE_WIDGETS = { "profileTitle", "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound" }
 
 local function showGroup(frame, names, shown)
   for _, key in ipairs(names) do
     if frame[key] then frame[key]:SetShown(shown) end
+  end
+end
+
+local function layoutRows(frame, mode)
+  if frame.rowMode == mode then return end
+  frame.rowMode = mode
+  for key, y in pairs(ROW_Y[mode]) do
+    frame[key]:ClearAllPoints()
+    frame[key]:SetPoint("TOPLEFT", frame, "TOPLEFT", Theme.margin, y)
   end
 end
 
@@ -131,12 +158,33 @@ function Sidebar.Update(run, chips, mult)
     frame.deckButton:SetText("Deck (0)")
     ns.UI.DeckView.Hide()
     showGroup(frame, ROUND_WIDGETS, false)
+    showGroup(frame, BLIND_WIDGETS, false)
     showGroup(frame, PROFILE_WIDGETS, true)
     showProfile(frame)
     return
   end
-  showGroup(frame, ROUND_WIDGETS, true)
+  showGroup(frame, ROUND_WIDGETS, false)
+  showGroup(frame, BLIND_WIDGETS, false)
   showGroup(frame, PROFILE_WIDGETS, false)
+  if run.phase == "blind" then
+    layoutRows(frame, "blind")
+    showGroup(frame, BLIND_WIDGETS, true)
+    local deck = ns.Decks.def[run.deckId]
+    local bossId = run.bosses and run.bosses[run.stage]
+    local boss = run.blind == 3 and bossId and ns.Bosses.def[bossId] or nil
+    frame.deckName:SetText(deck and deck.name or "")
+    frame.deckIcon:SetTexture(ns.UI.CardWidget.BackPath(run.deckId))
+    -- Hands and discards the upcoming blind will start with (a boss may override them).
+    frame.hands:SetText("Hands: " .. tostring((boss and boss.hands) or (deck and deck.hands) or 0))
+    frame.discards:SetText("Discards: " .. tostring(boss and boss.discards or (deck and deck.discards) or 0))
+    frame.gold:SetText("Gold: " .. tostring(run.gold or 0))
+    frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8")
+    frame.deckButton:SetText("Deck (" .. #(run.deck or {}) .. ")")
+    ns.UI.DeckView.Refresh(run)
+    return
+  end
+  layoutRows(frame, "round")
+  showGroup(frame, ROUND_WIDGETS, true)
 
   local bossId = ns.Run.bossId(run)
   local boss = bossId and ns.Bosses.def[bossId]

@@ -1079,6 +1079,65 @@ def padlock(px, py):
     return CLEAR
 
 
+# ------------------------------------------------------------ blind chips
+CHIP_SIZE = 64
+CHIPS = {
+    # body, light (notches, ring, emblem), dark (outline, emblem shadow)
+    "SMALL": ((52, 104, 186), (218, 232, 252), (14, 34, 86)),
+    # BOSS is a light neutral crimson: the UI multiplies it with a per-boss SetVertexColor tint.
+    "BIG": ((204, 146, 44), (255, 238, 176), (92, 56, 8)),
+    "BOSS": ((204, 88, 86), (250, 234, 226), (104, 28, 34)),
+}
+CHIP_NOTCHES = 8
+
+
+def _chip_emblem(kind, x, y):
+    """Distance-like value < 1 inside the emblem, centred on the chip (x, y in pixels from the centre)."""
+    if kind == "SMALL":  # diamond
+        return (abs(x) + abs(y)) / 10.0
+    if kind == "BIG":  # four-point star
+        return (abs(x) ** 0.6 + abs(y) ** 0.6) / 10.0 ** 0.6 * 1.0
+    r = math.hypot(x, y)  # BOSS: eight-point burst
+    a = math.atan2(y, x)
+    return r / (4.5 + 5.5 * abs(math.cos(4 * a)) ** 2.5)
+
+
+def chip_fn(kind):
+    body, light, dark = CHIPS[kind]
+
+    def fn(px, py):
+        x, y = px - CHIP_SIZE / 2.0, py - CHIP_SIZE / 2.0
+        d = math.hypot(x, y)
+        if d > 31.0:
+            return CLEAR
+        if d > 29.8:
+            return _rgb(dark)
+        lit = 1.08 - 0.22 * (y + 31.0) / 62.0  # light from the top
+        if d > 22.5:  # rim, with evenly spaced notches
+            a = math.atan2(y, x)
+            seg = 2 * math.pi / CHIP_NOTCHES
+            off = (a % seg) - seg / 2.0
+            if abs(off) * d < 4.2:
+                return _rgb(_shade(light, lit))
+            return _rgb(_shade(body, lit * (0.9 if d > 27.5 else 1.0)))
+        if d > 21.0:
+            return _rgb(_shade(light, lit))
+        if d > 19.8:
+            return _rgb(dark)
+        e = _chip_emblem(kind, x, y)
+        if e < 1.0:
+            return _rgb(_shade(light, lit))
+        if e < 1.28:
+            return _rgb(dark)
+        return _rgb(_shade(_mix(body, light, 0.12 * (1 - d / 20.0)), lit * 0.96))
+    return fn
+
+
+def chip_tga(kind):
+    """The complete TGA file bytes for Chip_<kind> (deterministic)."""
+    return tga_bytes(CHIP_SIZE, CHIP_SIZE, render(CHIP_SIZE, CHIP_SIZE, chip_fn(kind)))
+
+
 # ---------------------------------------------------------------- output
 def render(width, height, fn):
     """Supersample fn(sample_x, sample_y) -> (r,g,b,a) and average to RGBA bytes.
@@ -1115,15 +1174,19 @@ def render_suit(fn, size=64):
     return render(size, size, sample)
 
 
-def write_tga(path, width, height, rgba):
+def tga_bytes(width, height, rgba):
     header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, 0x28)
     bgra = bytearray(len(rgba))
     bgra[0::4] = rgba[2::4]
     bgra[1::4] = rgba[1::4]
     bgra[2::4] = rgba[0::4]
     bgra[3::4] = rgba[3::4]
+    return header + bytes(bgra)
+
+
+def write_tga(path, width, height, rgba):
     with open(path, "wb") as f:
-        f.write(header + bytes(bgra))
+        f.write(tga_bytes(width, height, rgba))
 
 
 def write_png(path, width, height, rgba, bg=None):
@@ -1166,12 +1229,14 @@ def main(argv):
     for name, fn in BACKS.items():
         jobs.append((name.replace("Back_", "BackSq_"), 256, 256, render(256, 256, square_back(fn))))
     jobs.append(("Lock", 64, 64, render(64, 64, padlock)))
+    for kind in CHIPS:
+        jobs.append(("Chip_" + kind, CHIP_SIZE, CHIP_SIZE, render(CHIP_SIZE, CHIP_SIZE, chip_fn(kind))))
     jobs = [j for j in jobs if j[0].startswith(only)]
     for name, w, h, rgba in jobs:
         write_tga(os.path.join(MEDIA, name + ".tga"), w, h, rgba)
         print("wrote %s.tga (%dx%d)" % (name, w, h))
         if png_dir:
-            write_png(os.path.join(png_dir, name + ".png"), w, h, rgba, bg=(70, 70, 80) if name.startswith(("Suit", "Seal", "Ed_", "Face_GLASS")) else None)
+            write_png(os.path.join(png_dir, name + ".png"), w, h, rgba, bg=(70, 70, 80) if name.startswith(("Suit", "Seal", "Ed_", "Face_GLASS", "Chip_")) else None)
 
 
 if __name__ == "__main__":

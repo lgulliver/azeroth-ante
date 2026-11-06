@@ -37,6 +37,7 @@ UI\HandView.lua
 UI\Outcome.lua
 UI\Tally.lua
 UI\DeckSelect.lua
+UI\BlindSelect.lua
 UI\Screens.lua
 UI\PackView.lua
 Queue.lua
