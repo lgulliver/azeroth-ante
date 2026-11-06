@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+
+      # Core and Data unit tests, then a headless run of the real UI against the WoW API stub.
+      - name: Unit tests
+        run: luajit tests/run.lua
+
+      - name: UI smoke
+        run: luajit tests/smoke_ui.lua
+
+      # A sweep of random seeds catches UI paths a single scripted run misses.
+      - name: UI smoke, seeds 1-30
+        run: |
+          for s in $(seq 1 30); do
+            SMOKE_SEED=$s luajit tests/smoke_ui.lua > /dev/null || { echo "smoke failed for seed $s"; exit 1; }
+          done
+
+      - name: Syntax
+        run: luajit tests/syntax.lua
+
+      - name: Media
+        run: python3 tests/test_media.py

@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    # The CurseForge upload runs only when its token and project ID are configured
+    # (secret CF_API_TOKEN, variable CF_PROJECT_ID). Wago picks the release up from GitHub
+    # through a repo webhook, using the "-forever.zip" asset name.
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builds AzerothAnte-<version>-forever.zip. The "-forever" suffix is how WowUp
+      # matches a GitHub release asset to the Forever client.
+      - name: Build zip
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+
+          # The TOC version must match the tag, so the in-game version is never stale.
+          toc_version=$(sed -n 's/^## Version: *\([^ ]*\).*/\1/p' AzerothAnte/AzerothAnte.toc | tr -d '\r')
+          if [ "$toc_version" != "${version%%-*}" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match TOC version $toc_version" >&2
+            exit 1
+          fi
+
+          mkdir -p dist
+          cp -r AzerothAnte dist/AzerothAnte
+
+          # The TOC lists Retail and Forever interfaces (120100, 120105, 16001).
+          # Forever's is the five-digit one: 16001 -> game patch 1.60.1
+          interface=$(sed -n 's/^## Interface: *//p' AzerothAnte/AzerothAnte.toc | tr -d '\r' | tr ',' '\n' \
+            | tr -d ' ' | awk 'length($0) == 5' | head -1)
+          if [ -z "$interface" ]; then
+            echo "No Forever interface in AzerothAnte.toc" >&2
+            exit 1
+          fi
+          patch=$(printf "%d.%d.%d" $((interface / 10000)) $((interface / 100 % 100)) $((interface % 100)))
+
+          case "$version" in
+            *alpha*) stability=alpha ;;
+            *beta* | *rc*) stability=beta ;;
+            *) stability=release ;;
+          esac
+
+          zip="dist/AzerothAnte-${version}-forever.zip"
+          (cd dist && zip -qr "../$zip" AzerothAnte)
+
+          {
+            echo "VERSION=$version"
+            echo "ZIP=$zip"
+            echo "STABILITY=$stability"
+            echo "PATCH=$patch"
+            echo "NOTES_FILE=dist/notes.md"
+          } >> "$GITHUB_ENV"
+
+      # A tag with a hyphen (v0.7.0-alpha.1) is published as a pre-release.
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          flags=""
+          case "$VERSION" in *-*) flags="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" "$ZIP" \
+            --title "$GITHUB_REF_NAME" --generate-notes $flags
+          gh release view "$GITHUB_REF_NAME" --json body --jq .body > "$NOTES_FILE"
+
+      - name: Upload to CurseForge
+        if: env.CF_API_TOKEN != '' && env.CF_PROJECT_ID != ''
+        run: .github/scripts/upload-curseforge.sh
