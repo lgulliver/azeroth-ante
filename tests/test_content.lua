@@ -30,7 +30,7 @@ local ICON_PREFIX = "Interface\\Icons\\"
 T.test("trinkets_complete", function()
   -- The catalog size is derived from the data files: one top-level `id = "X", name = ` per def.
   local defined = 0
-  for _, file in ipairs({ "Trinkets", "TrinketsS", "TrinketsE" }) do
+  for _, file in ipairs({ "Trinkets", "TrinketsS", "TrinketsE", "TrinketsD" }) do
     local f = assert(io.open("AzerothAnte/Data/" .. file .. ".lua", "r"))
     for line in f:lines() do
       if line:match('^%s*id = "[A-Z_0-9]+", name = ') then defined = defined + 1 end

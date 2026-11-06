@@ -15,6 +15,7 @@ Core\TrinketRules.lua
 Data\Trinkets.lua
 Data\TrinketsS.lua
 Data\TrinketsE.lua
+Data\TrinketsD.lua
 Data\Bosses.lua
 Data\Decks.lua
 Data\Vouchers.lua
