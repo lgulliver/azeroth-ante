@@ -14,6 +14,12 @@ local _, ns = ...
 -- More update hooks: onSell(run, self, sold, isCopy) on every other trinket after a sale (sold = { kind =
 -- "trinket"|"consumable", item }), onSelfSold(run, self) -> effect (original only, before removal),
 -- onShopReroll(run, self, isCopy), onPackSkipped(run, self, isCopy).
+-- Scoring hooks (before, onCard, onHand, after) also take these effect fields: createCard { card, toHand },
+-- createConsumable { kind, id? }, destroyCard (cardId), changeCard { id, enh?, bonusChips?, seal?, ed? }
+-- (false clears enh/seal/ed). Hooks see scratch copies of ctx.cards/ctx.held and may set enh, bonusChips,
+-- seal or ed on them directly; a change applies to this hand and is committed by card id (result.cardsAfter).
+-- onLucky(ctx, self, card, isCopy) runs per successful Lucky roll. Scoring ctx adds deckCards, startDeckSize,
+-- firstHandOfRound, gold and consumableRoom; the result adds sideEffects, bossTriggered and luckyTriggers.
 -- Defs may also set copyable (default true), copies ("right"|"leftmost"), rule, status(self, ctx),
 -- handSize / hands / discards (a number or function(self, run) -> number, summed by Trinkets.mods)
 -- and interestBonus (a number; interest is multiplied by 1 + the sum).

@@ -14,10 +14,16 @@ local function deepCopy(value)
   return out
 end
 
--- Pure: works on a scratch copy of ctx.trinkets (set back on ctx for the hooks) and returns
--- it as trinketsAfter. The caller commits it; nothing it was given is mutated.
+local CARD_FIELDS = { "enh", "bonusChips", "seal", "ed" }
+
+-- Pure: works on scratch copies of ctx.trinkets, ctx.cards and ctx.held (set back on ctx for the
+-- hooks) and returns the trinkets as trinketsAfter plus the card changes as cardsAfter, and any
+-- created or destroyed cards and consumables as sideEffects. The caller commits them; nothing it
+-- was given is mutated.
 function Scoring.score(ctx)
-  local cards = ctx.cards
+  local origCards, origHeld = ctx.cards, ctx.held or {}
+  local cards, held = deepCopy(origCards), deepCopy(origHeld)
+  ctx.cards, ctx.held = cards, held
   local trinkets = deepCopy(ctx.trinkets or {})
   ctx.trinkets = trinkets
   local rules = ns.TrinketRules.set(trinkets)
@@ -30,10 +36,10 @@ function Scoring.score(ctx)
   local goldRef = ctx.goldRef or { gold = ctx.gold or 0 }
   ctx.goldRef = goldRef
   local goldStart = goldRef.gold
-  local held = ctx.held or {}
   local engine = ns.TrinketEngine
 
   local events, levelUps, destroyedUids = {}, {}, {}
+  local sideEffects, luckyTriggers, bossTriggered = {}, 0, false
   local chips, mult = 0, 0
   local function emit(event)
     event.runChips, event.runMult = chips, mult
@@ -58,6 +64,39 @@ function Scoring.score(ctx)
       if not counted then levelUps[handId] = (levelUps[handId] or 0) + 1 end
       emit({ kind = "levelUp", handId = handId, slot = slot, uid = uid })
     end
+    if effect.changeCard then
+      -- { id, enh?, bonusChips?, seal?, ed? }; false clears enh, seal or ed. Hits the scratch card.
+      local change = effect.changeCard
+      for _, list in ipairs({ cards, held }) do
+        for _, card in ipairs(list) do
+          if card.id == change.id then
+            for _, field in ipairs(CARD_FIELDS) do
+              local v = change[field]
+              if v == false then card[field] = nil elseif v ~= nil then card[field] = v end
+            end
+          end
+        end
+      end
+    end
+    if effect.createCard then
+      local c = effect.createCard.card
+      sideEffects[#sideEffects + 1] = { kind = "createCard", toHand = effect.createCard.toHand and true or false,
+        card = { rank = c.rank, suit = c.suit, enh = c.enh, ed = c.ed, seal = c.seal, bonusChips = c.bonusChips } }
+    end
+    if effect.createConsumable then
+      sideEffects[#sideEffects + 1] = { kind = "createConsumable",
+        consumableKind = effect.createConsumable.kind, id = effect.createConsumable.id }
+    end
+    if effect.destroyCard then sideEffects[#sideEffects + 1] = { kind = "destroyCard", id = effect.destroyCard } end
+  end
+
+  -- Called once per successful Lucky roll (mult and money separately).
+  local function lucky(card)
+    luckyTriggers = luckyTriggers + 1
+    engine.each(trinkets, function(slot, inst, def, isCopy)
+      local effect = def.onLucky and def.onLucky(ctx, inst, card, isCopy)
+      if effect then apply(effect, slot) end
+    end)
   end
 
   -- Foil and Holo before, Poly after. A kind of "edition" event for a card or a trinket slot.
@@ -101,10 +140,14 @@ function Scoring.score(ctx)
     elseif enh == "GLASS" then
       enhEvent(i, card, { xmult = 2 })
     elseif enh == "LUCKY" then
-      if ns.Prob.roll(ctx.rng, trinkets, 1, 5) then enhEvent(i, card, { mult = 20 }) end
+      if ns.Prob.roll(ctx.rng, trinkets, 1, 5) then
+        enhEvent(i, card, { mult = 20 })
+        lucky(card)
+      end
       if ns.Prob.roll(ctx.rng, trinkets, 1, 15) then
         goldRef.gold = goldRef.gold + 20
         emit({ kind = "money", index = i, gold = 20 })
+        lucky(card)
       end
     end
     if card.ed then
@@ -148,6 +191,7 @@ function Scoring.score(ctx)
 
   chips, mult = ns.Hands.base(handId, ((ctx.handLevels and ctx.handLevels[handId]) or 1)
     + (levelUps[handId] or 0))
+  if boss and (boss.halveBase or boss.mustPlay) then bossTriggered = true end
   if boss and boss.halveBase then
     chips = math.floor(chips / 2)
     mult = math.max(1, math.floor(mult / 2))
@@ -168,6 +212,12 @@ function Scoring.score(ctx)
         cardStep(i, card)
       end
       if card.enh == "GLASS" then destroyCandidates[#destroyCandidates + 1] = i end
+    end
+  end
+  -- A debuffed card that was played but did not score still counts as the boss acting.
+  if boss and boss.debuff then
+    for _, card in ipairs(cards) do
+      if boss.debuff(card, ctx.rules) then bossTriggered = true end
     end
   end
 
@@ -231,7 +281,9 @@ function Scoring.score(ctx)
   engine.each(trinkets, function(slot, inst, def, isCopy)
     local effect = def.after and def.after(ctx, inst, isCopy)
     if not effect then return end
-    apply({ gold = effect.gold, msg = effect.msg, levelHand = effect.levelHand }, slot)
+    apply({ gold = effect.gold, msg = effect.msg, levelHand = effect.levelHand, changeCard = effect.changeCard,
+      createCard = effect.createCard, createConsumable = effect.createConsumable,
+      destroyCard = effect.destroyCard }, slot)
     if effect.destroySelf and not isCopy then destroyedUids[inst] = true end
   end)
   local destroyedTrinkets, trinketsAfter = {}, {}
@@ -252,9 +304,25 @@ function Scoring.score(ctx)
     end
   end
 
+  -- Whole-field snapshots of the scratch cards that differ from the real ones (a nil stays nil).
+  local cardsAfter = {}
+  local function diff(scratch, orig)
+    for i, card in ipairs(scratch) do
+      for _, field in ipairs(CARD_FIELDS) do
+        if card[field] ~= orig[i][field] and card.id then
+          cardsAfter[card.id] = { enh = card.enh, bonusChips = card.bonusChips, seal = card.seal, ed = card.ed }
+          break
+        end
+      end
+    end
+  end
+  diff(cards, origCards)
+  diff(held, origHeld)
+
   return { handId = handId, chips = chips, mult = mult, total = total, events = events,
     gold = goldRef.gold - goldStart, destroyed = destroyed, trinketsAfter = trinketsAfter,
-    levelUps = levelUps, destroyedTrinkets = destroyedTrinkets }
+    levelUps = levelUps, destroyedTrinkets = destroyedTrinkets, cardsAfter = cardsAfter,
+    sideEffects = sideEffects, bossTriggered = bossTriggered, luckyTriggers = luckyTriggers }
 end
 
 ns.Scoring = Scoring
