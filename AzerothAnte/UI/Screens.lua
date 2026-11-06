@@ -260,11 +260,13 @@ function Screens.ItemInfo(item)
     end
   elseif kind == "card" then
     local CT = ns.CardTypes
+    local owner = main() and main().run
+    owner = owner and owner.trinkets
     info.name = (CARD_RANK_NAMES[item.rank] or tostring(item.rank)) .. " of " .. ns.Cards.SUIT_NAMES[item.suit]
     local lines = {}
     local defs = { CT.enh[item.enh], CT.seal[item.seal], CT.ed[item.ed] }
     for i = 1, 3 do
-      if defs[i] then lines[#lines + 1] = defs[i].name .. ": " .. defs[i].desc end
+      if defs[i] then lines[#lines + 1] = defs[i].name .. ": " .. ns.Prob.describe(owner, defs[i].desc) end
     end
     info.desc = #lines > 0 and table.concat(lines, "\n") or "A plain playing card."
     info.color = Theme.parchment

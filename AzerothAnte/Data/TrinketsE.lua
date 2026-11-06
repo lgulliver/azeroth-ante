@@ -368,7 +368,7 @@ ns.Trinkets.add {
   onHand = function(_, self) return { xmult = self.state.x } end,
   onDiscard = function(_, self, cards, isCopy)
     if isCopy then return end
-    self.state.x = self.state.x - 0.01 * #cards
+    self.state.x = math.floor((self.state.x - 0.01 * #cards) * 100 + 0.5) / 100
     if self.state.x <= 1 then return { destroySelf = true, msg = "Eaten!" } end
   end,
   status = function(self) return "Currently ×" .. self.state.x .. " Mult" end,
@@ -507,6 +507,9 @@ ns.Trinkets.add {
     local copy = ns.Trinkets.duplicate(run, original, ed)
     run.trinkets[#run.trinkets + 1] = copy
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", copy.id) end
+    run.lifecycleEvents = run.lifecycleEvents or {}
+    run.lifecycleEvents[#run.lifecycleEvents + 1] =
+      { kind = "trinketCreated", uid = copy.uid, slot = #run.trinkets - 1, id = copy.id, by = self.uid }
     return { msg = "Duplicated!" }
   end,
   status = function(self)

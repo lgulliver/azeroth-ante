@@ -43,10 +43,11 @@ on the character-select AddOns screen until you set the right number.
 5. Beat three blinds per stage across eight stages. You lose when you run out of
    hands, or when your hand and deck are both empty with the blind still unbeaten.
 
-**Trinkets** come in 80 kinds (common, uncommon and rare). They score left to right, so order
+**Trinkets** come in 117 kinds (common, uncommon and rare). They score left to right, so order
 matters: drag a trinket left or right in the trinket row to reorder it. Engineering Schematic copies the
 trinket to its right and Mind Control copies the leftmost one; rule trinkets can't be copied.
-Hover a trinket for its live values and sell price.
+Hover a trinket for its live values and sell price. You can sell trinkets during a blind as well as
+in the shop; hand-size and discard trinkets adjust the current hand and discards straight away.
 
 **Consumables** sit in slots beside your trinkets. Click one to Use or Sell it.
 
@@ -109,8 +110,12 @@ shop slots) and, with room, the highest-rarity trinket it can afford. It never r
 trinkets. It prints wins, where runs ended, and mean final gold.
 
 Wave 1 (80 trinkets) win rates at 200 runs and seed 1: ROGUE 22.0%, WARRIOR 30.0%,
-GOBLIN 31.0%, MONK 25.0%, WARLOCK 9.5%. All sit inside the intended 8-45% band; the target
+GOBLIN 31.0%, MONK 25.0%, WARLOCK 9.5%. All sat inside the intended 8-45% band; the target
 curve in `Core/Run.lua` (`BASE_TARGETS`) was retuned for the bigger trinket pool.
+
+Wave 2 (117 trinkets) win rates at 200 runs and seed 1: ROGUE 13.0%, WARRIOR 25.0%, GOBLIN 21.5%,
+MONK 24.5%, WARLOCK 5.5%. WARLOCK is below the intended 8-45% band; the targets are unchanged
+pending a balance decision. The bot never goes into debt, even with Credit Card.
 
 ## In-game test checklist
 

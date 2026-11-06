@@ -59,7 +59,19 @@ H.test("loyalty_countdown", function()
     local r = H.score(run, single(), nil, { handsPlayedTotal = 100 + hand })
     T.eq(r.mult, hand % 6 == 0 and 4 or 1)
     run.trinkets = r.trinketsAfter
-    T.eq(ns.Trinkets.def.BLOODLUST.status(run.trinkets[1]), (6 - hand % 6) .. " remaining")
+    T.eq(ns.Trinkets.def.BLOODLUST.status(run.trinkets[1]), hand % 6 == 5 and "Active!" or (5 - hand % 6) .. " remaining")
+  end
+end)
+H.test("loyalty_status_countdown", function()
+  local run = H.run { trinkets = { "BLOODLUST" } }
+  local status = ns.Trinkets.def.BLOODLUST.status
+  T.eq(status(run.trinkets[1]), "5 remaining")
+  for hand = 1, 6 do
+    local r = H.score(run, single())
+    run.trinkets = r.trinketsAfter
+    if hand < 5 then T.eq(status(run.trinkets[1]), (5 - hand) .. " remaining") end
+    if hand == 5 then T.eq(status(run.trinkets[1]), "Active!") end
+    if hand == 6 then T.eq(r.mult, 4); T.eq(status(run.trinkets[1]), "5 remaining") end
   end
 end)
 H.test("HEARTHSTONE_effect", function()
@@ -374,6 +386,21 @@ H.test("idol_reroll_round_end", function()
   T.eq(def.roundUpdate(run, self, false), nil)
   T.eq(H.score(run, single()).mult, 1)
 end)
+H.test("chance_texts_show_effective_odds", function()
+  local plain = H.run()
+  local dice = H.run { trinkets = { "LOADED_DICE" } }
+  local scroll = { kind = "scroll", id = "CHANCE" }
+  T.eq(ns.Consumables.describe(plain, scroll):sub(1, 14), "1 in 4 chance:")
+  T.eq(ns.Consumables.describe(dice, scroll):sub(1, 14), "2 in 4 chance:")
+  T.ok(ns.Consumables.affects(dice, scroll):find("(2 in 4)", 1, true))
+  T.ok(ns.Consumables.affects(plain, scroll):find("(1 in 4)", 1, true))
+  T.eq(ns.Prob.describe(dice.trinkets, ns.CardTypes.enh.GLASS.desc),
+    "x2 mult when scored. 2 in 4 chance to be destroyed after scoring.")
+  T.eq(ns.Prob.describe(dice.trinkets, ns.CardTypes.enh.LUCKY.desc),
+    "When scored: 2 in 5 chance of +20 mult, 2 in 15 chance of 20g.")
+  T.eq(ns.Prob.describe(nil, ns.CardTypes.enh.LUCKY.desc),
+    "When scored: 1 in 5 chance of +20 mult, 1 in 15 chance of 20g.")
+end)
 H.test("ancient_reroll_round_end", function()
   local run = H.run { trinkets = { "TITAN_RELIC" } }
   local self, def = run.trinkets[1], ns.Trinkets.def.TITAN_RELIC
@@ -383,6 +410,34 @@ H.test("ancient_reroll_round_end", function()
   T.eq(def.roundUpdate(run, self, false), nil); T.eq(self.state.suit, "S")
   run.rng = ns.RNG.new(64000)
   T.eq(def.roundUpdate(run, self, false), nil); T.eq(self.state.suit, "C")
+end)
+H.test("ancient_reroll_excludes_current", function()
+  local run = H.run { trinkets = { "TITAN_RELIC" } }
+  local self, def = run.trinkets[1], ns.Trinkets.def.TITAN_RELIC
+  for seed = 1, 60 do
+    run.rng = ns.RNG.new(seed)
+    local before = self.state.suit
+    def.roundUpdate(run, self, false)
+    T.ok(self.state.suit ~= before, "seed " .. seed .. " kept " .. before)
+  end
+end)
+H.test("raised_fist_rank_tie", function()
+  local run = H.run { trinkets = { "FIST_JUSTICE" } }
+  -- Which held card pays out, by its slot in the hand.
+  local function payer(held)
+    local r = H.score(run, single(), held)
+    for _, e in ipairs(r.events) do
+      if e.heldIndex and e.mult then return e.heldIndex, r.mult end
+    end
+  end
+  -- Jack and King both count 10, but the Jack ranks lower: the Jack pays, wherever it sits.
+  local idx, mult = payer({ H.card(11, "H"), H.card(13, "D") }); T.eq(idx, 1); T.eq(mult, 21)
+  idx = payer({ H.card(13, "H"), H.card(11, "D") }); T.eq(idx, 2)
+  -- A 10 outranks nothing below it: the 10 beats the Jack although both are worth 10.
+  idx = payer({ H.card(11, "H"), H.card(10, "D") }); T.eq(idx, 2)
+  idx = payer({ H.card(10, "H"), H.card(11, "D") }); T.eq(idx, 1)
+  -- Equal ranks: the rightmost card pays.
+  idx = payer({ H.card(5, "H"), H.card(5, "D") }); T.eq(idx, 2)
 end)
 H.test("oops_doubles_bloodstone", function()
   local plain = H.run { trinkets = { "BLOODSTONE" } }

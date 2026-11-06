@@ -108,7 +108,7 @@ local def = {
   },
   CHANCE = {
     name = "Scroll of Chance",
-    desc = "1 in 4 chance: a random trinket with no edition gains Foil, Holo or Polychrome.",
+    desc = "{1} in 4 chance: a random trinket with no edition gains Foil, Holo or Polychrome.",
     untargeted = true,
     check = function(run)
       if #unedited(run.trinkets) == 0 then return false, "No eligible trinket" end
@@ -232,7 +232,7 @@ local AFFECTS = {
   THORIUM = "1 selected card -> Steel",
   CRYSTAL = "1 selected card -> Glass",
   GREED = "Gives gold: doubles it (max +20g)",
-  CHANCE = "1 random trinket may gain an edition (1 in 4)",
+  CHANCE = "1 random trinket may gain an edition ({1} in 4)",
   STRENGTH = "Up to 2 selected cards: rank +1",
   SACRIFICE = "Destroys up to 2 selected cards",
   UNDEATH = "Left selected card becomes a copy of the right",

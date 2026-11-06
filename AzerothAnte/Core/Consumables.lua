@@ -97,7 +97,7 @@ function Consumables.describe(run, item)
     return "Levels up " .. name .. " to level " .. (level + 1) .. "."
   end
   if def.descFor then return def.descFor(run) end
-  return def.desc or ""
+  return ns.Prob.describe(run and run.trinkets, def.desc)
 end
 
 function Consumables.affects(run, item)
@@ -109,7 +109,7 @@ function Consumables.affects(run, item)
     return hand.name .. ": Lv " .. level .. " -> " .. (level + 1)
   end
   if def.affectsFor then return def.affectsFor(run) end
-  return def.affects or ""
+  return ns.Prob.describe(run and run.trinkets, def.affects)
 end
 
 local function removeFrom(list, card)

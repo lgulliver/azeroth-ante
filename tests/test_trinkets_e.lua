@@ -432,6 +432,56 @@ H.test("INVIS_POTION_effect", function()
     copy.state.mult = 10; T.eq(original.state.mult, 8)
   end
 end)
+H.test("invisible_emits_created_event", function()
+  local run = H.run { trinkets = { "ARCANE_INTELLECT", "INVIS_POTION", "FLASH_HEAL" } }
+  ns.Run.winBlind(run); ns.Run.winBlind(run)
+  run.lifecycleEvents = {}
+  forced(0, function() ns.Run.sellTrinket(run, 2) end)
+  T.eq(#run.trinkets, 3)
+  local copy = run.trinkets[3]
+  local created
+  for _, e in ipairs(run.lifecycleEvents) do
+    if e.kind == "trinketCreated" then T.ok(not created, "one event"); created = e end
+  end
+  T.ok(created, "trinketCreated emitted")
+  T.eq(created.uid, copy.uid); T.eq(created.slot, 3); T.eq(created.id, copy.id)
+end)
+H.test("ramen_eaten_on_100th_discard", function()
+  local run = H.run { trinkets = { "NOODLES" } }
+  for i = 1, 100 do
+    run.discardsLeft = 3
+    discard(run, single())
+    if i < 100 then
+      T.eq(#run.trinkets, 1, "alive after discard " .. i)
+      T.eq(run.trinkets[1].state.x, math.floor((2 - 0.01 * i) * 100 + 0.5) / 100)
+    end
+  end
+  T.eq(#run.trinkets, 0)
+  local eaten = 0
+  for _, e in ipairs(run.lifecycleEvents) do if e.text == "Eaten!" then eaten = eaten + 1 end end
+  T.eq(eaten, 1)
+end)
+H.test("sell_hand_size_and_discard_trinkets_mid_blind", function()
+  local run = H.run { trinkets = { "REAGENT_BAG", "DWARVEN_STOUT" } }
+  ns.Run.startBlind(run)
+  local base = ns.Decks.def[run.deckId].discards
+  T.eq(#run.hand, 9); T.eq(run.discardsLeft, base + 1)
+  local hand = {}
+  for i, c in ipairs(run.hand) do hand[i] = c end
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(run.discardsLeft, base + 1) -- Bag sold: discards untouched.
+  T.eq(#run.hand, 9); for i, c in ipairs(hand) do T.ok(run.hand[i] == c, "hand card kept") end
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(run.discardsLeft, base)
+  T.eq(#run.hand, 9)
+  -- Never below 0.
+  run.trinkets = { ns.Trinkets.create(run, "DWARVEN_STOUT") }
+  run.discardsLeft = 0
+  T.ok(ns.Run.sellTrinket(run, 1)); T.eq(run.discardsLeft, 0)
+  -- The next blind deals the base hand size.
+  run.phase = "play"; ns.Run.startBlind(run)
+  T.eq(#run.hand, 8); T.eq(run.discardsLeft, base)
+end)
 H.test("invisible_needs_two_rounds", function()
   local run = H.run { trinkets = { "INVIS_POTION", "ARCANE_INTELLECT" } }
   T.eq(ns.Trinkets.def.INVIS_POTION.status(run.trinkets[1]), "0/2 rounds")
