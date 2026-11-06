@@ -433,3 +433,14 @@ Same as before:
 - `Run.play` wraps the scoring commit in `Run.withMods`. If a scoring hook ever creates a trinket that raises hand size, the refill would run before `removeSelected` and reorder the hand. Move the hand removal before the settle if wave 3 adds such a trinket.
 - Card mutations (Hiker, Vampire, Midas Mask) still need a `changeCard` side effect, never in-place changes.
 - Score targets are now `300, 700, 1400, 2800, 5000, 8000, 11500, 16000`. Re-run the sim band check after wave 3.
+
+## Wave 3 outcome
+
+- All 143 trinkets are implemented, which is every non-legendary Balatro joker except Diet Cola and Throwback (skip tags).
+- Engine:
+  - Scoring scratch-copies cards and returns `cardsAfter` and `sideEffects`. `Run.scoreCtx` is the single ctx builder.
+  - `ctx.deckCards` is a view with that hand's scratch copies swapped in.
+  - Every deck change is reported once per action through `flushCards`.
+- Boss disable uses `Run.activeBoss`. A boss with no rule (Ragnaros) can't be disabled.
+- Balance: 4-seed means (seeds 1-4, 200 runs each) at targets `300…16000` are ROGUE 19.0, WARRIOR 26.5, GOBLIN 20.9, MONK 23.3 and WARLOCK 7.4. **Warlock is just under the 8% floor, which is an open decision for Liam.**
+- Remaining roadmap: legendary trinkets plus The Soul, skip tags (with Diet Cola and Throwback), stakes, the other Balatro decks, and endless mode.
