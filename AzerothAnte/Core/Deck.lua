@@ -12,10 +12,18 @@ function Deck.new()
   return deck
 end
 
+-- Added and destroyed cards pile up in run.cardLog until TrinketEngine.flushCards tells the trinkets.
+local function cardLog(run)
+  run.cardLog = run.cardLog or { added = {}, destroyed = {} }
+  return run.cardLog
+end
+
 function Deck.add(run, card)
   card.id = run.nextCardId
   run.nextCardId = run.nextCardId + 1
   run.deck[#run.deck + 1] = card
+  local added = cardLog(run).added
+  added[#added + 1] = card
   return card
 end
 
@@ -33,6 +41,14 @@ function Deck.find(run, id)
 end
 
 function Deck.destroy(run, id)
+  local card = Deck.find(run, id)
+  if card then
+    local destroyed = cardLog(run).destroyed
+    destroyed[#destroyed + 1] = {
+      id = card.id, rank = card.rank, suit = card.suit, enh = card.enh, ed = card.ed, seal = card.seal,
+      bonusChips = card.bonusChips,
+    }
+  end
   for _, list in ipairs({ run.deck, run.hand, run.pile }) do
     for i = #list, 1, -1 do
       if list[i].id == id then table.remove(list, i) end

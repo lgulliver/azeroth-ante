@@ -204,9 +204,22 @@ local function applyItem(run, item, cards)
   return outcome
 end
 
+-- Counts the use, then lets the trinkets react and hear about the cards it added or destroyed.
+local function used(run, item)
+  run.usage = run.usage or { scroll = 0, tome = 0, relic = 0, tomeIds = {} }
+  run.usage[item.kind] = (run.usage[item.kind] or 0) + 1
+  if item.kind == "tome" then run.usage.tomeIds[item.id] = true end
+  ns.TrinketEngine.fire(run, "onConsumableUsed", item)
+  ns.TrinketEngine.flushCards(run)
+end
+
 -- Scrolls and Relics can add or remove trinkets, so settle hands, discards and hand size after.
 function Consumables.apply(run, item, cards)
-  return ns.Run.withMods(run, function() return applyItem(run, item, cards) end)
+  return ns.Run.withMods(run, function()
+    local outcome = applyItem(run, item, cards)
+    used(run, item)
+    return outcome
+  end)
 end
 
 -- Resolves selected hand indices into cards, left to right. Returns nil, reason on bad input.

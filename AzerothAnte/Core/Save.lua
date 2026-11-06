@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Save = {}
 
-Save.VERSION = 5
+Save.VERSION = 6
 
 local function deepCopy(value)
   if type(value) ~= "table" then return value end
@@ -54,6 +54,12 @@ function Save.load(db)
     local n = 0
     for _, plays in pairs(run.roundHandPlays or {}) do n = n + plays end
     run.handsPlayedRound = n
+  end
+  if db.version < 6 then
+    run.usage = run.usage or { scroll = 0, tome = 0, relic = 0, tomeIds = {} }
+    run.cardLog = run.cardLog or { added = {}, destroyed = {} }
+    run.bossDisabled = run.bossDisabled or false
+    run.startDeckSize = run.startDeckSize or 52
   end
   run.pendingDestroy = nil
   run.lifecycleEvents = {} -- Events are for the live UI only; never replayed after a reload.

@@ -160,7 +160,7 @@ T.test("new_run_fields", function()
 end)
 
 T.test("v2_save_migrates", function()
-  T.eq(ns.Save.VERSION, 5)
+  T.eq(ns.Save.VERSION, 6)
   local run = ns.Run.new(7, "ROGUE")
   ns.Run.startBlind(run)
   local control = ns.Run.new(7, "ROGUE")
@@ -213,7 +213,7 @@ T.test("v3_save_preserves_voucher_state", function()
   run.streak.maxInterest = 4
   local db = {}
   ns.Save.store(db, run)
-  T.eq(db.version, 5)
+  T.eq(db.version, 6)
   local loaded = ns.Save.load(db)
   T.eq(loaded, run)
   loaded.vouchers.BLANK = nil

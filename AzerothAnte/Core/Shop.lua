@@ -164,7 +164,11 @@ local function buyItem(run, i)
 end
 
 function Shop.buy(run, i)
-  return ns.Run.withMods(run, function() return buyItem(run, i) end)
+  return ns.Run.withMods(run, function()
+    local ok, reason = buyItem(run, i)
+    ns.TrinketEngine.flushCards(run)
+    return ok, reason
+  end)
 end
 
 function Shop.buyVoucher(run)

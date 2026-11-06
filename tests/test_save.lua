@@ -70,7 +70,7 @@ T.test("v3_save_migrates_trinkets", function()
   T.eq({ t.uid, t.sellBonus, t.state, t.paid }, { 1, 0, { hands = 0 }, 8 }) -- Spec row 25: fresh purchase counter.
   T.eq(loaded.nextTrinketUid, 2)
   T.eq(loaded.roundHandPlays, {})
-  T.eq(ns.Save.VERSION, 5)
+  T.eq(ns.Save.VERSION, 6)
 end)
 
 T.test("v4_save_migrates_lifecycle_fields", function()
