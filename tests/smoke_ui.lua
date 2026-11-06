@@ -2629,6 +2629,25 @@ local function run(w)
     end
     step("lifecycle_click_speeds_up")
 
+    do -- lifecycle_long_queue_autospeeds
+      local w2, panel2, m, r = lifeBoard({ "FLIGHT_PATH" }, "play")
+      local stub2, ns2 = w2.stub, w2.ns
+      local uid = r.trinkets[1].uid
+      for _ = 1, 20 do
+        r.lifecycleEvents[#r.lifecycleEvents + 1] = { kind = "money", uid = uid, slot = 1, amount = 1 }
+      end
+      local finished = false
+      ns2.UI.Lifecycle.Drain(r, function() finished = true end)
+      check(ns2.UI.Lifecycle.IsBusy(), "the long queue is playing")
+      local t = 0
+      while not finished and t < 10 do
+        stub2.advance(0.05)
+        t = t + 0.05
+      end
+      check(finished and t <= 3.5, "a 20-event queue finishes in 3.5s: " .. t)
+    end
+    step("lifecycle_long_queue_autospeeds")
+
     do -- saved_payout_line
       local defs = { { id = "S_BONES", onLose = function(run)
         if run.score * 4 >= run.target then return { save = true, destroySelf = true, msg = "Saved!" } end
@@ -2650,6 +2669,10 @@ local function run(w)
         end
       end
       eq(sum, tonumber(shop.payout.total.value:GetText():match("%d+")), "the other lines still add up to Total")
+      local function col(fs) local c = fs._textColor; return c and (c[1] .. "," .. c[2] .. "," .. c[3]) end
+      local g = ns2.UI.Theme.gold
+      eq(col(shop.payout.total.label), g[1] .. "," .. g[2] .. "," .. g[3], "Total stays gold")
+      eq(col(shop.payout.reward.label), g[1] .. "," .. g[2] .. "," .. g[3], "the saved line is gold")
       unstub(ns2, defs)
       -- A normal win keeps the ordinary line.
       local w3, panel3, m3, r3 = lifeBoard({}, "play")
@@ -2657,6 +2680,11 @@ local function run(w)
       m3.Render(r3, true)
       w3.stub.advance(1)
       eq(panel3("offerCards").payout.reward.label:GetText(), "Blind reward", "a normal win says Blind reward")
+      local c3 = panel3("offerCards").payout.reward.label._textColor
+      check(not c3 or (c3[1] == 1 and c3[2] == 1 and c3[3] == 1), "the reward line is normal again")
+      local gt = w3.ns.UI.Theme.gold
+      local ct = panel3("offerCards").payout.total.label._textColor
+      check(ct and ct[1] == gt[1] and ct[2] == gt[2], "Total is still gold")
       check(panel3("offerCards").payout.reward.value:IsShown(), "with its amount")
     end
     step("saved_payout_line")
