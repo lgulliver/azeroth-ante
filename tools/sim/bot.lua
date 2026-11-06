@@ -237,7 +237,7 @@ return function(ns)
   -- Decision pieces, exposed so a UI harness can drive the same choices through clicks.
   bot.bestPlay, bot.discardPlan, bot.usePlan = bestPlay, discardPlan, usePlan
   bot.choosePick, bot.mostPlayed = choosePick, mostPlayed
-  bot.trinketWeight, bot.SCROLL_RANK, bot.VOUCHER_RANK = TRINKET_RANK, SCROLL_RANK, VOUCHER_RANK
+  bot.trinketWeight, bot.SCROLL_RANK, bot.VOUCHER_RANK = trinketWeight, SCROLL_RANK, VOUCHER_RANK
 
   function bot.playRun(run)
     run.bot = { played = {} }
