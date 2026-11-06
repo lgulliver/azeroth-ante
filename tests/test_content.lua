@@ -60,6 +60,26 @@ T.test("trinkets_complete", function()
   end
 end)
 
+T.test("full_catalog", function()
+  -- Every row of "The 145" except 94 (Diet Cola) and 114 (Throwback) has a registered WoW id.
+  local f = assert(io.open("docs/superpowers/specs/2026-11-07-trinkets-design.md", "r"))
+  local rows, inTable = 0, false
+  for line in f:lines() do
+    if line:match("^| # | Balatro") then inTable = true
+    elseif not line:match("^|") then inTable = false end
+    local n = inTable and line:match("^| (%d+) |")
+    if n and tonumber(n) ~= 94 and tonumber(n) ~= 114 then
+      local id = line:match("%(([A-Z_0-9]+)%) |%s*$")
+      T.ok(id, "row " .. n .. " has no id")
+      T.ok(ns.Trinkets.def[id], "row " .. n .. " unregistered: " .. tostring(id))
+      rows = rows + 1
+    end
+  end
+  f:close()
+  T.eq(rows, 143)
+  T.eq(#ns.Trinkets.order, 143)
+end)
+
 T.test("trinket_bloodlust", function()
   -- Spec row 25: counter belongs to the purchased instance, every sixth hand.
   T.eq(handHook("BLOODLUST", ctx(), { state = { hands = 6 } }), { xmult = 4 })
