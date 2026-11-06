@@ -223,6 +223,8 @@ ns.Trinkets.add {
   desc = "{1} in 2 to create a Scroll when any pack opened",
   icon = "Interface\\Icons\\Spell_Nature_Sleep",
   onPackOpened = function(run)
+    -- No room: don't roll at all (Balatro order), so the rng stream is untouched.
+    if ns.Consumables.slots(run) - #run.consumables < 1 then return end
     if ns.Prob.roll(run.rng, run.trinkets, 1, 2) then
       return { createConsumable = { kind = "scroll" } }
     end

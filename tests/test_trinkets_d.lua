@@ -310,6 +310,15 @@ H.test("DREAMWALKER_effect", function()
   ns.TrinketEngine.fire(run, "onPackOpened", {})
   T.eq(#run.consumables, 2)
 end)
+H.test("DREAMWALKER_full_slots_no_roll", function()
+  local run = H.run { trinkets = { "DREAMWALKER", "LOADED_DICE" } }
+  for i = 1, ns.Consumables.slots(run) do run.consumables[i] = { kind = "scroll", id = "X" } end
+  run.rng = ns.RNG.new(70000)
+  local before = run.rng.s
+  ns.TrinketEngine.fire(run, "onPackOpened", { kind = "celestial" })
+  T.eq(run.rng.s, before)
+  T.eq(#run.consumables, ns.Consumables.slots(run))
+end)
 H.test("SEER_effect", function()
   local run = H.run { trinkets = { "SEER" } }
   T.eq(H.score(run, single()).mult, 1)
