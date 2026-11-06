@@ -31,7 +31,7 @@ H.test("fire_destroy_right", function()
   local run = H.run({ trinkets = { "S_KILL", "S_VICTIM" } })
   local victim = run.trinkets[2].uid
   local events = ns.TrinketEngine.fire(run, "onBlindSelect")
-  T.eq(ran, 1)
+  T.eq(ran, 0) -- Marked before its turn, so its hook is skipped.
   T.eq(#run.trinkets, 1)
   T.eq(events[1].kind, "trinketDestroyed")
   T.eq(events[1].uid, victim)
@@ -154,8 +154,46 @@ H.test("titan_idol_roll_in_round_update", function()
   local run = H.run({ trinkets = { "TITAN_RELIC", "ZANDALARI_IDOL" } })
   run.deck = { H.card(3, "H") }
   run.rng = ns.RNG.new(1)
-  ns.TrinketEngine.fire(run, "onRoundEnd")
   ns.TrinketEngine.fire(run, "roundUpdate")
   T.eq(run.trinkets[1].state.suit, "S")
   T.eq({ run.trinkets[2].state.rank, run.trinkets[2].state.suit }, { 3, "H" })
+end)
+
+H.test("create_records_profile_obtain", function()
+  H.stub({ id = "S_MAKER", onBlindSelect = function() return { createTrinkets = { rarity = "common", n = 1 } } end })
+  local run = H.run({ trinkets = { "S_MAKER" } })
+  local old, got = ns.Profile, {}
+  ns.Profile = { onObtain = function(kind, id) got[#got + 1] = { kind, id } end }
+  local ok, err = pcall(ns.TrinketEngine.fire, run, "onBlindSelect")
+  ns.Profile = old
+  if not ok then error(err, 0) end
+  T.eq(got, { { "trinket", run.trinkets[2].id } })
+end)
+
+H.test("create_after_destroy_in_full_row", function()
+  H.stub({ id = "S_K", onBlindSelect = function(run) return { destroyTrinket = run.trinkets[2].uid } end })
+  H.stub({ id = "S_V" })
+  H.stub({ id = "S_M", onBlindSelect = function() return { createTrinkets = { rarity = "common", n = 1 } } end })
+  local run = H.run({ trinkets = { "S_K", "S_V", "S_M" } })
+  run.maxTrinkets = 3
+  local events = ns.TrinketEngine.fire(run, "onBlindSelect")
+  T.eq(#run.trinkets, 3)
+  T.eq(kinds(events), { "trinketDestroyed", "trinketCreated" })
+  T.eq(events[2].slot, 3)
+end)
+
+H.test("pending_destroy_skips_hook", function()
+  local ran = {}
+  H.stub({ id = "S_D", onBlindSelect = function(run) return { destroyTrinket = run.trinkets[2].uid } end })
+  H.stub({ id = "S_X", onBlindSelect = function(run)
+    ran[#ran + 1] = "X"; return { destroyTrinket = run.trinkets[3].uid }
+  end })
+  H.stub({ id = "S_Y", onBlindSelect = function() ran[#ran + 1] = "Y" end })
+  local run = H.run({ trinkets = { "S_D", "S_X", "S_Y" } })
+  local y = run.trinkets[3].uid
+  ns.TrinketEngine.fire(run, "onBlindSelect")
+  T.eq(ran, { "Y" })
+  T.eq(uids(run), { run.trinkets[1].uid, y })
+  T.eq(run.pendingDestroy, nil)
+  T.eq(ns.TrinketEngine.isMarked(run, y), false)
 end)
