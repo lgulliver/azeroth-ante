@@ -3196,6 +3196,48 @@ local function run(w)
     end
     step("boss_disabled_at_blind_start")
 
+    do -- medallion_sell_floats_once: the bossDisabled event floats it; the sale adds no second one
+      local w2, panel2, m, r = lifeBoard({ "GLAD_MEDALLION" }, "play")
+      local stub2 = w2.stub
+      r.blind, r.bosses[r.stage] = 3, "HOGGER"
+      m.Render(r, true)
+      stub2.advance(1)
+      click(m.trinketRow.slots[1].sell, "sell the Medallion")
+      local most, t = 0, 0
+      while t < 4 do
+        stub2.advance(0.03)
+        t = t + 0.03
+        local n = 0
+        for _, f in ipairs(stub2.frames) do
+          if f._text == "Boss disabled!" and f:IsVisible() then n = n + 1 end
+        end
+        most = math.max(most, n)
+      end
+      check(r.bossDisabled, "the boss is disabled")
+      eq(most, 1, "one Boss disabled! float")
+    end
+    step("medallion_sell_floats_once")
+
+    do -- cloned_card_on_winning_hand: no flyer over the shop
+      local w2, panel2, m, r = lifeBoard({ "CLONING_DEVICE" }, "play")
+      local stub2 = w2.stub
+      r.target = 1
+      local cloneId = r.nextCardId
+      handWidgets(m)[1]:Click()
+      m.buttons.play:Click()
+      local flew, t = false, 0
+      while (w2.ns.UI.Tally.IsBusy() or w2.ns.UI.HandView.IsBusy()) and t < 15 do
+        stub2.advance(0.03)
+        t = t + 0.03
+        for _, c in ipairs(m.handArea._children) do
+          if c.card and c.card.id == cloneId and not c.released and c:IsShown() and r.phase ~= "play" then flew = true end
+        end
+      end
+      check(r.phase ~= "play", "the hand won the blind")
+      check(not flew, "no flyer for the clone after the win")
+    end
+    step("cloned_card_on_winning_hand")
+
     do -- two_consumables_never_flash
       local defs = { { id = "S_TWO", before = function()
         return { createConsumable = { kind = "scroll" } }

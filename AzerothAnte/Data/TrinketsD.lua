@@ -160,7 +160,7 @@ ns.Trinkets.add {
 ns.Trinkets.add {
   id = "PHANTASM", name = "Phantasm", rarity = "uncommon", cost = 7,
   desc = "Gains ×0.25 Mult per playing card added to deck",
-  icon = "Interface\\Icons\\Spell_Frost_MirrorImage",
+  icon = "Interface\\Icons\\Spell_Magic_LesserInvisibilty",
   init = initMult,
   onCardsAdded = function(_, self, cards, isCopy)
     if not isCopy then self.state.x = (self.state.x or 1) + 0.25 * #cards end
@@ -201,7 +201,7 @@ ns.Trinkets.add {
   copyable = false,
   onSelfSold = function(run)
     if run.phase == "play" and run.blind == 3 then
-      return { disableBoss = true, msg = "Boss disabled!" }
+      return { disableBoss = true }
     end
   end,
 }
@@ -323,7 +323,7 @@ ns.Trinkets.add {
 ns.Trinkets.add {
   id = "ARENA_CHAMPION", name = "Arena Champion", rarity = "uncommon", cost = 7,
   desc = "8g if hand triggers the boss ability",
-  icon = "Interface\\Icons\\Ability_Warrior_VictoryRush",
+  icon = "Interface\\Icons\\Ability_Warrior_Challange",
   after = function(ctx)
     if ctx.bossTriggered then return { gold = 8 } end
   end,

@@ -285,3 +285,14 @@ T.test("bot_prefers_scoring_common_over_economy_rare", function()
   ns.Trinkets.def.TEST_ECON_RARE = nil
   T.ok(scoring > econ, "scoring common " .. scoring .. " vs economy rare " .. econ)
 end)
+
+H.test("disable_boss_needs_a_rule", function()
+  local run = H.run()
+  run.blind, run.bosses[1] = 3, "RAGNAROS"
+  T.eq(ns.Run.disableBoss(run), false)
+  T.eq(run.bossDisabled, false)
+  run.trinkets[1] = ns.Trinkets.create(run, "GLAD_MEDALLION")
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(run.bossDisabled, false)
+  for _, e in ipairs(run.lifecycleEvents) do T.ok(e.kind ~= "bossDisabled", "no event for a rule-less boss") end
+end)

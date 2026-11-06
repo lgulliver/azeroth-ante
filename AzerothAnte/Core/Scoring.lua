@@ -24,6 +24,19 @@ function Scoring.score(ctx)
   local origCards, origHeld = ctx.cards, ctx.held or {}
   local cards, held = deepCopy(origCards), deepCopy(origHeld)
   ctx.cards, ctx.held = cards, held
+  -- The deck as the hooks see it: a played or held card is its scratch copy, so changes made in `before`
+  -- count this hand. run.deck itself is never touched.
+  if ctx.deckCards then
+    local byId = {}
+    for _, list in ipairs({ cards, held }) do
+      for _, card in ipairs(list) do
+        if card.id then byId[card.id] = card end
+      end
+    end
+    local view = {}
+    for i, card in ipairs(ctx.deckCards) do view[i] = byId[card.id] or card end
+    ctx.deckCards = view
+  end
   local trinkets = deepCopy(ctx.trinkets or {})
   ctx.trinkets = trinkets
   local rules = ns.TrinketRules.set(trinkets)

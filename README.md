@@ -122,11 +122,12 @@ Wave 2 (117 trinkets) win rates at 200 runs and seed 1, with `BASE_TARGETS` retu
 MONK 28.0%, WARLOCK 10.5%. All sit inside the intended 8-45% band. The bot never goes into debt,
 even with Credit Card.
 
-Wave 3 (143 trinkets) win rates at 200 runs and seed 1, with the same `BASE_TARGETS`: ROGUE 13.5%,
-WARRIOR 22.5%, GOBLIN 20.5%, MONK 22.0%, WARLOCK 5.5%. The bot scores trinket offers as rarity plus 3
-for any scoring hook, and skips rule, interest and round-end trinkets while a scoring one is affordable
-(before that change: ROGUE 14.0%, WARRIOR 21.0%, GOBLIN 20.0%, MONK 20.5%, WARLOCK 5.0%). WARLOCK
-still sits below the intended 8-45% band; the targets are unchanged pending a balance decision.
+Wave 3 (143 trinkets) win rates, mean of 4 seeds (seeds 1-4, 200 runs each, 800 runs per deck), with the
+same `BASE_TARGETS`: ROGUE 19.0%, WARRIOR 26.5%, GOBLIN 20.9%, MONK 23.3%, WARLOCK 7.4%. Single seeds
+swing a lot (WARLOCK ranged 4.0% to 11.0%, ROGUE 13.5% to 24.5%), so judge by the mean. The bot scores
+trinket offers as rarity plus 3 for any scoring hook, and skips rule, interest and round-end trinkets while a
+scoring one is affordable. Four decks sit inside the intended 8-45% band; WARLOCK's mean of 7.4% is just
+below it. The targets are unchanged pending a balance decision.
 
 ## In-game test checklist
 

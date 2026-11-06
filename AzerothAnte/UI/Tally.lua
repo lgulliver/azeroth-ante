@@ -271,7 +271,8 @@ local function fire(e)
   elseif kind == "cardMade" then
     -- A card made into the hand flies out of the Deck button; one for the deck only just pulses it.
     ns.UI.Screens.PulseDeckButton(s.run)
-    if e.card then HandView.FlyIn(e.card, s.speed) end
+    -- Nothing flies over the shop when the hand won the blind.
+    if e.card and s.run.phase == "play" then HandView.FlyIn(e.card, s.speed) end
   elseif kind == "consumableMade" then
     ns.UI.ConsumableRow.PopIn(s.run, e.item, s.speed)
   end

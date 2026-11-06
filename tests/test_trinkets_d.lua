@@ -270,7 +270,10 @@ H.test("GLAD_MEDALLION_effect", function()
   T.eq(run.bossDisabled, true); T.eq(ns.Run.activeBoss(run), nil)
   local msg
   for _, e in ipairs(run.lifecycleEvents) do if e.kind == "trinketMsg" then msg = e.text end end
-  T.eq(msg, "Boss disabled!")
+  T.eq(msg, nil, "the bossDisabled event floats it, not a trinketMsg")
+  local disabled = 0
+  for _, e in ipairs(run.lifecycleEvents) do if e.kind == "bossDisabled" then disabled = disabled + 1 end end
+  T.eq(disabled, 1)
 end)
 H.test("luchador_only_in_boss", function()
   for _, phase in ipairs({ "play", "shop", "blind" }) do
@@ -279,7 +282,7 @@ H.test("luchador_only_in_boss", function()
       run.phase, run.blind = phase, blind
       local def = assert(ns.Trinkets.def.GLAD_MEDALLION)
       T.eq(def.onSelfSold(run, run.trinkets[1]), phase == "play" and blind == 3
-        and { disableBoss = true, msg = "Boss disabled!" } or nil)
+        and { disableBoss = true } or nil)
     end
   end
 end)
@@ -454,4 +457,35 @@ H.test("d_part_b_pool_and_copy_gates", function()
     local run = H.run { trinkets = { "SCHEMATIC", id } }
     T.eq(ns.TrinketEngine.source(run.trinkets, 1), nil)
   end
+end)
+
+H.test("IRONFORGE_ANVIL_same_hand_deck_parity", function()
+  local run = H.run { trinkets = { "VAMPIRIC", "IRONFORGE_ANVIL" } }
+  local played = H.card(9, "S", "STEEL")
+  run.deck = { played, H.card(3, "H", "STEEL"), H.card(4, "D") }
+  -- Vampiric Embrace strips the played Steel in `before`, so the Anvil sees one Steel (x1.2), not two (x1.4).
+  local r = H.score(run, { played })
+  local xs = {}
+  for _, e in ipairs(r.events) do
+    if e.kind == "trinket" and e.xmult and e.slot == 2 then xs[#xs + 1] = e.xmult end
+  end
+  T.eq(#xs, 1)
+  near(xs[1], 1.2)
+  T.eq(played.enh, "STEEL", "run.deck untouched")
+  T.eq(run.deck[1], played)
+  T.eq(#run.deck, 3)
+end)
+H.test("deckCards_hook_sees_scratch_copy", function()
+  local run = H.run()
+  local played, held = H.card(9, "S", "STEEL"), H.card(5, "H", "GOLD")
+  run.deck = { played, held, H.card(4, "D") }
+  local seen
+  H.stub({ id = "S_PEEK",
+    before = function(ctx) ctx.cards[1].enh = nil; ctx.held[1].enh = nil end,
+    onHand = function(ctx) seen = ctx.deckCards end })
+  run.trinkets[1] = ns.Trinkets.create(run, "S_PEEK")
+  H.score(run, { played }, { held })
+  T.eq(#seen, 3)
+  T.eq(seen[1].enh, nil); T.eq(seen[2].enh, nil)
+  T.eq(played.enh, "STEEL"); T.eq(held.enh, "GOLD")
 end)
