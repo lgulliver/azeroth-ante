@@ -237,6 +237,7 @@ Screens.Widgets = { text = text, button = button, reasonTip = reasonTip, setReas
 
 -- Normalises a shop offer ({ type, id, ed }) or pack choice ({ kind, id } or a
 -- trinket offer) into what an item face and its tooltip show.
+local CARD_RANK_NAMES = { [11] = "Jack", [12] = "Queen", [13] = "King", [14] = "Ace" }
 function Screens.ItemInfo(item)
   local kind = item.kind or item.type
   local info = { kind = kind, ed = item.ed }
@@ -251,6 +252,18 @@ function Screens.ItemInfo(item)
       info.edName = ed.name
       info.edDesc = item.ed == "NEGATIVE" and "+1 trinket slot" or ed.desc
     end
+  elseif kind == "card" then
+    local CT = ns.CardTypes
+    info.name = (CARD_RANK_NAMES[item.rank] or tostring(item.rank)) .. " of " .. ns.Cards.SUIT_NAMES[item.suit]
+    local lines = {}
+    local defs = { CT.enh[item.enh], CT.seal[item.seal], CT.ed[item.ed] }
+    for i = 1, 3 do
+      if defs[i] then lines[#lines + 1] = defs[i].name .. ": " .. defs[i].desc end
+    end
+    info.desc = #lines > 0 and table.concat(lines, "\n") or "A plain playing card."
+    info.color = Theme.parchment
+    info.sub = "Playing Card"
+    info.card = item
   else
     local def = ns.Consumables.def({ kind = kind, id = item.id })
     local run = main() and main().run
@@ -343,6 +356,7 @@ function Screens.SetFaceSelected(f, on)
 end
 
 function Screens.SkinFace(f, info)
+  if info.kind == "card" then return end -- playing cards use a CardWidget, not an item face
   f.info = info
   local trinket = info.kind == "trinket"
   f.icon:SetTexture(info.icon)
@@ -427,6 +441,15 @@ local function onSell(slot, id)
   main().Render(run, true) -- a pack open on this screen re-checks its Pick button
   ns.UI.Outcome.FloatGold(gained)
   persist()
+end
+
+-- A bought playing card goes to the deck: update the sidebar count and pulse the button.
+function Screens.PulseDeckButton(run)
+  local btn = main().sidebar and main().sidebar.deckButton
+  if not btn then return end
+  btn:SetText("Deck (" .. #(run.deck or {}) .. ")")
+  Tween.Cancel(btn)
+  Tween.To(btn, { scale = 1.12 }, 0.1, function() Tween.To(btn, { scale = 1 }, 0.15) end)
 end
 
 local function nextBlind()
@@ -738,6 +761,8 @@ local function buildShop()
       shopAction(ns.Shop.buy, function(r)
         if offerType == "trinket" then
           ns.UI.TrinketRow.Pulse(#r.trinkets)
+        elseif offerType == "card" then
+          Screens.PulseDeckButton(r)
         else
           local held = r.consumables[#r.consumables]
           if held then ns.UI.Outcome.Play({ created = { held } }) end
@@ -769,6 +794,29 @@ local function buildShop()
   p.next:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -16, 16)
   addAbandon(p)
   return p
+end
+
+-- A playing-card offer shows the same CardWidget the Standard pack uses, scaled to the column.
+local function releaseCard(c)
+  if c.cardWidget then
+    ns.UI.CardWidget.Release(c.cardWidget)
+    c.cardWidget = nil
+  end
+end
+
+local function showCard(c, card)
+  local CardWidget = ns.UI.CardWidget
+  local w = c.cardWidget
+  if not w then
+    w = CardWidget.Acquire(c)
+    c.cardWidget = w
+  end
+  w:SetCard(card)
+  w:SetBaseLevel(c:GetFrameLevel() + 3)
+  w:SetScale(c:GetWidth() / CardWidget.WIDTH)
+  w:ClearAllPoints()
+  w:SetPoint("TOP", c, "TOP", 0, 0)
+  w:Show()
 end
 
 local function setColumn(c, live)
@@ -835,16 +883,24 @@ local function refreshShop(p, run)
     c:SetShown(i <= slots)
     setColumn(c, offer and true or false)
     if i > slots then c:Hide() end
+    if not offer or offer.type ~= "card" or i > slots then releaseCard(c) end
     if offer then
       local info = Screens.ItemInfo(offer)
       local full
-      if offer.type == "trinket" then
+      if offer.type == "card" then
+        full = false -- cards go to the deck: never "Slots full"
+      elseif offer.type == "trinket" then
         full = #run.trinkets >= ns.Run.trinketSlots(run) + (offer.ed == "NEGATIVE" and 1 or 0)
       else
         full = #run.consumables >= ns.Consumables.slots(run)
       end
       local afford = run.gold >= offer.cost
-      Screens.SkinFace(c.face, info)
+      if offer.type == "card" then
+        c.face:Hide()
+        showCard(c, offer)
+      else
+        Screens.SkinFace(c.face, info)
+      end
       local desc = info.desc
       if info.edName then desc = desc .. "\n" .. GOLD_HEX .. info.edName .. ": " .. info.edDesc .. "|r" end
       local reason
