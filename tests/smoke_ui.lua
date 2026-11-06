@@ -2164,6 +2164,221 @@ local function run(w)
   end
   step("11e carousel and flourish survive missing rotation and desaturation APIs")
 
+  -- 11f. Vouchers: the shop tile, owned icons, boss reroll, achievement toasts and the achievements view.
+  local function voucherScenario(noRotation)
+    local db = {}
+    local w2, open2, panel2, m = boot(db)
+    local ns2, stub2 = w2.ns, w2.stub
+    if noRotation then stub2.noRotation = true end
+    local Toast, AV = ns2.UI.Toast, ns2.UI.AchievementsView
+    local function clickOn(f, what)
+      check(f and f:IsVisible() and f:IsEnabled(), what .. " is live")
+      f:Click()
+      stub2.advance(0.1)
+    end
+    open2()
+
+    -- The achievements view opens from the deck-select sidebar and lists all 16.
+    check(m.sidebar.achievementsButton:IsVisible(), "Achievements button on deck select")
+    eq(m.sidebar.achievementsButton:GetText(), "Achievements (0 / 16)", "button label")
+    clickOn(m.sidebar.achievementsButton, "Achievements button")
+    check(AV.IsShown(), "achievements view opens")
+    local av = AV.Panel()
+    eq(#av.rows, 16, "16 rows")
+    for _, row in ipairs(av.rows) do
+      check(row.name:GetText() and row.cond:GetText() and row.count:GetText(), "row has name, condition and progress")
+      check(row.unlocks:GetText():find("Unlocks: ", 1, true), "locked row names what it unlocks")
+    end
+    check(av.rows[1].count:GetText():find("0 / 2500", 1, true), "progress shows have / need")
+    for _, row in ipairs(av.rows) do
+      if row.id == "GLOW_UP" or row.id == "MONEY_TREE" then
+        check(row.count:GetText():find("best: ", 1, true), row.id .. " progress is labelled as a best")
+      end
+    end
+    clickOn(av.close, "view Close")
+    check(not AV.IsShown(), "view closes")
+
+    -- Start a run and reach the shop.
+    ns2.UI.DeckSelect.Select("ROGUE", true)
+    panel2("carousel").play:Click()
+    stub2.advance(1)
+    local run = m.run
+    local bp = panel2("preview")
+    local boss = bp.panels[3]
+    check(not boss.reroll:IsShown(), "no boss reroll without the vouchers")
+    check(not AV.IsShown(), "view is closed during a run")
+    clickOn(bp.start, "Play")
+    stub2.advance(3)
+    run.gold = 100
+    ns2.Run.winBlind(run)
+    run.gold = 100
+    m.Render(run, true)
+    stub2.advance(1)
+    local shop = panel2("offerCards")
+    local v = shop.voucher
+    check(shop:IsVisible() and v.content:IsShown(), "shop shows the voucher")
+    local offer = run.shopVoucher
+    check(type(offer) == "table", "a voucher is on offer")
+    local def = ns2.Vouchers.def[offer.id]
+    eq(v.name:GetText(), def.name, "voucher name")
+    eq(v.desc:GetText(), def.desc, "voucher effect")
+    eq(v.price:GetText(), "10g", "full price")
+    check(not v.orig:IsShown(), "no struck-through original at full price")
+
+    -- A discount shows the discounted price with the original struck through.
+    run.vouchers.CLEARANCE_SALE = true
+    run.shopVoucher = { id = offer.id }
+    if offer.id == "CLEARANCE_SALE" then run.vouchers.CLEARANCE_SALE = nil end
+    m.Render(run, true)
+    local discount = ns2.Vouchers.price(run, def.cost)
+    if run.vouchers.CLEARANCE_SALE then
+      eq(discount, 8, "25% off 10")
+      eq(v.price:GetText(), "8g", "discounted price")
+      eq(v.orig:GetText(), "10g", "original price")
+      check(v.orig:IsShown() and v.strike:IsShown(), "original is struck through")
+      for i = 1, 2 do
+        local item = run.shop.cards[i]
+        if item then eq(shop.offerCards[i].cost:GetText(), item.cost .. "g", "card price label is the discounted price") end
+      end
+    end
+
+    -- A reroll keeps the voucher; the pack gate and gold gate give reasons.
+    local before = run.shopVoucher
+    run.gold = 5
+    m.Render(run, true)
+    check(not v.buy:IsEnabled() and v.buy.reason, "cannot afford: disabled with a reason")
+    run.gold = 100
+    m.Render(run, true)
+    clickOn(shop.reroll, "Reroll")
+    check(run.shopVoucher == before, "the voucher persists across a reroll")
+
+    -- Buy it.
+    local gold = run.gold
+    clickOn(v.buy, "voucher Buy")
+    eq(run.gold, gold - discount, "gold drops by the discounted price")
+    check(run.vouchers[offer.id], "the run owns the voucher")
+    check(run.shopVoucher == false, "the offer is gone")
+    check(v.ghost:IsShown(), "the stamp animation plays")
+    stub2.advance(2)
+    check(not v.ghost:IsShown() and not v.content:IsShown(), "the coupon fades away")
+    check(v.soldBox:IsShown() and v.soldBox:GetAlpha() == 1, "Sold out this stage shows")
+    eq(v.soldBox.text:GetText(), "Sold out this stage", "sold text")
+    -- The sidebar row lists it, with a tooltip.
+    local owned = {}
+    for _, icon in ipairs(m.sidebar.voucherIcons) do
+      if icon:IsShown() then owned[#owned + 1] = icon end
+    end
+    eq(#owned, run.vouchers.CLEARANCE_SALE and offer.id ~= "CLEARANCE_SALE" and 2 or 1, "owned icons")
+    local icon
+    for _, i in ipairs(owned) do if i.id == offer.id then icon = i end end
+    check(icon, "an icon for the bought voucher")
+    icon._scripts.OnEnter(icon)
+    icon._scripts.OnLeave(icon)
+    -- Buying outside the shop phase is refused at the UI.
+    local fake = { id = "GRABBER" }
+    run.shopVoucher = fake
+    run.phase = "blind"
+    local g2 = run.gold
+    shop.voucher.buy:Click()
+    check(run.gold == g2 and not run.vouchers.GRABBER, "no buy outside the shop phase")
+    run.phase = "shop"
+    run.shopVoucher = false
+
+    -- Overstock adds card slots that the shop actually shows.
+    run.vouchers.OVERSTOCK = true
+    ns2.Shop.open(run)
+    m.Render(run, true)
+    check(shop.offerCards[3]:IsShown(), "a third card column shows with Overstock")
+    check(shop.offerCards[1]:GetWidth() < 90, "columns narrow to fit")
+
+    -- The voucher changes after the boss.
+    run.shopVoucher = nil
+    run.blind = 3
+    run.phase = "blind"
+    ns2.Run.startBlind(run)
+    ns2.Run.winBlind(run)
+    m.Render(run, true)
+    stub2.advance(1)
+    check(type(run.shopVoucher) == "table" and run.shopVoucher ~= before, "a fresh voucher after the boss")
+    check(v.content:IsShown(), "the tile shows the new offer")
+
+    -- Boss reroll: once per stage with Director's Cut, never at stage 8.
+    ns2.Run.nextBlind(run)
+    m.Render(run, true)
+    stub2.advance(1)
+    check(visible("preview"), "blind screen")
+    bp = panel2("preview")
+    boss = bp.panels[3]
+    check(not boss.reroll:IsShown(), "still no boss reroll")
+    run.vouchers.DIRECTORS_CUT = true
+    run.gold = 50
+    m.Render(run, true)
+    check(boss.reroll:IsShown() and boss.reroll:IsEnabled(), "Reroll Boss shows and is live")
+    eq(boss.reroll:GetText(), "Reroll Boss ($10)", "label")
+    local oldBoss = run.bosses[run.stage]
+    clickOn(boss.reroll, "Reroll Boss")
+    stub2.advance(1)
+    check(run.bosses[run.stage] ~= oldBoss, "the boss changed")
+    eq(run.gold, 40, "boss reroll costs $10")
+    eq(boss.name:GetText(), ns2.Bosses.def[run.bosses[run.stage]].name, "the chip shows the new boss")
+    eq(boss.rule:GetText(), ns2.Bosses.def[run.bosses[run.stage]].desc, "and its rule")
+    check(not boss.reroll:IsEnabled(), "once per stage")
+    eq(boss.reroll.reason, select(2, ns2.Run.canRerollBoss(run)), "reason comes from Run.canRerollBoss")
+    run.stage = 8
+    m.Render(run, true)
+    check(not boss.reroll:IsShown(), "hidden at stage 8")
+    run.stage = 2
+    m.Render(run, true)
+
+    -- Toasts: crossing a threshold toasts once, several queue, input is not blocked.
+    ns2.Profile.onEvent("reroll", 100, run)
+    ns2.Profile.onEvent("cardsPlayed", 2500, run)
+    check(Toast.Current() == "REROLL_GLUT", "first toast shows")
+    eq(Toast.Pending(), 1, "second toast queued")
+    local tf = Toast.Frame()
+    check(tf:IsShown() and not tf:IsMouseEnabled(), "toast never takes the mouse")
+    check(tf.title:GetText():find("Achievement unlocked: " .. ns2.Vouchers.def.REROLL_GLUT.name, 1, true), "toast title")
+    check(tf.sub:GetText():find("Unlocks ", 1, true), "toast subtitle")
+    check(ns2.Profile.get(db).seenAchievements.REROLL_GLUT, "shown toast is marked seen")
+    stub2.advance(4.2)
+    eq(Toast.Current(), "NACHO_TONG", "the queue moves on")
+    stub2.advance(4.2)
+    check(Toast.Current() == nil and not tf:IsShown(), "toasts finish and hide")
+    ns2.Profile.onEvent("reroll", 1, run)
+    check(Toast.Current() == nil, "no repeat toast")
+    clickOn(m.sidebar.deckButton, "Deck button is not blocked by toasts")
+    ns2.UI.DeckView.Hide()
+    -- The view shows the unlocked ones in gold.
+    AV.Toggle()
+    for _, row in ipairs(AV.Panel().rows) do
+      if row.id == "REROLL_GLUT" then
+        check(row.done and row.count:GetText() == "100 / 100", "unlocked row shows full progress")
+      end
+    end
+    check(AV.Panel().title:GetText():find("(2 / 16)", 1, true), "view counts 2 unlocked")
+    AV.Hide()
+    -- Unseen achievements toast when the window opens again.
+    ns2.Profile.get(db).achievements.PALETTE = true
+    m.Hide()
+    m.Show()
+    check(Toast.Current() == "PALETTE", "unseen achievement toasts on open")
+    stub2.advance(10)
+    -- Earning the achievement lets the tier-two voucher into the pool.
+    run.vouchers = { OVERSTOCK = true }
+    ns2.Profile.get(db).achievements.OVERSTOCK_PLUS = true
+    local seenPlus = false
+    for seed = 1, 60 do
+      run.rng = ns2.RNG.new(seed)
+      local o = ns2.Shop.rollVoucher(run)
+      if o and o.id == "OVERSTOCK_PLUS" then seenPlus = true end
+    end
+    check(seenPlus, "the achievement unlocks the upgrade in the shop")
+  end
+  voucherScenario(false)
+  step("11f vouchers: shop tile, owned row, boss reroll, toasts, achievements view")
+  voucherScenario(true)
+  step("11g the voucher UI survives a client without rotation APIs")
+
   -- 12. The window theme: set-in panels, raised tiles, outline-free chips and mult, themed buttons.
   do
     local Theme = ns.UI.Theme

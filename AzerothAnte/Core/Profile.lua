@@ -116,8 +116,10 @@ function Profile.event(db, name, amount, run)
   return unlocked
 end
 
-function Profile.hasAchievement(db, id)
-  -- Shop uses a one-argument hook until UI binds a database-backed lookup.
+function Profile.hasAchievement(a, b)
+  -- Shop passes only the id; the bootstrap sets Profile.db to the saved database.
+  local db, id = a, b
+  if type(a) ~= "table" then db, id = Profile.db, a end
   if type(db) ~= "table" then return false end
   return Profile.get(db).achievements[id] == true
 end

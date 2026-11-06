@@ -177,6 +177,7 @@ function Main.Show()
   Main.frame:Show()
   Main.Render(Main.run, true)
   ns.UI.HandView.Update(Main.run, true)
+  ns.UI.Toast.ShowUnseen() -- achievements earned while the window was closed
 end
 
 function Main.Hide()

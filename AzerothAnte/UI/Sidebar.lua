@@ -5,6 +5,8 @@ local Sidebar = {}
 
 local BLIND_NAMES = { "Small Blind", "Big Blind" }
 local ICON_W, ICON_H = 40, math.floor(40 * 7 / 5 + 0.5) -- a card back, 5:7
+local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
+local VOUCHER_W, VOUCHER_H, VOUCHER_COLS, VOUCHER_BASE = 20, 28, 9, 44 -- owned-voucher icons, above the Deck button
 
 local function fontString(parent, font, point, x, y, width)
   local fs = parent:CreateFontString(nil, "OVERLAY", font)
@@ -111,6 +113,66 @@ function Sidebar.Build(frame)
     ns.UI.DeckView.Toggle(ns.UI.Main and ns.UI.Main.run)
   end)
   frame.deckButton = deck
+
+  local ach = Theme.NewButton(frame, nil, w, 28)
+  ach:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", m, m)
+  ach:SetText("Achievements")
+  ach:SetScript("OnClick", function() ns.UI.AchievementsView.Toggle() end)
+  frame.achievementsButton = ach
+  frame.voucherIcons = {}
+end
+
+local function initials(name)
+  local out = ""
+  for word in name:gmatch("%a+") do
+    if #out < 2 then out = out .. word:sub(1, 1):upper() end
+  end
+  return out
+end
+
+local function voucherIcon(frame, i)
+  local icon = frame.voucherIcons[i]
+  if icon then return icon end
+  icon = CreateFrame("Frame", nil, frame)
+  icon:SetSize(VOUCHER_W, VOUCHER_H)
+  local col, row = (i - 1) % VOUCHER_COLS, math.floor((i - 1) / VOUCHER_COLS)
+  icon:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", Theme.margin + col * (VOUCHER_W + 5), VOUCHER_BASE + row * (VOUCHER_H + 3))
+  icon:EnableMouse(true)
+  icon.art = icon:CreateTexture(nil, "ARTWORK")
+  icon.art:SetAllPoints()
+  icon.art:SetTexCoord(0, 1, 0, Theme.cardV)
+  icon.letters = icon:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
+  icon.letters:SetPoint("BOTTOM", icon, "BOTTOM", 0, 5)
+  Theme.setColor(icon.letters, { 0.25, 0.17, 0.06 })
+  icon:SetScript("OnEnter", function(self)
+    if self.id then ns.UI.Screens.ShowVoucherTip(self, self.id) end
+  end)
+  icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  frame.voucherIcons[i] = icon
+  return icon
+end
+
+-- A compact row of coupon icons for the vouchers the run owns, each with a tooltip.
+local function updateVouchers(frame, run)
+  local n = 0
+  if run and run.vouchers then
+    for _, id in ipairs(ns.Vouchers.order) do
+      if run.vouchers[id] then
+        n = n + 1
+        local icon = voucherIcon(frame, n)
+        local def = ns.Vouchers.def[id]
+        icon.id = id
+        icon.art:SetTexture(MEDIA .. (def.tier == 2 and "Voucher_Plus" or "Voucher"))
+        icon.letters:SetText(initials(def.name))
+        icon:Show()
+      end
+    end
+  end
+  for i = n + 1, #frame.voucherIcons do
+    frame.voucherIcons[i].id = nil
+    frame.voucherIcons[i]:Hide()
+  end
+  frame.voucherCount = n
 end
 
 -- The round stats show during a run; the profile totals show on the deck-select screen.
@@ -123,7 +185,8 @@ local ROW_Y = {
   round = { hands = -272, discards = -296, gold = -328, stage = -360 },
   blind = { stage = -80, gold = -108, hands = -148, discards = -172 },
 }
-local PROFILE_WIDGETS = { "profileTitle", "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound" }
+local PROFILE_WIDGETS = { "profileTitle", "profileRuns", "profileWins", "profileBest", "profileDecks", "profileFound",
+  "achievementsButton" }
 
 local RULE_GROUP = { [ROUND_WIDGETS] = "round", [BLIND_WIDGETS] = "blind", [PROFILE_WIDGETS] = "profile" }
 
@@ -153,12 +216,15 @@ local function showProfile(frame)
   frame.profileBest:SetText("Best stage: " .. t.best)
   frame.profileDecks:SetText("Decks unlocked: " .. t.decks .. "/" .. t.totalDecks)
   frame.profileFound:SetText("Discovered: " .. t.found .. "/" .. t.totalFound)
+  local have, total = ns.UI.AchievementsView.Count()
+  frame.achievementsButton:SetText("Achievements (" .. have .. " / " .. total .. ")")
 end
 
 -- chips and mult are optional (shown as 0 when nil), for live scoring display.
 function Sidebar.Update(run, chips, mult)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
   if not frame or not frame.blindName then return end
+  updateVouchers(frame, run)
 
   if not run then
     frame.blindName:SetText("")
@@ -184,6 +250,7 @@ function Sidebar.Update(run, chips, mult)
   showGroup(frame, ROUND_WIDGETS, false)
   showGroup(frame, BLIND_WIDGETS, false)
   showGroup(frame, PROFILE_WIDGETS, false)
+  ns.UI.AchievementsView.Hide() -- the view belongs to the deck-select screen
   if run.phase == "blind" then
     layoutRows(frame, "blind")
     showGroup(frame, BLIND_WIDGETS, true)

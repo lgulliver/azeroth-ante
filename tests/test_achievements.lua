@@ -140,3 +140,16 @@ T.test("shop_without_bound_profile_keeps_upgrades_locked", function()
   end
   T.eq(ns.Shop.rollVoucher(run), false)
 end)
+
+T.test("has_achievement_one_argument_uses_profile_db", function()
+  local db = {}
+  ns.Profile.db = nil
+  T.eq(ns.Profile.hasAchievement("PALETTE"), false)
+  ns.Profile.db = db
+  T.eq(ns.Profile.hasAchievement("PALETTE"), false)
+  ns.Profile.get(db).achievements.PALETTE = true
+  T.eq(ns.Profile.hasAchievement("PALETTE"), true)
+  T.eq(ns.Profile.hasAchievement(db, "PALETTE"), true)
+  ns.Profile.db = nil
+  T.eq(ns.Profile.hasAchievement("PALETTE"), false)
+end)

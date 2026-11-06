@@ -19,6 +19,8 @@ EXPECTED = {
     "Consumable_Tome.tga": (128, 256),
     "Consumable_Relic.tga": (128, 256),
     "Pack.tga": (128, 256),
+    "Voucher.tga": (128, 256),
+    "Voucher_Plus.tga": (128, 256),
 }
 BACKS = ("ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK")
 for _deck in BACKS:
@@ -38,7 +40,7 @@ EXPECTED["UI_Shadow.tga"] = (64, 64)
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0
 CARD_H = 179  # the card occupies the top 128x179 of the 128x256 canvas
-CARD_PREFIXES = ("Face_", "Consumable_", "Pack")
+CARD_PREFIXES = ("Face_", "Consumable_", "Pack", "Voucher")
 # Fractions are of the card region.
 COVERAGE = {"Ed_Sheen.tga": (0.1, 0.9), "Ed_Holo.tga": (0.1, 0.9), "Face_GLASS.tga": (0.5, 1.0)}
 
@@ -246,6 +248,13 @@ def check_card(name, w, h, alpha):
         for y in range(8, CARD_H - 8):
             if min(alpha[y * w + 8:y * w + w - 8]) != 255:
                 return "card not opaque inside the card region (row %d)" % y
+        if alpha != PLAIN_ALPHA:
+            return "silhouette differs from Face_Plain (not the playing-card shape)"
+    elif name.startswith("Voucher"):
+        # a coupon is a card: opaque inside the same rounded 5:7 silhouette as the playing cards
+        for y in range(8, CARD_H - 8):
+            if min(alpha[y * w + 8:y * w + w - 8]) != 255:
+                return "coupon not opaque inside the card region (row %d)" % y
         if alpha != PLAIN_ALPHA:
             return "silhouette differs from Face_Plain (not the playing-card shape)"
     elif name.startswith("Pack"):

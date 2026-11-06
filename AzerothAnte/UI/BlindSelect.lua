@@ -126,6 +126,14 @@ local function makeBlind(p, i, host)
   slot.play:SetPoint("BOTTOM", body, "BOTTOM", 0, 16)
   host.reasonTip(slot.play)
 
+  if i == 3 and host.rerollBoss then
+    -- Director's Cut / Retcon: just under the boss panel, shown only while owned.
+    slot.reroll = host.button(slot, "Reroll Boss ($" .. ns.Run.BOSS_REROLL_COST .. ")", 160, 24, host.rerollBoss)
+    slot.reroll:SetPoint("TOP", slot, "TOP", 0, -(PANEL_H + 6))
+    host.reasonTip(slot.reroll)
+    slot.reroll:Hide()
+  end
+
   local stamp = CreateFrame("Frame", nil, slot)
   stamp:SetSize(PANEL_W, 44)
   stamp:SetPoint("CENTER", slot, "CENTER", 0, 10)
@@ -189,6 +197,16 @@ local function refreshOne(b, run, i, bossId)
 
   b.stamp:SetShown(st == "DEFEATED")
 
+  if b.reroll then
+    local owned = ns.Vouchers.bossRerolls(run) > 0 and run.stage < 8
+    b.reroll:SetShown(owned)
+    if owned then
+      local ok, reason = ns.Run.canRerollBoss(run)
+      if ok then b.reroll:Enable() else b.reroll:Disable() end
+      b.host.setReason(b.reroll, (not ok) and reason or nil)
+    end
+  end
+
   -- Static pose, unless an entrance or pop owns the frame right now.
   if not Tween.IsActive(b) then
     placeSlot(b, b.dx, slotY(current))
@@ -241,6 +259,15 @@ function BlindSelect.Enter(p, run, settle)
       end
     end
   end
+end
+
+-- The new boss pops in: its chip, name and rule are already set by Refresh.
+function BlindSelect.FlipBoss(p)
+  local b = p and p.panels and p.panels[3]
+  if not b then return end
+  b.body:SetAlpha(0.25)
+  b.body:SetScale(0.92)
+  Tween.To(b.body, { alpha = DIM[b.state] or 1, scale = 1 }, 0.25)
 end
 
 -- True while any panel tween is running (for tests).
