@@ -21,9 +21,10 @@ jobs:
         with:
           persist-credentials: false
 
-      # Builds AzerothAnte-<version>-forever.zip. The "-forever" suffix is how WowUp
-      # matches a GitHub release asset to the Forever client.
-      - name: Build zip
+      # Builds AzerothAnte-<version>.zip (Retail) and AzerothAnte-<version>-forever.zip (Forever).
+      # Both hold the same addon (the TOC lists both clients' interfaces); WowUp and Wago pick
+      # the client from the name: a plain .zip is Retail, "-forever.zip" is Forever.
+      - name: Build zips
         run: |
           version="${GITHUB_REF_NAME#v}"
 
@@ -39,14 +40,20 @@ jobs:
           cp LICENSE dist/AzerothAnte/LICENSE
 
           # The TOC lists Retail and Forever interfaces (120100, 120105, 16001).
-          # Forever's is the five-digit one: 16001 -> game patch 1.60.1
-          interface=$(sed -n 's/^## Interface: *//p' AzerothAnte/AzerothAnte.toc | tr -d '\r' | tr ',' '\n' \
-            | tr -d ' ' | awk 'length($0) == 5' | head -1)
+          # Forever's is the five-digit one (16001 -> 1.60.1); Retail's are six digits
+          # (120100 -> 12.1.0, 120105 -> 12.1.5).
+          interfaces=$(sed -n 's/^## Interface: *//p' AzerothAnte/AzerothAnte.toc | tr -d '\r' | tr ',' '\n' | tr -d ' ')
+          to_patch() { printf "%d.%d.%d" $(($1 / 10000)) $(($1 / 100 % 100)) $(($1 % 100)); }
+          interface=$(awk 'length($0) == 5' <<<"$interfaces" | head -1)
           if [ -z "$interface" ]; then
             echo "No Forever interface in AzerothAnte.toc" >&2
             exit 1
           fi
-          patch=$(printf "%d.%d.%d" $((interface / 10000)) $((interface / 100 % 100)) $((interface % 100)))
+          patch=$(to_patch "$interface")
+          retail_patches=""
+          for i in $(awk 'length($0) == 6' <<<"$interfaces"); do
+            retail_patches="$retail_patches $(to_patch "$i")"
+          done
 
           # Any hyphenated tag is a pre-release, so it never ships to CurseForge as a release.
           case "$version" in
@@ -56,13 +63,16 @@ jobs:
           esac
 
           zip="dist/AzerothAnte-${version}-forever.zip"
-          (cd dist && zip -qr "../$zip" AzerothAnte)
+          retail_zip="dist/AzerothAnte-${version}.zip"
+          (cd dist && zip -qr "../$zip" AzerothAnte && zip -qr "../$retail_zip" AzerothAnte)
 
           {
             echo "VERSION=$version"
             echo "ZIP=$zip"
+            echo "RETAIL_ZIP=$retail_zip"
             echo "STABILITY=$stability"
             echo "PATCH=$patch"
+            echo "RETAIL_PATCHES=${retail_patches# }"
             echo "NOTES_FILE=dist/notes.md"
           } >> "$GITHUB_ENV"
 
@@ -75,9 +85,9 @@ jobs:
           case "$VERSION" in *-*) flags="--prerelease" ;; esac
           # A re-run replaces the asset on the existing release instead of failing.
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$ZIP" --clobber
+            gh release upload "$GITHUB_REF_NAME" "$ZIP" "$RETAIL_ZIP" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$ZIP" \
+            gh release create "$GITHUB_REF_NAME" "$ZIP" "$RETAIL_ZIP" \
               --title "$GITHUB_REF_NAME" --generate-notes $flags
           fi
           gh release view "$GITHUB_REF_NAME" --json body --jq .body > "$NOTES_FILE"
