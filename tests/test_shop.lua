@@ -101,8 +101,8 @@ end)
 T.test("sell_includes_edition", function()
   local run = opened(0)
   run.trinkets = { { id = "AVENGING_WRATH", ed = "POLY" } }
-  T.eq(ns.Shop.sellTrinket(run, 1), 6)
-  T.eq(run.gold, 6)
+  T.eq(ns.Shop.sellTrinket(run, 1), 5) -- Spec row 62: floor((6+5)/2).
+  T.eq(run.gold, 5)
   T.eq(run.trinkets, {})
   T.eq(ns.Shop.sellTrinket(run, 1), 0)
 end)
@@ -110,10 +110,10 @@ end)
 T.test("sell_value_includes_foil_surcharge", function()
   local run = opened(0)
   local trinket = { id = "BLOODLUST", ed = "FOIL" }
-  T.eq(ns.Shop.sellValue(trinket), 5) -- Bloodlust costs 8; Foil adds 2.
+  T.eq(ns.Shop.sellValue(trinket), 3) -- Spec row 25: floor((5+2)/2).
   run.trinkets = { trinket }
-  T.eq(ns.Shop.sellTrinket(run, 1), 5)
-  T.eq(run.gold, 5)
+  T.eq(ns.Shop.sellTrinket(run, 1), 3)
+  T.eq(run.gold, 3)
 end)
 
 T.test("exhausted_shop_rerolls_both_consumable_types", function()

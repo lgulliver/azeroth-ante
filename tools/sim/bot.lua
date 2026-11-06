@@ -76,6 +76,8 @@ return function(ns)
           handLevels = run.handLevels, trinkets = run.trinkets, bossId = bossId,
           rng = { s = run.rng.s }, handsPlayedTotal = run.handsPlayedTotal + 1,
           isLastHand = run.handsLeft == 1, discardsLeft = run.discardsLeft, gold = run.gold,
+          handsLeft = run.handsLeft, handPlays = run.handPlays, roundHandPlays = run.roundHandPlays,
+          pileCount = #run.pile, trinketSlots = Run.trinketSlots(run),
         })
         if result.total > best then best, bestIdx = result.total, idx end
       end

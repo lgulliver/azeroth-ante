@@ -18,7 +18,7 @@ T.test("create_assigns_uid_state_sellbonus", function()
   local a = ns.Trinkets.create(run, "BLOODLUST", nil, 8)
   local b = ns.Trinkets.create(run, "FORTITUDE")
   T.eq({ a.uid, b.uid }, { 1, 2 })
-  T.eq(a.state, {})
+  T.eq(a.state, { hands = 0 }) -- Spec row 25: fresh purchase counter.
   T.eq(a.sellBonus, 0)
   T.eq(a.paid, 8)
   T.eq(run.nextTrinketUid, 3)
@@ -127,23 +127,26 @@ T.test("all_creation_sites_use_create", function()
   local taken = run.trinkets[1]
   T.ok(taken.uid and taken.state, "pack trinket lacks uid/state")
   T.eq(taken.paid, nil)
-  -- Relic (Lich creates a rare trinket)
+  -- Spec remaps remove all legacy rares; isolate the rare creation fixture.
+  withStub({ id = "STUB_RARE", name = "Rare", rarity = "rare", cost = 8 }, function()
+    -- Relic (Lich creates a rare trinket)
+    run = newRun()
+    run.phase = "shop"
+    local item = { kind = "relic", id = "LICH" }
+    local ok, reason = ns.Consumables.canApply(run, item, {})
+    T.ok(ok, tostring(reason))
+    ns.Consumables.apply(run, item, {})
+    local made = run.trinkets[1]
+    T.ok(made and made.uid and made.state, "relic trinket lacks uid/state")
+  end)
+  -- Scroll (Summoning)
   run = newRun()
   run.phase = "shop"
-  local item = { kind = "relic", id = "LICH" }
+  local item = { kind = "scroll", id = "SUMMONING" }
   local ok, reason = ns.Consumables.canApply(run, item, {})
   T.ok(ok, tostring(reason))
   ns.Consumables.apply(run, item, {})
   local made = run.trinkets[1]
-  T.ok(made and made.uid and made.state, "relic trinket lacks uid/state")
-  -- Scroll (Summoning)
-  run = newRun()
-  run.phase = "shop"
-  item = { kind = "scroll", id = "SUMMONING" }
-  ok, reason = ns.Consumables.canApply(run, item, {})
-  T.ok(ok, tostring(reason))
-  ns.Consumables.apply(run, item, {})
-  made = run.trinkets[1]
   T.ok(made and made.uid and made.state, "scroll trinket lacks uid/state")
 end)
 
