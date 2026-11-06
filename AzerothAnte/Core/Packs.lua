@@ -147,7 +147,7 @@ function Packs.pick(run, c, idx)
   if pack.type == "BUFFOON" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
-    run.trinkets[#run.trinkets + 1] = { id = item.id, ed = item.ed }
+    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, 0)
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
   elseif pack.type == "STANDARD" then
     ns.Deck.add(run, item)

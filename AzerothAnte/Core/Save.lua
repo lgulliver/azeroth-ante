@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Save = {}
 
-Save.VERSION = 3
+Save.VERSION = 4
 
 local function deepCopy(value)
   if type(value) ~= "table" then return value end
@@ -17,7 +17,8 @@ function Save.store(db, run)
 end
 
 function Save.load(db)
-  if not db or (db.version ~= 2 and db.version ~= Save.VERSION) then return nil end
+  if not db or type(db.version) ~= "number" or db.version < 2
+    or db.version > Save.VERSION then return nil end
   local run = db.run
   if type(run) ~= "table" or type(run.phase) ~= "string" then return nil end
   if type(run.deck) ~= "table" or type(run.hand) ~= "table"
@@ -30,6 +31,18 @@ function Save.load(db)
     run.bossesFought = run.bossesFought or {}
     run.streak = run.streak or { maxInterest = 0 }
     if run.phase == "shop" and run.shopVoucher == nil then run.shopVoucher = ns.Shop.rollVoucher(run) end
+  end
+  if db.version < 4 then
+    run.nextTrinketUid = 1
+    run.roundHandPlays = run.roundHandPlays or {}
+    for _, trinket in ipairs(run.trinkets or {}) do
+      trinket.uid = run.nextTrinketUid
+      run.nextTrinketUid = run.nextTrinketUid + 1
+      trinket.sellBonus = trinket.sellBonus or 0
+      trinket.state = trinket.state or {}
+      local def = ns.Trinkets.def[trinket.id]
+      if def and def.init then def.init(trinket, run) end
+    end
   end
   ns.Deck.relink(run)
   return run

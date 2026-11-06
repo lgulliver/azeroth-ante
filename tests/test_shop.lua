@@ -75,7 +75,8 @@ T.test("buy_checks_and_preserves_edition", function()
   run.trinkets = { { id = "FORTITUDE", ed = "NEGATIVE" } }
   run.maxTrinkets = 1
   T.eq(ns.Shop.buy(run, 1), true)
-  T.eq(run.trinkets[2], { id = "BLOODLUST", ed = "FOIL", paid = 6 })
+  local bought = run.trinkets[2]
+  T.eq({ bought.id, bought.ed, bought.paid }, { "BLOODLUST", "FOIL", 6 })
   T.eq(run.gold, 94)
   T.eq(run.shop.cards[1], false)
   ok, err = ns.Shop.buy(run, 1)

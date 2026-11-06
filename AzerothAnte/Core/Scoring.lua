@@ -79,8 +79,8 @@ function Scoring.score(ctx)
     elseif enh == "GLASS" then
       enhEvent(i, card, { xmult = 2 })
     elseif enh == "LUCKY" then
-      if ns.RNG.next(ctx.rng) < 1 / 5 then enhEvent(i, card, { mult = 20 }) end
-      if ns.RNG.next(ctx.rng) < 1 / 15 then
+      if ns.Prob.roll(ctx.rng, ctx.trinkets or {}, 1, 5) then enhEvent(i, card, { mult = 20 }) end
+      if ns.Prob.roll(ctx.rng, ctx.trinkets or {}, 1, 15) then
         goldRef.gold = goldRef.gold + 20
         emit({ kind = "money", index = i, gold = 20 })
       end
@@ -151,7 +151,7 @@ function Scoring.score(ctx)
 
   local destroyed = {}
   for _, i in ipairs(destroyCandidates) do
-    if ns.RNG.next(ctx.rng) < 0.25 then
+    if ns.Prob.roll(ctx.rng, ctx.trinkets or {}, 1, 4) then
       destroyed[#destroyed + 1] = cards[i].id
       emit({ kind = "destroy", index = i })
     end

@@ -167,7 +167,8 @@ T.test("buffoon_distinct_unowned_and_slots", function()
   T.eq(pack.picksLeft, 2)
   run.maxTrinkets = 1
   T.eq(ns.Packs.pick(run, 1), true)
-  T.eq(run.trinkets[2], { id = "FORTITUDE", ed = "FOIL" })
+  local picked = run.trinkets[2]
+  T.eq({ picked.id, picked.ed, picked.paid }, { "FORTITUDE", "FOIL", 0 })
 end)
 
 T.test("pick_standard_adds_to_deck", function()

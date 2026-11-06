@@ -10,6 +10,8 @@ Core\Deck.lua
 Data\Hands.lua
 Data\CardTypes.lua
 Core\HandEval.lua
+Core\Prob.lua
+Core\TrinketRules.lua
 Data\Trinkets.lua
 Data\Bosses.lua
 Data\Decks.lua

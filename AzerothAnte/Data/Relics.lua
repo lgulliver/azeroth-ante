@@ -14,11 +14,11 @@ for id in pairs(ns.CardTypes.enh) do
 end
 table.sort(ENHANCEMENTS)
 
-local function unownedTrinkets(trinkets)
+local function unownedTrinkets(run, trinkets)
   local owned, pool = {}, {}
   for _, trinket in ipairs(trinkets) do owned[trinket.id] = true end
   for _, id in ipairs(ns.Trinkets.order) do
-    if not owned[id] then pool[#pool + 1] = id end
+    if not owned[id] and ns.Trinkets.inPool(run, id) then pool[#pool + 1] = id end
   end
   return pool
 end
@@ -58,9 +58,9 @@ local function trinketRoom(run)
 end
 
 -- Rolls an edition like Summoning does, then appends the trinket.
-local function addTrinket(api, id)
+local function addTrinket(run, api, id)
   local trinkets = api.trinkets()
-  local trinket = { id = id, ed = ns.CardTypes.rollEdition(api.rng, true) }
+  local trinket = ns.Trinkets.create(run, id, ns.CardTypes.rollEdition(api.rng, true))
   trinkets[#trinkets + 1] = trinket
   api.touch(trinket)
 end
@@ -112,7 +112,7 @@ end
 local function createRareCheck(run)
   local ok, reason = trinketRoom(run)
   if not ok then return ok, reason end
-  if #ofRarity(unownedTrinkets(run.trinkets), "rare") == 0 then
+  if #ofRarity(unownedTrinkets(run, run.trinkets), "rare") == 0 then
     return false, "No eligible rare trinket"
   end
   return true
@@ -121,7 +121,7 @@ end
 local function createRarestCheck(run)
   local ok, reason = trinketRoom(run)
   if not ok then return ok, reason end
-  if #unownedTrinkets(run.trinkets) == 0 then return false, "No eligible trinket" end
+  if #unownedTrinkets(run, run.trinkets) == 0 then return false, "No eligible trinket" end
   return true
 end
 
@@ -167,8 +167,8 @@ local def = {
     untargeted = true, check = createRareCheck,
     use = function(run, _, api)
       api.gold(-run.gold)
-      local pool = ofRarity(unownedTrinkets(api.trinkets()), "rare")
-      addTrinket(api, ns.RNG.pick(api.rng, pool))
+      local pool = ofRarity(unownedTrinkets(run, api.trinkets()), "rare")
+      addTrinket(run, api, ns.RNG.pick(api.rng, pool))
     end,
   },
   UNITY = {
@@ -228,10 +228,10 @@ local def = {
     name = "Relic of Rebirth",
     desc = "Copy a random trinket and destroy the others (Negative is removed from the copy).",
     untargeted = true, check = trinketCheck(function(t) return t end, "No trinkets"),
-    use = function(_, _, api)
+    use = function(run, _, api)
       local trinkets = api.trinkets()
       local chosen = ns.RNG.pick(api.rng, trinkets)
-      local copy = { id = chosen.id, ed = chosen.ed ~= "NEGATIVE" and chosen.ed or nil }
+      local copy = ns.Trinkets.create(run, chosen.id, chosen.ed ~= "NEGATIVE" and chosen.ed or nil)
       for i = #trinkets, 1, -1 do
         if trinkets[i] ~= chosen then table.remove(trinkets, i) end
       end
@@ -283,9 +283,9 @@ local def = {
     name = "Relic of Legends",
     desc = "Create the rarest trinket available (no legendaries in v2).",
     untargeted = true, check = createRarestCheck,
-    use = function(_, _, api)
-      local pool = rarestOf(unownedTrinkets(api.trinkets()))
-      addTrinket(api, ns.RNG.pick(api.rng, pool))
+    use = function(run, _, api)
+      local pool = rarestOf(unownedTrinkets(run, api.trinkets()))
+      addTrinket(run, api, ns.RNG.pick(api.rng, pool))
     end,
   },
   COSMOS = {

@@ -22,7 +22,7 @@ function Run.new(seed, deckId)
     seed = seed, rng = ns.RNG.new(seed), deckId = deckId,
     stage = 1, blind = 1, phase = "blind", gold = deck.gold,
     deck = ns.Deck.new(), nextCardId = 53, baseHandSize = 8, handSizeMod = 0,
-    maxTrinkets = 5, trinkets = {}, handLevels = {}, voidPenalty = 1,
+    maxTrinkets = 5, trinkets = {}, nextTrinketUid = 1, roundHandPlays = {}, handLevels = {}, voidPenalty = 1,
     consumables = {}, maxConsumables = 2, seenHands = {},
     lastHandId = nil, lastConsumable = nil,
     vouchers = {}, shopVoucher = nil, handPlays = {}, bossRerollsUsed = 0,
@@ -89,6 +89,7 @@ function Run.startBlind(run)
   run.handsLeft = Run.blindHands(run)
   run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
+  run.roundHandPlays = {}
   run.target = Run.target(run.stage, run.blind, bossId)
   if bossId then
     run.bossesFought[bossId] = true
@@ -119,6 +120,13 @@ local function validSelection(run, idx)
     if seen[i] then return false, "Select each card only once." end
     seen[i] = true
   end
+  return true
+end
+
+function Run.moveTrinket(run, from, to)
+  local n = #run.trinkets
+  if from < 1 or from > n or to < 1 or to > n then return false end
+  table.insert(run.trinkets, to, table.remove(run.trinkets, from))
   return true
 end
 
@@ -180,6 +188,7 @@ function Run.play(run, idx)
     consumables = ns.Vouchers.observatory(run) and run.consumables or nil,
   })
   run.handPlays[result.handId] = (run.handPlays[result.handId] or 0) + 1
+  run.roundHandPlays[result.handId] = (run.roundHandPlays[result.handId] or 0) + 1
   event("cardsPlayed", #cards, run)
   run.gold = goldRef.gold
   run.seenHands[result.handId] = true
