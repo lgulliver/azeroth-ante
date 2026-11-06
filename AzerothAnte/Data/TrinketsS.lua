@@ -350,7 +350,7 @@ ns.Trinkets.add {
     local played = (ctx.handPlays[ctx.handId] or 0) + 1
     local greatest = true
     for id, count in pairs(ctx.handPlays) do
-      if id ~= ctx.handId and count > played then greatest = false; break end
+      if id ~= ctx.handId and count >= played then greatest = false; break end
     end
     self.state.x = greatest and 1 or (self.state.x + 0.2)
   end,
