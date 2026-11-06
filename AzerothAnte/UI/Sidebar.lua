@@ -224,11 +224,10 @@ end
 -- Gold below zero (Credit Card) reads "-Ng" in red.
 local function setGold(frame, gold)
   gold = gold or 0
+  frame.gold:SetText("Gold: " .. gold .. "g")
   if gold < 0 then
-    frame.gold:SetText("Gold: " .. gold .. "g")
     Theme.setColor(frame.gold, RED)
   else
-    frame.gold:SetText("Gold: " .. gold)
     Theme.Value(frame.gold, true)
   end
 end

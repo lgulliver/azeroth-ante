@@ -272,7 +272,7 @@ local function run(w)
     check(sb.deckIcon:IsShown() and sb.deckIcon:GetTexture():find("Back_ROGUE", 1, true), "sidebar shows the deck's back icon")
     eq(sb.hands:GetText(), "Hands: 4", "hands for the upcoming blind")
     eq(sb.discards:GetText(), "Discards: 4", "discards for the upcoming blind")
-    eq(sb.gold:GetText(), "Gold: 4", "gold")
+    eq(sb.gold:GetText(), "Gold: 4g", "gold")
     eq(sb.stage:GetText(), "Stage 1 / 8", "stage line")
     check(sb.deckButton:IsShown(), "Deck button stays")
     -- the stray deck pile is hidden outside play
@@ -1487,7 +1487,7 @@ local function run(w)
   check(not stub.findText("+10g"), "the gold float fades away")
   eq(run.gold, 20, "Greed doubled the gold")
   eq(#run.consumables, 0, "Greed consumed")
-  eq(Main.sidebar.gold:GetText(), "Gold: 20", "sidebar shows the doubled gold")
+  eq(Main.sidebar.gold:GetText(), "Gold: 20g", "sidebar shows the doubled gold")
   ns.Consumables.add(run, { kind = "scroll", id = "FURY" })
   Main.Render(run)
   click(brow.slots[1], "slot for a targeted scroll")
@@ -1524,7 +1524,7 @@ local function run(w)
     eq(table.concat(st, ","), "DEFEATED,CURRENT,UPCOMING", "reloaded blind screen shows the right states")
     check(bs2.panels[1].stamp:IsShown() and bs2.panels[1].stamp:GetScale() == 1, "reloaded: the stamp is simply there")
     check(M2.sidebar.deckName:IsShown() and M2.sidebar.deckName:GetText() == "Rogue Deck", "reloaded sidebar shows the deck")
-    eq(M2.sidebar.gold:GetText(), "Gold: " .. M2.run.gold, "reloaded sidebar gold")
+    eq(M2.sidebar.gold:GetText(), "Gold: " .. M2.run.gold .. "g", "reloaded sidebar gold")
     check(not M2.sidebar.chipsBox:IsShown(), "reloaded sidebar has no 0 x 0 boxes")
     check(not w2.ns.UI.HandView.deck:IsShown(), "reloaded blind screen hides the deck pile")
     for id in pairs(w2.ns.Bosses.def) do
@@ -2576,11 +2576,34 @@ local function run(w)
       check(m.trinketRow.slots[2].def == nil, "the sold slot is gone")
       eq(#r.hand, 8, "the hand refilled to the new size")
       eq(handCount(m), 8, "the hand view shows eight cards")
-      eq(m.sidebar.gold:GetText(), "Gold: " .. r.gold, "the sidebar shows the new gold")
+      eq(m.sidebar.gold:GetText(), "Gold: " .. r.gold .. "g", "the sidebar shows the new gold")
       check(m.trinketRow.slots[1].sell:IsVisible(), "sell stays available after a sell")
       unstub(ns2, defs)
     end
     step("sell_trinket_mid_blind")
+
+    do -- sell_consumable_plays_lifecycle: a consumable sale that moves a trinket plays its events
+      local w2, panel2, m, r = board({ "COOKING_FIRE" })
+      local stub2, ns2 = w2.stub, w2.ns
+      r.consumables = {}
+      ns2.Consumables.add(r, { kind = "scroll", id = "CHANCE" })
+      m.Render(r, true)
+      stub2.advance(0.5)
+      click(m.consumableRow.slots[1], "consumable slot")
+      local pop
+      for _, c in ipairs(m.content._children) do if c.use then pop = c end end
+      check(pop and pop:IsVisible(), "the consumable popover opens")
+      local seen = false
+      click(pop.sell, "popover Sell")
+      for _ = 1, 40 do
+        stub2.advance(0.05)
+        if stub2.findText("Upgrade!") then seen = true end
+      end
+      check(seen, "the Cooking Fire upgrade message floated after a consumable sale")
+      eq(#(r.lifecycleEvents or {}), 0, "the sale's events were drained")
+      eq(r.trinkets[1].state.x, 1.25, "Cooking Fire grew")
+    end
+    step("sell_consumable_plays_lifecycle")
 
     do -- sell_locked_during_tally
       local w2, panel2, m, r = lifeBoard({ "FLIGHT_PATH", "SCHEMATIC" }, "play")
@@ -2776,7 +2799,7 @@ local function run(w)
       check(c and c[1] > 0.9 and c[2] < 0.4 and c[3] < 0.4, "in red")
       r.gold = 7
       m.Render(r, true)
-      eq(m.sidebar.gold:GetText(), "Gold: 7", "positive gold is plain again")
+      eq(m.sidebar.gold:GetText(), "Gold: 7g", "positive gold keeps the g and is not red")
       local c2 = m.sidebar.gold._textColor
       check(c2 and not (c2[2] < 0.4), "and not red")
       -- Without the card the same buy is blocked.
