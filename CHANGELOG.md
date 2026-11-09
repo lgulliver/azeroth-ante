@@ -4,6 +4,9 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Added
+- The window opens when you take a flight path and closes when you land. An "Open on flight paths" option (on by default) under Options > AddOns > Azeroth Ante turns it off.
+
 ## [0.6.2] - 2026-11-06
 
 ### Changed

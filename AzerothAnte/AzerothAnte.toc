@@ -35,6 +35,7 @@ Core\Save.lua
 Core\Profile.lua
 Core\QueueState.lua
 UI\Theme.lua
+UI\Options.lua
 UI\MainFrame.lua
 UI\Sidebar.lua
 UI\TrinketRow.lua

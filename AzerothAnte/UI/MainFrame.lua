@@ -188,6 +188,10 @@ function Main.Hide()
   if Main.frame then Main.frame:Hide() end
 end
 
+function Main.IsShown()
+  return Main.frame ~= nil and Main.frame:IsShown()
+end
+
 function Main.Toggle()
   Main.Create()
   if Main.frame:IsShown() then Main.Hide() else Main.Show() end
