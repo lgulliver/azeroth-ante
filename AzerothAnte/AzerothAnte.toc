@@ -3,7 +3,7 @@
 ## Notes: Poker roguelike for queue waits
 ## IconTexture: Interface\AddOns\AzerothAnte\Media\Icon
 ## SavedVariables: AzerothAnteDB
-## Version: 0.6.2
+## Version: 0.7.0
 
 Core\RNG.lua
 Core\Cards.lua
