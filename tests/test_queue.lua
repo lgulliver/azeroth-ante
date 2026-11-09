@@ -2,7 +2,7 @@ local ns, T = ...
 
 -- WoW supplies the event loop and UI; keep QueueState and Save real.
 local function harness(file)
-  local h = { calls = {}, frames = {}, modes = {}, statuses = {}, combat = false }
+  local h = { calls = {}, frames = {}, modes = {}, statuses = {}, combat = false, taxi = false, timers = {} }
   local env = setmetatable({
     LE_LFG_CATEGORY_LFD = 1, LE_LFG_CATEGORY_RF = 2,
     LE_LFG_CATEGORY_SCENARIO = 3, LE_LFG_CATEGORY_LFR = 4,
@@ -24,13 +24,16 @@ local function harness(file)
   env.GetMaxBattlefieldID = function() return 3 end
   env.GetBattlefieldStatus = function(index) return h.statuses[index] or "none" end
   env.InCombatLockdown = function() return h.combat end
+  env.UnitOnTaxi = function(unit) T.eq(unit, "player"); return h.taxi end
+  env.C_Timer = { After = function(_, fn) h.timers[#h.timers + 1] = fn end }
   env.PlaySound = function(id) T.eq(id, 8960); record("sound") end
   local main
   main = {
     Create = function() record("create") end,
     SetRun = function(run) h.run = run; main.run = run; record("setrun") end,
-    Show = function() record("show") end,
-    Hide = function() record("hide") end,
+    Show = function() h.shown = true; record("show") end,
+    Hide = function() h.shown = false; record("hide") end,
+    IsShown = function() return h.shown == true end,
     Toggle = function() record("toggle") end,
   }
   h.ns = { QueueState = ns.QueueState, Save = ns.Save, UI = {
@@ -55,6 +58,7 @@ local function harness(file)
         or key == "SlashCmdList", "unexpected global: " .. tostring(key))
     end
   end
+  h:load("UI/Options.lua")
   h:load(file)
   function h:fire(event, ...)
     for _, frame in ipairs(self.frames) do
@@ -85,7 +89,7 @@ end)
 T.test("bootstrap_empty_db_slash_in_combat_and_logout_hook", function()
   local h = harness("AzerothAnte.lua")
   h:fire("ADDON_LOADED", "AzerothAnte")
-  T.eq(h.env.AzerothAnteDB, {})
+  T.eq(h.env.AzerothAnteDB, { options = { openOnFlight = true } })
   T.eq(h.run, nil)
   T.eq(h.env.SLASH_AZEROTHANTE1, "/ante")
   h:clear()
@@ -214,7 +218,7 @@ T.test("queue_and_bootstrap_define_only_allowed_globals", function()
   local h = harness("Queue.lua")
   h:load("AzerothAnte.lua")
   h:fire("ADDON_LOADED", "AzerothAnte")
-  T.eq(h.env.AzerothAnteDB, {})
+  T.eq(h.env.AzerothAnteDB, { options = { openOnFlight = true } })
   T.eq(h.env.SLASH_AZEROTHANTE1, "/ante")
   for key in pairs(h.env.SlashCmdList) do T.eq(key, "AZEROTHANTE") end
 end)
@@ -290,4 +294,98 @@ T.test("queue_does_not_retry_departed_queue_or_resolved_proposal", function()
     h:fire("PLAYER_REGEN_ENABLED")
     T.eq(h.calls, {})
   end
+end)
+
+-- Runs the flight poll once, as the next C_Timer tick would.
+local function tick(h)
+  local fn = table.remove(h.timers, 1)
+  fn()
+  T.eq(#h.timers, 1, "the poll reschedules itself")
+end
+
+T.test("flight_polls_and_opens_on_takeoff_closes_on_landing", function()
+  local h = harness("Queue.lua")
+  T.eq(#h.timers, 1)
+  tick(h)
+  T.eq(h.calls, {})
+  h.taxi = true
+  tick(h)
+  tick(h)
+  T.eq(h.calls, { "show" })
+  h.taxi = false
+  tick(h)
+  tick(h)
+  T.eq(h.calls, { "show", "hide" })
+end)
+
+T.test("flight_ignores_control_events", function()
+  local h = harness("Queue.lua")
+  h.taxi = true
+  h:fire("PLAYER_CONTROL_LOST")
+  h:fire("PLAYER_CONTROL_GAINED")
+  T.eq(h.calls, {})
+end)
+
+T.test("flight_respects_disabled_option_and_combat", function()
+  local h = harness("Queue.lua")
+  h.env.AzerothAnteDB = { options = { openOnFlight = false } }
+  h.taxi = true
+  tick(h)
+  h.taxi = false
+  tick(h)
+  T.eq(h.calls, {})
+  h.env.AzerothAnteDB = nil
+  h.combat = true
+  h.taxi = true
+  tick(h)
+  T.eq(h.calls, {})
+end)
+
+T.test("flight_landing_leaves_window_opened_elsewhere_or_queued", function()
+  local h = harness("Queue.lua")
+  h.ns.UI.Main.Show()
+  h:clear()
+  h.taxi = true
+  tick(h)
+  h.taxi = false
+  tick(h)
+  T.eq(h.calls, {})
+  h.ns.UI.Main.Hide()
+  h:clear()
+  h.taxi = true
+  tick(h)
+  h.modes[1] = "queued"
+  h:fire("LFG_UPDATE")
+  h.taxi = false
+  tick(h)
+  T.eq(h.calls, { "show", "show" })
+end)
+
+T.test("options_fill_defaults_keep_choices_and_register_once", function()
+  local h = harness("Queue.lua")
+  local Options = h.ns.UI.Options
+  T.eq(Options.Get("openOnFlight"), true)
+  local registered = {}
+  h.env.Settings = {
+    VarType = { Boolean = "boolean" },
+    RegisterVerticalLayoutCategory = function(name) return { name = name } end,
+    RegisterAddOnSetting = function(category, variable, key, tbl, kind, name, default)
+      registered.setting = { variable = variable, key = key, tbl = tbl, kind = kind, default = default }
+      return registered.setting
+    end,
+    CreateCheckbox = function(_, setting) registered.checkbox = setting end,
+    RegisterAddOnCategory = function(category) registered.category = category end,
+  }
+  local db = { options = { openOnFlight = false } }
+  h.env.AzerothAnteDB = db
+  Options.Register(db)
+  T.eq(db.options.openOnFlight, false)
+  T.eq(Options.Get("openOnFlight"), false)
+  T.eq(registered.category, { name = "Azeroth Ante" })
+  T.ok(registered.setting.tbl == db.options)
+  T.eq(registered.setting.default, true)
+  T.ok(registered.checkbox == registered.setting)
+  registered.category = nil
+  Options.Register(db)
+  T.eq(registered.category, nil)
 end)

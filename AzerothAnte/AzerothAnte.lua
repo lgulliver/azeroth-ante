@@ -7,6 +7,7 @@ frame:RegisterEvent("PLAYER_LOGOUT")
 frame:SetScript("OnEvent", function(self, event, addon)
   if event == "ADDON_LOADED" and addon == "AzerothAnte" then
     AzerothAnteDB = AzerothAnteDB or {}
+    if ns.UI.Options then ns.UI.Options.Register(AzerothAnteDB) end
     -- Discovery must never abort a buy, pick or use, so errors are swallowed.
     if ns.Profile then
       ns.Profile.onObtain = function(kind, id)

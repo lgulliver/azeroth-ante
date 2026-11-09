@@ -5,6 +5,9 @@ local state = ns.QueueState.new()
 local lastQueued = false
 local pendingShow = false
 local battlefieldStatuses = {}
+local onTaxi = false
+local flightShown = false -- the window was opened by the flight, so landing closes it
+local TAXI_POLL = 0.5
 
 local function emit(event)
   local action = ns.QueueState.handle(state, event)
@@ -72,6 +75,31 @@ local function updateQueues()
   end
   battlefieldStatuses = statuses
 end
+
+-- Polled: no event marks takeoff reliably (PLAYER_CONTROL_LOST may not fire,
+-- and UnitOnTaxi still reads true as PLAYER_CONTROL_GAINED fires on landing).
+local function updateFlight()
+  local ok, taxi = pcall(UnitOnTaxi, "player")
+  taxi = ok and taxi and true or false
+  if taxi == onTaxi then return end
+  onTaxi = taxi
+  local Main = ns.UI.Main
+  if taxi then
+    if ns.UI.Options.Get("openOnFlight") and not InCombatLockdown() and not Main.IsShown() then
+      flightShown = true
+      Main.Show()
+    end
+  else
+    if flightShown and not state.queued and not state.paused then Main.Hide() end
+    flightShown = false
+  end
+end
+
+local function pollFlight()
+  updateFlight()
+  C_Timer.After(TAXI_POLL, pollFlight)
+end
+if C_Timer then C_Timer.After(TAXI_POLL, pollFlight) end
 
 local events = {
   LFG_PROPOSAL_SHOW = "PROPOSAL",
