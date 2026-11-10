@@ -4,7 +4,7 @@ local _, ns = ...
 -- AzerothAnteDB.options; a missing key means the default.
 local Options = {}
 
-Options.DEFAULTS = { openOnFlight = true }
+Options.DEFAULTS = { openOnQueue = true, padOnAutoOpen = true, openOnFlight = true }
 
 function Options.Get(key)
   local options = AzerothAnteDB and AzerothAnteDB.options
@@ -23,9 +23,16 @@ function Options.Register(db)
   if Options.category or not (Settings and Settings.RegisterVerticalLayoutCategory) then return end
   local ok, category = pcall(function()
     local category = Settings.RegisterVerticalLayoutCategory("Azeroth Ante")
-    local setting = Settings.RegisterAddOnSetting(category, "AZEROTHANTE_OPEN_ON_FLIGHT", "openOnFlight",
-      db.options, Settings.VarType.Boolean, "Open on flight paths", Options.DEFAULTS.openOnFlight)
-    Settings.CreateCheckbox(category, setting,
+    local function checkbox(variable, key, name, tooltip)
+      local setting = Settings.RegisterAddOnSetting(category, variable, key,
+        db.options, Settings.VarType.Boolean, name, Options.DEFAULTS[key])
+      Settings.CreateCheckbox(category, setting, tooltip)
+    end
+    checkbox("AZEROTHANTE_OPEN_ON_QUEUE", "openOnQueue", "Open when you join a queue",
+      "Open the window when you join a dungeon, raid or battleground queue.")
+    checkbox("AZEROTHANTE_PAD_ON_AUTO_OPEN", "padOnAutoOpen", "Take the controller when the window opens itself",
+      "When a queue or flight path opens the window, your gamepad plays the game straight away. Press B to give it back.")
+    checkbox("AZEROTHANTE_OPEN_ON_FLIGHT", "openOnFlight", "Open on flight paths",
       "Open the window when you take a flight path, and close it again when you land.")
     Settings.RegisterAddOnCategory(category)
     return category

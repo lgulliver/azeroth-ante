@@ -12,7 +12,8 @@ A Balatro-style poker roguelike with a World of Warcraft skin, for Retail and
 WoW Forever on the modern Mainline API. Play while waiting in queues: joining
 opens the window, a queue pop shows an overlay and plays a sound, and accepting
 or entering combat hides it. Taking a flight path opens it too, and landing
-closes it again; turn this off under Options > AddOns > Azeroth Ante. Use
+closes it again. Both are on by default; turn either off under Options > AddOns >
+Azeroth Ante. Use
 `/ante` to toggle the window at any time.
 Mouse controls only; no key bindings.
 
@@ -178,6 +179,7 @@ Run these checks in Retail and Forever:
 - [ ] A queue pop during combat plays the sound only; the window opens after combat.
 - [ ] A PvP queue (battleground) opens the window, and the pop shows the overlay.
 - [ ] Taking a flight path opens the window; landing closes it.
+- [ ] With "Open when you join a queue" unticked, joining a queue leaves the window shut, and a pop plays the sound only.
 - [ ] With "Open on flight paths" unticked in Options > AddOns > Azeroth Ante, a flight leaves the window shut.
 - [ ] One full run to the win or lose screen.
 - [ ] Edition shimmer (Foil, Holographic, Polychrome, Negative) is visible and smooth.

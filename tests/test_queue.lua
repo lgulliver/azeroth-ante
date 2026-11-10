@@ -36,8 +36,10 @@ local function harness(file)
     IsShown = function() return h.shown == true end,
     Toggle = function() record("toggle") end,
   }
+  h.pads = 0
   h.ns = { QueueState = ns.QueueState, Save = ns.Save, UI = {
     Main = main,
+    Pad = { AutoEnter = function() h.pads = h.pads + 1 end },
     Screens = {
       ShowPaused = function() record("pause") end,
       HidePaused = function() record("resume") end,
@@ -89,7 +91,7 @@ end)
 T.test("bootstrap_empty_db_slash_in_combat_and_logout_hook", function()
   local h = harness("AzerothAnte.lua")
   h:fire("ADDON_LOADED", "AzerothAnte")
-  T.eq(h.env.AzerothAnteDB, { options = { openOnFlight = true } })
+  T.eq(h.env.AzerothAnteDB, { options = { openOnFlight = true, openOnQueue = true, padOnAutoOpen = true } })
   T.eq(h.run, nil)
   T.eq(h.env.SLASH_AZEROTHANTE1, "/ante")
   h:clear()
@@ -218,7 +220,7 @@ T.test("queue_and_bootstrap_define_only_allowed_globals", function()
   local h = harness("Queue.lua")
   h:load("AzerothAnte.lua")
   h:fire("ADDON_LOADED", "AzerothAnte")
-  T.eq(h.env.AzerothAnteDB, { options = { openOnFlight = true } })
+  T.eq(h.env.AzerothAnteDB, { options = { openOnFlight = true, openOnQueue = true, padOnAutoOpen = true } })
   T.eq(h.env.SLASH_AZEROTHANTE1, "/ante")
   for key in pairs(h.env.SlashCmdList) do T.eq(key, "AZEROTHANTE") end
 end)
@@ -361,6 +363,58 @@ T.test("flight_landing_leaves_window_opened_elsewhere_or_queued", function()
   T.eq(h.calls, { "show", "show" })
 end)
 
+T.test("queue_open_on_queue_off_skips_join_show", function()
+  local h = harness("Queue.lua")
+  h.env.AzerothAnteDB = { options = { openOnQueue = false } }
+  h.modes[1] = "queued"
+  h:fire("LFG_UPDATE")
+  T.eq(h.calls, {})
+  T.eq(h.pads, 0)
+end)
+
+T.test("queue_open_on_queue_off_pop_plays_sound_only_when_closed", function()
+  local h = harness("Queue.lua")
+  h.env.AzerothAnteDB = { options = { openOnQueue = false } }
+  h:fire("LFG_PROPOSAL_SHOW")
+  T.eq(h.calls, { "sound" })
+  h:fire("LFG_PROPOSAL_FAILED")
+  h:clear()
+  h.shown = true
+  h:fire("LFG_PROPOSAL_SHOW")
+  T.eq(h.calls, { "show", "pause", "sound" })
+end)
+
+T.test("queue_open_on_queue_off_does_not_retry_after_combat", function()
+  local h = harness("Queue.lua")
+  h.env.AzerothAnteDB = { options = { openOnQueue = false } }
+  h.combat = true
+  h.modes[1] = "queued"
+  h:fire("LFG_UPDATE")
+  h.combat = false
+  h:fire("PLAYER_REGEN_ENABLED")
+  T.eq(h.calls, {})
+end)
+
+T.test("queue_auto_open_calls_pad_hook_on_join_and_flight_not_pop", function()
+  local h = harness("Queue.lua")
+  h.modes[1] = "queued"
+  h:fire("LFG_UPDATE")
+  T.eq(h.pads, 1)
+  h:fire("LFG_PROPOSAL_SHOW")
+  T.eq(h.pads, 1)
+  local f = harness("Queue.lua")
+  f.taxi = true
+  table.remove(f.timers, 1)()
+  T.eq(f.pads, 1)
+  local c = harness("Queue.lua")
+  c.combat = true
+  c.modes[1] = "queued"
+  c:fire("LFG_UPDATE")
+  c.combat = false
+  c:fire("PLAYER_REGEN_ENABLED")
+  T.eq(c.pads, 1)
+end)
+
 T.test("options_fill_defaults_keep_choices_and_register_once", function()
   local h = harness("Queue.lua")
   local Options = h.ns.UI.Options
@@ -370,6 +424,8 @@ T.test("options_fill_defaults_keep_choices_and_register_once", function()
     VarType = { Boolean = "boolean" },
     RegisterVerticalLayoutCategory = function(name) return { name = name } end,
     RegisterAddOnSetting = function(category, variable, key, tbl, kind, name, default)
+      registered.variables = registered.variables or {}
+      registered.variables[#registered.variables + 1] = variable
       registered.setting = { variable = variable, key = key, tbl = tbl, kind = kind, default = default }
       return registered.setting
     end,
@@ -379,10 +435,13 @@ T.test("options_fill_defaults_keep_choices_and_register_once", function()
   local db = { options = { openOnFlight = false } }
   h.env.AzerothAnteDB = db
   Options.Register(db)
+  T.eq(registered.variables, { "AZEROTHANTE_OPEN_ON_QUEUE", "AZEROTHANTE_PAD_ON_AUTO_OPEN", "AZEROTHANTE_OPEN_ON_FLIGHT" })
+  T.eq(db.options, { openOnFlight = false, openOnQueue = true, padOnAutoOpen = true })
   T.eq(db.options.openOnFlight, false)
   T.eq(Options.Get("openOnFlight"), false)
   T.eq(registered.category, { name = "Azeroth Ante" })
   T.ok(registered.setting.tbl == db.options)
+  T.eq(registered.setting.key, "openOnFlight")
   T.eq(registered.setting.default, true)
   T.ok(registered.checkbox == registered.setting)
   registered.category = nil

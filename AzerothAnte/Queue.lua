@@ -9,16 +9,26 @@ local onTaxi = false
 local flightShown = false -- the window was opened by the flight, so landing closes it
 local TAXI_POLL = 0.5
 
+local function autoEnter()
+  if ns.UI.Pad then ns.UI.Pad.AutoEnter() end
+end
+
 local function emit(event)
   local action = ns.QueueState.handle(state, event)
   if not state.queued and not state.paused then pendingShow = false end
   local Main, Screens = ns.UI.Main, ns.UI.Screens
+  local openOnQueue = ns.UI.Options.Get("openOnQueue")
   if action == "show" then
-    pendingShow = InCombatLockdown()
-    if not pendingShow then Main.Show() end
+    pendingShow = openOnQueue and InCombatLockdown()
+    if openOnQueue and not pendingShow then
+      Main.Show()
+      autoEnter()
+    end
   elseif action == "pause" then
-    pendingShow = InCombatLockdown()
-    if not pendingShow then
+    -- With opening off, a pop only reaches a window the player already has open.
+    local open = openOnQueue or Main.IsShown()
+    pendingShow = open and InCombatLockdown()
+    if open and not pendingShow then
       Main.Show()
       Screens.ShowPaused()
     end
@@ -88,6 +98,7 @@ local function updateFlight()
     if ns.UI.Options.Get("openOnFlight") and not InCombatLockdown() and not Main.IsShown() then
       flightShown = true
       Main.Show()
+      autoEnter()
     end
   else
     if flightShown and not state.queued and not state.paused then Main.Hide() end
@@ -120,7 +131,7 @@ frame:SetScript("OnEvent", function(_, event)
       pendingShow = false
       if state.queued or state.paused then
         ns.UI.Main.Show()
-        if state.paused then ns.UI.Screens.ShowPaused() end
+        if state.paused then ns.UI.Screens.ShowPaused() else autoEnter() end
       end
     end
   elseif events[event] then

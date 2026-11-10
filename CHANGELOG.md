@@ -4,6 +4,9 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Added
+- An "Open when you join a queue" option (on by default) under Options > AddOns > Azeroth Ante. With it off, joining a queue leaves the window shut and a queue pop only plays its sound.
+
 ## [0.7.0] - 2026-11-09
 
 ### Added
