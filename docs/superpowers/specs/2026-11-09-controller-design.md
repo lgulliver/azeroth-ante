@@ -13,7 +13,7 @@ Native controller support is a Forever feature, so Forever is the target and the
 
 ## Goals
 
-- Every action a mouse player can take (except window move/resize, see Non-goals) is reachable from the pad: deck select (prev/next, Play), the blind screen (Play, Reroll Boss, Abandon Run), playing a hand (select cards, play, discard), the trinket row (tooltip, sell, reorder), the consumable row (Use/Sell popup), the round outcome and tally, the shop (buy cards, packs and the voucher, reroll, Next Blind), packs (pick, skip), deck view, achievements, the win/lose screen (New Run), and the queue-pop overlay (Resume). The builder should audit every `OnClick`, `OnMouseDown` and `OnEnter` in `UI/` to make sure nothing is missed. The ones found so far are in AchievementsView, CardWidget, ConsumableRow, DeckSelect, DeckView, HandView, Lifecycle, MainFrame, Outcome, PackView, Screens, Sidebar, Tally and TrinketRow.
+- Every action a mouse player can take (except window move/resize, see Non-goals) is reachable from the pad: deck select (prev/next, Play), the blind screen (Play, Reroll Boss, Abandon Run), playing a hand (select cards, play, discard), the trinket row (tooltip, sell buttons, reorder), the consumable row (Use/Sell popup), the round outcome and tally, the shop (buy cards, packs and the voucher, reroll, Next Blind), packs (pick, skip), deck view, achievements, the win/lose screen (New Run), and the queue-pop overlay (Resume). The builder should audit every `OnClick`, `OnMouseDown` and `OnEnter` in `UI/` to make sure nothing is missed. The ones found so far are in AchievementsView, CardWidget, ConsumableRow, DeckSelect, DeckView, HandView, Lifecycle, MainFrame, Outcome, PackView, Screens, Sidebar, Tally and TrinketRow.
 - Anything that shows a tooltip on mouse hover also shows it when it has focus.
 - Mouse play stays exactly as it is today. **[Liam]**
 
@@ -86,7 +86,7 @@ Xbox names; the PlayStation and Switch equivalents are the same physical buttons
 | B | Unwind (see Getting out). |
 | RT | Play hand |
 | LT | Discard |
-| LB / RB | Sort hand by suit / by rank (new feature, see below) |
+| LB / RB | Sort Suit / Sort Rank (the existing buttons) |
 | Y | Reroll the shop on the shop screen; Reroll Boss on the blind screen when that voucher is owned |
 | X | Skip the open pack. The addon has no blind skipping, so X does nothing elsewhere. |
 | View / Back | Open deck view |
@@ -107,17 +107,15 @@ A shortcut button does the same thing as its on-screen button, including when th
 
 ## Trinkets and consumables [Call]
 
-- **Trinkets:** A on a trinket opens a small popup with Sell and Move, in the style of the existing consumable popup.
-  - Move lifts the trinket. Left/right shifts it along the row with a live preview, A drops it, and B puts it back where it was.
-  - The order is committed on drop, through the same code path as a mouse drag-reorder (`dragOrder` in `TrinketRow.lua`).
-- **Consumables:** A opens the existing Use/Sell popup, and focus moves into it.
+- **Selling (existing):** in the shop and during a blind, trinkets already show an "Ng" sell button underneath (`TrinketRow.SetSellMode`). Those buttons are focusable like any other button, in their own row under the trinkets. (This replaces the Sell/Move popup idea, since the sell UI already exists.)
+- **Moving:** A on a trinket lifts it (move mode). Left/right shifts it along the row with a live preview, A drops it, and B puts it back where it was. The order is committed on drop through `Run.moveTrinket`, the same path the mouse drag uses.
+- **Consumables:** A opens the existing Use/Sell popup (`ConsumableRow.Open`), and focus moves into it.
 
-## Hand sorting (new) [Liam via the Balatro layout]
+## Hand sorting [existing]
 
-The addon has no hand sorting today. LB sorts the hand by suit and RB by rank, Balatro style.
-- **Pad only [Liam]:** there are no sort buttons for mouse players, so mouse play stays exactly as it is.
-- **A real reorder [Balatro]:** sorting reorders `run.hand` itself. Played cards and `ctx.held` follow `run.hand` index order (`Run.play`), and some trinkets read position (for example "retrigger the first scoring card", and the held-card `heldIndex` hooks). So the order can change scores, exactly as hand order does in Balatro.
-- **The sort sticks [Call, Balatro]:** the chosen mode is stored on the run (for example `run.sortMode`, saved with it), and newly drawn cards are placed in that order. No mode means today's order, so existing saves and the seeded smoke sweep are unaffected until a sort is chosen. A save-version bump and migration may be needed.
+Correction made while planning: the addon already sorts. The play screen has "Sort Rank" and "Sort Suit" buttons (`MainFrame.lua` `buttons.sortRank` / `buttons.sortSuit`, wired in `HandView.lua` `doSort`). `Run.sortHand` stores `run.sortMode` on the run (it's saved), and newly drawn cards are sorted the same way. That is already Balatro's behaviour, so there's nothing new to build:
+- LB presses Sort Suit and RB presses Sort Rank.
+- Mouse play is unchanged. **[Liam]**
 
 ## Button hints [Liam]
 
@@ -128,7 +126,7 @@ The addon has no hand sorting today. LB sorts the hand by suit and RB by rank, B
 
 ## Testing
 
-- Unit tests for any pure focus/navigation logic (the row model, nearest-neighbour moves, re-render fallback) and for hand sorting.
+- Unit tests for any pure focus/navigation logic (the row model, moves, re-render fallback).
 - The UI smoke test (`tests/smoke_ui.lua`, with its 30-seed sweep in CI) gains a scripted controller run: a full run from deck select to the win or lose screen using only pad events through the stub. That needs `EnableGamePadButton`, `OnGamePadButtonDown` and binding stubs in `tests/wowstub.lua`.
 - The README's in-game checklist gains controller checks for Forever, plus a Retail check that the addon loads and plays normally with the mouse. The Forever checks include that the character doesn't move while the addon has the pad.
 
