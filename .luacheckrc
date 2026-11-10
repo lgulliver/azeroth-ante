@@ -6,6 +6,8 @@ unused_args = false
 -- Globals the addon assigns to.
 globals = {
 	"AzerothAnteDB",
+	"BINDING_HEADER_AZEROTHANTE",
+	"BINDING_NAME_AZEROTHANTE_PAD",
 	"SLASH_AZEROTHANTE1",
 	"SlashCmdList",
 }

@@ -53,6 +53,7 @@ UI\AchievementsView.lua
 UI\Toast.lua
 UI\BlindSelect.lua
 UI\Screens.lua
+UI\Pad.lua
 UI\PackView.lua
 Queue.lua
 AzerothAnte.lua

@@ -34,9 +34,12 @@ function M.install(env)
     SetDesaturated = true, IsDesaturated = true, GetDesaturation = true }
   -- stub.noSnap removes the pixel-snapping controls (Retail only), as on Forever.
   local SNAP = { SetSnapToPixelGrid = true, SetTexelSnappingBias = true }
+  -- stub.noGamePad removes the gamepad input APIs, as on a client without gamepad support.
+  local GAMEPAD = { EnableGamePadButton = true, EnableGamePadStick = true, IsGamePadButtonEnabled = true }
   function mt.__index(t, k)
     if stub.noRotation and OPTIONAL[k] then return nil end
     if stub.noSnap and SNAP[k] then return nil end
+    if stub.noGamePad and GAMEPAD[k] then return nil end
     local m = methods[k]
     if m then return m end
     if type(k) == "string" and k:find("^[A-Z]") then
@@ -68,6 +71,29 @@ function M.install(env)
     if hooks then
       for _, h in ipairs(hooks) do h(self, ...) end
     end
+  end
+
+  -- Gamepad input: stub.padPress(button) reaches the most recently enabled visible frame,
+  -- as the client dispatches to the top-most frame with gamepad buttons enabled.
+  stub.padFrames = {}
+  function methods.EnableGamePadButton(self, on)
+    self._padButtons = on and true or false
+    for i = #stub.padFrames, 1, -1 do
+      if stub.padFrames[i] == self then table.remove(stub.padFrames, i) end
+    end
+    if on then stub.padFrames[#stub.padFrames + 1] = self end
+  end
+  function methods.IsGamePadButtonEnabled(self) return self._padButtons == true end
+  function methods.EnableGamePadStick(self, on) self._padStick = on and true or false end
+  function stub.padPress(button)
+    for i = #stub.padFrames, 1, -1 do
+      local f = stub.padFrames[i]
+      if f:IsVisible() then
+        runScript(f, "OnGamePadButtonDown", button)
+        return true
+      end
+    end
+    return false
   end
 
   function methods.SetScript(self, name, fn) self._scripts[name] = fn end

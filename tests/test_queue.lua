@@ -39,7 +39,7 @@ local function harness(file)
   h.pads = 0
   h.ns = { QueueState = ns.QueueState, Save = ns.Save, UI = {
     Main = main,
-    Pad = { AutoEnter = function() h.pads = h.pads + 1 end },
+    Pad = { AutoEnter = function() h.pads = h.pads + 1 end, Enter = function() record("pad") end },
     Screens = {
       ShowPaused = function() record("pause") end,
       HidePaused = function() record("resume") end,
@@ -57,7 +57,8 @@ local function harness(file)
     setfenv(chunk, env)("AzerothAnte", self.ns)
     for key in pairs(env) do
       T.ok(before[key] or key == "AzerothAnteDB" or key == "SLASH_AZEROTHANTE1"
-        or key == "SlashCmdList", "unexpected global: " .. tostring(key))
+        or key == "SlashCmdList" or key == "BINDING_HEADER_AZEROTHANTE"
+        or key == "BINDING_NAME_AZEROTHANTE_PAD", "unexpected global: " .. tostring(key))
     end
   end
   h:load("UI/Options.lua")
@@ -447,4 +448,16 @@ T.test("options_fill_defaults_keep_choices_and_register_once", function()
   registered.category = nil
   Options.Register(db)
   T.eq(registered.category, nil)
+end)
+
+T.test("slash_pad_enters_pad_and_plain_slash_toggles", function()
+  local h = harness("AzerothAnte.lua")
+  h:fire("ADDON_LOADED", "AzerothAnte")
+  h:clear()
+  h.env.SlashCmdList.AZEROTHANTE("pad")
+  h.env.SlashCmdList.AZEROTHANTE(" PAD ")
+  h.env.SlashCmdList.AZEROTHANTE("")
+  T.eq(h.calls, { "pad", "pad", "toggle" })
+  T.eq(h.env.BINDING_HEADER_AZEROTHANTE, "Azeroth Ante")
+  T.eq(h.env.BINDING_NAME_AZEROTHANTE_PAD, "Open / take controller")
 end)

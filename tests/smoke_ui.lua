@@ -31,7 +31,8 @@ local function eq(a, b, msg)
 end
 
 -- Creates a fresh WoW environment and loads every .toc file into it.
-local ALLOWED_GLOBALS = { AzerothAnteDB = true, SLASH_AZEROTHANTE1 = true }
+local ALLOWED_GLOBALS = { AzerothAnteDB = true, SLASH_AZEROTHANTE1 = true,
+  BINDING_HEADER_AZEROTHANTE = true, BINDING_NAME_AZEROTHANTE_PAD = true }
 local function newWorld(db)
   local world = { newGlobals = {} }
   local env = setmetatable({}, {
@@ -3732,6 +3733,29 @@ local function run(w)
     check(checked > 10, "button labels were checked: " .. checked)
   end
   step("13 pixel-perfect edges and buttons that fit their labels")
+
+  do
+    local Pad = ns.UI.Pad
+    Main.Hide()
+    env.SlashCmdList.AZEROTHANTE("pad")
+    check(Main.frame:IsShown(), "/ante pad opens the window")
+    check(Pad.IsActive(), "/ante pad takes the pad")
+    check(Main.frame:IsGamePadButtonEnabled(), "the main frame takes gamepad buttons")
+    check(stub.padPress("PAD2"), "a pad press reaches the main frame")
+    check(not Main.frame:IsShown(), "B closes the window")
+    check(not Pad.IsActive() and not Main.frame:IsGamePadButtonEnabled(), "B hands the pad back")
+    env.SlashCmdList.AZEROTHANTE("")
+    check(Main.frame:IsShown() and not Pad.IsActive(), "plain /ante opens without the pad")
+    Main.Hide()
+    -- a client without gamepad support: the window opens and nothing errors
+    local wp = newWorld(nil)
+    extraWorlds[#extraWorlds + 1] = wp
+    wp.stub.noGamePad = true
+    wp.env.SlashCmdList.AZEROTHANTE("pad")
+    check(wp.ns.UI.Main.frame:IsShown(), "no gamepad API: /ante pad still opens")
+    check(not wp.ns.UI.Pad.IsActive(), "no gamepad API: the pad stays with the game")
+  end
+  step("14 controller mode: /ante pad, B hands back, no gamepad API is harmless")
 
   -- Globals created by the addon files.
   for _, world in ipairs({ w1st, w, unpack(extraWorlds) }) do

@@ -1,0 +1,5 @@
+<Bindings>
+  <Binding name="AZEROTHANTE_PAD" header="AZEROTHANTE" category="ADDONS">
+    SlashCmdList.AZEROTHANTE("pad")
+  </Binding>
+</Bindings>

@@ -35,7 +35,16 @@ frame:SetScript("OnEvent", function(self, event, addon)
 end)
 
 SLASH_AZEROTHANTE1 = "/ante"
-SlashCmdList.AZEROTHANTE = function() ns.UI.Main.Toggle() end
+-- "/ante pad" opens the window with the gamepad in control; Bindings.xml calls it too.
+SlashCmdList.AZEROTHANTE = function(msg)
+  if type(msg) == "string" and msg:lower():match("^%s*pad%s*$") and ns.UI.Pad then
+    ns.UI.Pad.Enter()
+  else
+    ns.UI.Main.Toggle()
+  end
+end
+BINDING_HEADER_AZEROTHANTE = "Azeroth Ante"
+BINDING_NAME_AZEROTHANTE_PAD = "Open / take controller"
 
 Bootstrap.frame = frame
 ns.Bootstrap = Bootstrap
