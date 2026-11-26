@@ -7,7 +7,7 @@ function Prob.mult(trinkets)
   local n = 0
   for _, trinket in ipairs(trinkets or {}) do
     local def = ns.Trinkets.def[trinket.id]
-    if def and def.rule == "OOPS" then n = n + 1 end
+    if def and def.rule == "OOPS" and not trinket.disabled then n = n + 1 end
   end
   return 2 ^ n
 end

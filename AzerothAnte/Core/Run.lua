@@ -119,17 +119,27 @@ function Run.revealHand(run)
   for _, card in ipairs(run.deck or {}) do card.faceDown = nil end
 end
 
+-- Ends a finisher's hold: trinkets enabled and face up (Ragnaros, Yogg-Saron), nothing forced (Kel'Thuzad).
+local function clearFinisher(run)
+  for _, t in ipairs(run.trinkets or {}) do t.disabled, t.faceDown = nil, nil end
+  run.forcedCard = nil
+end
+
 -- Draws n cards into the hand. why is "start", "play" or "discard"; the active boss's
--- onDraw(run, card, why) says which of them arrive face down (House, Wheel, Fish, Mark).
+-- onDraw(run, card, why) says which of them arrive face down (House, Wheel, Fish, Mark),
+-- then its afterDraw(run) runs (Kel'Thuzad).
 local function drawCards(run, n, why)
   local first = #run.hand + 1
   ns.Cards.draw(run.pile, run.hand, n)
   local boss = Run.activeBoss(run)
-  if not (boss and boss.onDraw) then return end
-  for i = first, #run.hand do
-    local card = run.hand[i]
-    if boss.onDraw(run, card, why) then card.faceDown = true end
+  if not boss then return end
+  if boss.onDraw then
+    for i = first, #run.hand do
+      local card = run.hand[i]
+      if boss.onDraw(run, card, why) then card.faceDown = true end
+    end
   end
+  if boss.afterDraw then boss.afterDraw(run) end
 end
 
 -- Draws up to the hand size, or the active boss's drawCount (Serpent) when it sets one.
@@ -142,17 +152,19 @@ end
 
 -- Switches the boss's rules off for the rest of the blind. A boss that overrode hands or discards
 -- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable
--- (no boss, not in play, or a boss with no rules, like the final one).
+-- (no boss, not in play, or a boss with no rules, like C'Thun).
 function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
   if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw
-    or boss.handSize or boss.handNotAllowed or boss.beforeScore or boss.drawCount) then
+    or boss.handSize or boss.handNotAllowed or boss.beforeScore or boss.drawCount or boss.onStart or boss.beforeHand
+    or boss.afterDraw) then
     return false
   end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
   run.bossDisabled = true
   Run.revealHand(run)
+  clearFinisher(run)
   if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
   if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
   if boss.handSize then refill(run) end
@@ -182,6 +194,8 @@ function Run.startBlind(run)
   run.handsPlayedRound = 0
   run.discardsUsedRound = 0
   run.savedBy, run.savedById = nil, nil
+  run.flags.soldThisBlind = nil
+  clearFinisher(run)
   run.target = Run.target(run.stage, run.blind, bossId)
   if bossId then
     run.bossesFought[bossId] = true
@@ -191,6 +205,9 @@ function Run.startBlind(run)
   ns.TrinketEngine.fire(run, "onBlindSelect")
   drawCards(run, ns.Deck.handSize(run) - #run.hand, "start")
   ns.Cards.sort(run.hand, run.sortMode or "rank")
+  local boss = Run.activeBoss(run)
+  if boss and boss.onStart then boss.onStart(run) end
+  if boss and boss.beforeHand then boss.beforeHand(run) end
   event("handSize", ns.Deck.handSize(run), run)
   editionTrinkets(run)
   ns.TrinketEngine.fire(run, "onFirstDraw")
@@ -202,6 +219,7 @@ end
 local function lose(run)
   if run.phase == "lost" then return end
   Run.revealHand(run)
+  clearFinisher(run)
   ns.TrinketEngine.fire(run, "onLose")
   if run.savedBy then return Run.winBlind(run, { saved = true }) end
   run.phase = "lost"
@@ -231,9 +249,26 @@ function Run.moveTrinket(run, from, to)
   return true
 end
 
+-- Kel'Thuzad: the reason a selection lacking the forced card is refused, or nil.
+local function missingForced(run, idx)
+  local forced = run.forcedCard
+  if not forced or not Run.activeBoss(run) then return nil end
+  local at
+  for i, card in ipairs(run.hand) do
+    if card == forced then at = i break end
+  end
+  if not at then return nil end
+  for _, i in ipairs(idx) do
+    if i == at then return nil end
+  end
+  return ns.Cards.name(forced) .. " must be selected."
+end
+
 function Run.canPlay(run, idx)
   local ok, reason = validSelection(run, idx)
   if not ok then return false, reason end
+  local forced = missingForced(run, idx)
+  if forced then return false, forced end
   local boss = Run.activeBoss(run)
   if boss and boss.mustPlay and #idx ~= boss.mustPlay then
     return false, "Must play exactly " .. boss.mustPlay .. " cards."
@@ -245,6 +280,8 @@ function Run.canDiscard(run, idx)
   local ok, reason = validSelection(run, idx)
   if not ok then return false, reason end
   if run.discardsLeft <= 0 then return false, "No discards left." end
+  local forced = missingForced(run, idx)
+  if forced then return false, forced end
   return true
 end
 
@@ -313,14 +350,15 @@ function Run.sellTrinket(run, slot)
   return Run.withMods(run, function()
     local trinket = run.trinkets[slot]
     local def = ns.Trinkets.def[trinket.id]
-    -- Before removal, original only (a copier never runs its target's farewell).
-    local effect = def and def.onSelfSold and def.onSelfSold(run, trinket)
+    -- Before removal, original only (a copier never runs its target's farewell); a disabled one has none.
+    local effect = def and def.onSelfSold and not trinket.disabled and def.onSelfSold(run, trinket)
     if type(effect) == "table" then ns.TrinketEngine.applyAll(run, slot, trinket.uid, effect, false) end
     for i, t in ipairs(run.trinkets) do
       if t == trinket then table.remove(run.trinkets, i) break end
     end
     local gained = ns.Shop.sellValue(trinket)
     run.gold = run.gold + gained
+    if run.phase == "play" then run.flags.soldThisBlind = true end -- Xavius
     ns.TrinketEngine.fire(run, "onSell", { kind = "trinket", item = trinket })
     ns.TrinketEngine.flushCards(run)
     return gained
@@ -351,7 +389,7 @@ function Run.scoreCtx(run, cards, held, overrides)
     deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
     firstHandOfRound = (run.handsPlayedRound or 0) == 0,
     consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
-    playedThisAnte = run.playedThisAnte,
+    playedThisAnte = run.playedThisAnte, flags = run.flags,
   }
   -- Mouth and Eye: a debuffed hand type still plays, but scores nothing.
   if boss and boss.handNotAllowed then
@@ -412,6 +450,10 @@ function Run.play(run, idx)
   for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
   ns.TrinketEngine.flushCards(run)
   if run.score < run.target then refill(run, "play") end
+  if run.score < run.target and run.handsLeft > 0 then
+    local after = Run.activeBoss(run)
+    if after and after.beforeHand then after.beforeHand(run) end
+  end
   run.lastResult = result
   if run.score >= run.target then
     Run.winBlind(run)
@@ -461,6 +503,7 @@ end
 -- opts.saved: a loss prevented by an onLose trinket; the blind reward is replaced by the save.
 function Run.winBlind(run, opts)
   Run.revealHand(run)
+  clearFinisher(run)
   if run.blind == 3 then run.shopVoucher = nil end
   ns.TrinketEngine.fire(run, "roundUpdate")
   if run.blind == 3 then ns.TrinketEngine.fire(run, "onBossDefeated") end

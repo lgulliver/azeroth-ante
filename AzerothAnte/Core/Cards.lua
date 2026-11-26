@@ -6,6 +6,12 @@ local Cards = {}
 
 Cards.SUITS = { "S", "H", "C", "D" }
 Cards.SUIT_NAMES = { S = "Spades", H = "Hearts", C = "Clubs", D = "Diamonds" }
+Cards.RANK_NAMES = { [11] = "Jack", [12] = "Queen", [13] = "King", [14] = "Ace" }
+
+-- "Queen of Hearts", "10 of Clubs".
+function Cards.name(card)
+  return (Cards.RANK_NAMES[card.rank] or tostring(card.rank)) .. " of " .. Cards.SUIT_NAMES[card.suit]
+end
 
 local SUIT_ORDER = { S = 1, H = 2, C = 3, D = 4 }
 local LABELS = { [11] = "J", [12] = "Q", [13] = "K", [14] = "A" }

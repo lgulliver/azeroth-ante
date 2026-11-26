@@ -9,6 +9,7 @@ end
 
 -- The instance and def whose hooks a slot runs, or nil when it has none to run.
 -- Copiers (def.copies = "right" | "leftmost") follow their target; a visited set stops cycles.
+-- A disabled trinket (Ragnaros) runs nothing and gives a copier nothing to copy.
 function TrinketEngine.source(trinkets, slot)
   local visited = {}
   local current, viaCopy = slot, false
@@ -17,7 +18,7 @@ function TrinketEngine.source(trinkets, slot)
     visited[current] = true
     local instance = trinkets[current]
     local def = defOf(instance)
-    if not def then return nil end
+    if not def or instance.disabled then return nil end
     if viaCopy and def.copyable == false then return nil end
     if not def.copies then return instance, def end
     current = (def.copies == "right") and (current + 1) or 1

@@ -229,9 +229,15 @@ function HandView.RefreshButtons()
   if row then row.Refresh() end
 end
 
+-- Kel'Thuzad's forced card: always selected, never deselected.
+local function isForced(card)
+  local run = HandView.run
+  return card ~= nil and run ~= nil and run.forcedCard == card and ns.Run.activeBoss(run) ~= nil
+end
+
 function HandView.ClearSelection()
   for _, w in ipairs(list) do
-    if w.selected then w:SetSelected(false) end
+    if w.selected and not isForced(w.card) then w:SetSelected(false) end
   end
   HandView.RefreshButtons()
 end
@@ -265,7 +271,10 @@ end
 local function onCardClick(w)
   local run = HandView.run
   if HandView.IsBusy() or not run or run.phase ~= "play" then return end
-  if w.selected then
+  if w.selected and isForced(w.card) then
+    shake(w)
+    return
+  elseif w.selected then
     w:SetSelected(false)
   else
     if #HandView.Selected() >= MAX_SELECT then
@@ -382,6 +391,7 @@ function HandView.Update(run, animate)
       w:SetCard(card) -- a scroll or pack may have changed its type
       moveTo(w, x, BASE_Y, MOVE_TIME)
     end
+    if isForced(card) and not w.selected then w:SetSelected(true) end
   end
   HandView.RefreshButtons()
   ns.UI.EditionFX.Wake() -- a re-shown window restarts the shimmer

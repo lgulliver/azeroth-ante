@@ -389,6 +389,50 @@ local function run(w)
     check(not fdw.back:IsShown(), "disabling the boss flips the card up at once")
   end
 
+  -- Finishers: Ragnaros shades a disabled trinket, Yogg-Saron shows trinkets face down and
+  -- Kel'Thuzad's forced card is selected and stays selected.
+  do
+    local fr = Main.run
+    local TrinketRow = ns.UI.TrinketRow
+    local ownTrinkets = fr.trinkets
+    fr.trinkets = { { uid = 901, id = "ARCANE_INTELLECT", disabled = true },
+      { uid = 902, id = "ARCANE_INTELLECT", faceDown = true, ed = "FOIL" } }
+    TrinketRow.Update(fr)
+    local s1, s2 = Main.trinketRow.slots[1], Main.trinketRow.slots[2]
+    check(s1.icon:GetVertexColor() < 1 and s1.icon:IsDesaturated(), "a disabled trinket is shaded")
+    eq(s1.icon:GetTexture(), ns.Trinkets.def.ARCANE_INTELLECT.icon, "a disabled trinket keeps its face")
+    eq(s2.icon:GetTexture(), "Interface\\Icons\\INV_Misc_QuestionMark", "a face-down trinket shows the trinket back")
+    check(s2.icon:GetVertexColor() == 1, "a face-down trinket is not shaded")
+    s2._scripts.OnEnter(s2)
+    local tip = table.concat(stub.tooltip._lines, "|")
+    check(not tip:find("Arcane Intellect", 1, true) and not tip:find("Foil", 1, true), "its tooltip hides the trinket")
+    s2._scripts.OnLeave(s2)
+    fr.trinkets = ownTrinkets
+    TrinketRow.Update(fr)
+    check(Main.trinketRow.slots[1].icon:GetVertexColor() == 1, "the shade clears with the flag")
+
+    local oldBlind, oldBoss = fr.blind, fr.bosses[fr.stage]
+    fr.blind, fr.bosses[fr.stage] = 3, "KELTHUZAD"
+    HandView.ClearSelection()
+    fr.forcedCard = fr.hand[3]
+    HandView.Update(fr, false)
+    stub.advance(1)
+    local forcedW
+    for _, hw in ipairs(handWidgets()) do if hw.card == fr.forcedCard then forcedW = hw end end
+    check(forcedW and forcedW.selected, "the forced card is pre-selected")
+    click(forcedW, "forced card")
+    check(forcedW.selected, "the forced card cannot be deselected")
+    HandView.ClearSelection()
+    check(forcedW.selected, "clearing the selection keeps the forced card")
+    check(Main.buttons.play:IsEnabled(), "play is allowed with the forced card")
+    fr.forcedCard = nil
+    fr.blind, fr.bosses[fr.stage] = oldBlind, oldBoss
+    HandView.ClearSelection()
+    HandView.Update(fr, false)
+    stub.advance(1)
+    eq(#HandView.Selected(), 0, "nothing forced, nothing selected")
+  end
+
   -- 2c. Card type visuals, edition FX and the deck view.
   local FX, DeckView = ns.UI.EditionFX, ns.UI.DeckView
   local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"

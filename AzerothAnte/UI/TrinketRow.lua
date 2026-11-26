@@ -12,6 +12,8 @@ local LIFT = 1.08         -- a held slot's scale
 local SHIFT_TIME = 0.12   -- other slots sliding aside, and a dropped slot settling
 local LIFT_TIME = 0.08
 local GREEN = { 0.3, 1, 0.3 }
+local FACE_DOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark" -- a trinket Yogg-Saron turned face down
+local DISABLED_SHADE = 0.35 -- a trinket Ragnaros disabled
 
 local sellMode, onSell = false, nil
 local pitch = SLOT_SIZE + SLOT_GAP -- distance between slot origins, set by Update
@@ -35,11 +37,23 @@ local function showTooltip(slot)
   if not def then GameTooltip:Hide() return end -- an emptied slot must not keep the old tooltip
   if press and press.active then return end
   local run = currentRun
+  if slot.trinket and slot.trinket.faceDown then -- name and effect stay hidden
+    GameTooltip:SetOwner(slot, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Face down", 1, 1, 1)
+    if sellMode then
+      GameTooltip:AddLine("Sells for " .. ns.Shop.sellValue(slot.trinket) .. "g", Theme.gold[1], Theme.gold[2], Theme.gold[3])
+    end
+    GameTooltip:Show()
+    return
+  end
   local r = Theme.rarity[def.rarity] or Theme.rarity.common
   GameTooltip:SetOwner(slot, "ANCHOR_BOTTOM")
   GameTooltip:AddLine(def.name, r[1], r[2], r[3])
   GameTooltip:AddLine(def.rarity and (def.rarity:sub(1, 1):upper() .. def.rarity:sub(2)) or "", r[1], r[2], r[3])
   GameTooltip:AddLine(ns.Trinkets.describe(def, run), 1, 1, 1, true)
+  if slot.trinket and slot.trinket.disabled then
+    GameTooltip:AddLine("Disabled this hand", 1, 0.3, 0.3)
+  end
   local ed = slot.trinket and ns.CardTypes.ed[slot.trinket.ed]
   if ed then
     GameTooltip:AddLine(ed.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
@@ -312,8 +326,12 @@ function TrinketRow.Update(run)
     slot.trinket = entry
     slot.empty:SetShown(not def)
     slot.icon:SetShown(def ~= nil)
-    if def then slot.icon:SetTexture(def.icon) end
-    ns.UI.EditionFX.Attach(slot.holder, def and entry.ed or nil)
+    local faceDown = def and entry.faceDown
+    if def then slot.icon:SetTexture(faceDown and FACE_DOWN_ICON or def.icon) end
+    local shade = (def and entry.disabled) and DISABLED_SHADE or 1
+    slot.icon:SetVertexColor(shade, shade, shade)
+    if slot.icon.SetDesaturated then slot.icon:SetDesaturated(shade < 1) end
+    ns.UI.EditionFX.Attach(slot.holder, (def and not faceDown) and entry.ed or nil)
   end
   settle = nil
   lastX = shown

@@ -1,13 +1,14 @@
 local _, ns = ...
 
 -- Rule trinkets set def.rule; other systems ask whether any owned instance carries it.
+-- A disabled instance (Ragnaros) carries no rule.
 local TrinketRules = {}
 
 function TrinketRules.set(trinkets)
   local rules = {}
   for _, trinket in ipairs(trinkets or {}) do
     local def = ns.Trinkets.def[trinket.id]
-    if def and def.rule then rules[def.rule] = true end
+    if def and def.rule and not trinket.disabled then rules[def.rule] = true end
   end
   return rules
 end
@@ -21,7 +22,7 @@ function TrinketRules.count(trinkets, rule)
   local n = 0
   for _, trinket in ipairs(trinkets or {}) do
     local def = ns.Trinkets.def[trinket.id]
-    if def and def.rule == rule then n = n + 1 end
+    if def and def.rule == rule and not trinket.disabled then n = n + 1 end
   end
   return n
 end

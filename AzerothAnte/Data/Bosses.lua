@@ -11,6 +11,9 @@ local _, ns = ...
 -- and still spends a hand. Run.scoreCtx hands the answer to scoring as ctx.handNotAllowed.
 -- beforeScore(run, handId, played): after Run.canPlay, before scoring (Balatro's press_play and debuff_hand);
 -- the held cards are read after it. drawCount(run, why) -> n: how many cards a refill draws (nil: up to hand size).
+-- onStart(run): at the end of startBlind, after the first draw. beforeHand(run): after that and after each play
+-- that leaves the blind going. afterDraw(run): after every draw into the hand.
+-- Finisher state (trinket.disabled, trinket.faceDown, run.forcedCard) is cleared by Run when the boss ends or is disabled.
 local Bosses = {}
 
 Bosses.pool = {
@@ -25,6 +28,14 @@ local finalSet = {}
 for _, id in ipairs(Bosses.FINALS) do finalSet[id] = true end
 
 function Bosses.isFinal(id) return finalSet[id] == true end
+
+-- Cerulean Bell: keeps one card of the hand forced, picking a new one once it has left the hand.
+local function forceCard(run)
+  for _, card in ipairs(run.hand) do
+    if card == run.forcedCard then return end
+  end
+  run.forcedCard = #run.hand > 0 and ns.RNG.pick(run.rng, run.hand) or nil
+end
 
 Bosses.def = {
   HOGGER = {
@@ -182,8 +193,12 @@ Bosses.def = {
     end,
   },
   RAGNAROS = {
-    id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 2,
-    desc = "The final boss of the run.",
+    id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 2, -- Crimson Heart
+    desc = "One random trinket is disabled each hand.",
+    beforeHand = function(run)
+      for _, t in ipairs(run.trinkets) do t.disabled = nil end
+      if #run.trinkets > 0 then ns.RNG.pick(run.rng, run.trinkets).disabled = true end
+    end,
   },
   CTHUN = {
     id = "CTHUN", name = "C'Thun", targetMult = 6, -- Violet Vessel
@@ -192,14 +207,22 @@ Bosses.def = {
   YOGG = {
     id = "YOGG", name = "Yogg-Saron", targetMult = 2, -- Amber Acorn
     desc = "Flips your trinkets face down and shuffles them.",
+    onStart = function(run)
+      for _, t in ipairs(run.trinkets) do t.faceDown = true end
+      ns.RNG.shuffle(run.rng, run.trinkets)
+    end,
   },
   XAVIUS = {
     id = "XAVIUS", name = "Xavius", targetMult = 2, -- Verdant Leaf
     desc = "All cards are debuffed until you sell a trinket.",
+    -- info is the run or the scoring ctx; both carry the run's flags.
+    debuff = function(_, _, info) return not (info and info.flags and info.flags.soldThisBlind) end,
   },
   KELTHUZAD = {
     id = "KELTHUZAD", name = "Kel'Thuzad", targetMult = 2, -- Cerulean Bell
     desc = "One card is always forced into your selection.",
+    onStart = forceCard,
+    afterDraw = forceCard,
   },
 }
 

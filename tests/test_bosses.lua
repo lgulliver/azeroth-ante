@@ -478,3 +478,169 @@ T.test("disabling_play_bosses", function()
   ns.Run.disableBoss(run)
   T.ok(ns.Run.play(run, { 1 }).total > 0, "a disabled Aran allows repeats")
 end)
+
+-- Finishers -----------------------------------------------------------------
+
+-- A final-ante boss blind with `trinkets` owned before it starts.
+local function finisherRun(seed, bossId, trinkets)
+  local run = ns.Run.new(seed, "ADVENTURER")
+  run.stage, run.blind = 8, 3
+  run.bosses[8] = bossId
+  run.trinkets = trinkets or {}
+  ns.Run.startBlind(run)
+  return run
+end
+
+local function disabledUids(run)
+  local out = {}
+  for _, t in ipairs(run.trinkets) do if t.disabled then out[#out + 1] = t.uid end end
+  return out
+end
+
+T.test("ragnaros_disables_one_trinket_each_hand", function()
+  T.eq(ns.Bosses.def.RAGNAROS.desc, "One random trinket is disabled each hand.")
+  local run = finisherRun(5, "RAGNAROS", {
+    { uid = 1, id = "ARCANE_INTELLECT", ed = "HOLO" }, { uid = 2, id = "ARCANE_INTELLECT" },
+  })
+  run.target = 1e9
+  for _ = 1, 3 do
+    local off = disabledUids(run)
+    T.eq(#off, 1, "exactly one trinket is disabled")
+    setHand(run, { { 9, "S" }, { 2, "C" } })
+    local result = ns.Run.play(run, { 1 })
+    local fired = {}
+    for _, e in ipairs(result.events) do
+      if e.uid then fired[e.uid] = true end
+    end
+    T.ok(not fired[off[1]], "the disabled trinket does nothing, edition included")
+    T.ok(fired[off[1] == 1 and 2 or 1], "the other one still scores")
+  end
+  T.eq(#disabledUids(run), 1, "a new pick after each hand")
+  local empty = finisherRun(5, "RAGNAROS", {})
+  T.eq(#disabledUids(empty), 0)
+end)
+
+T.test("ragnaros_disabled_target_is_not_copied", function()
+  local run = finisherRun(5, "RAGNAROS", { { uid = 1, id = "SCHEMATIC" }, { uid = 2, id = "ARCANE_INTELLECT" } })
+  for _, t in ipairs(run.trinkets) do t.disabled = (t.uid == 2) or nil end
+  T.eq(ns.TrinketEngine.source(run.trinkets, 1), nil, "a copier copies nothing from a disabled trinket")
+  local n = 0
+  ns.TrinketEngine.each(run.trinkets, function() n = n + 1 end)
+  T.eq(n, 0)
+end)
+
+T.test("yogg_flips_and_shuffles", function()
+  local owned = {}
+  for i = 1, 5 do owned[i] = { uid = i, id = "ARCANE_INTELLECT" } end
+  local moved = false
+  for seed = 1, 10 do
+    local trinkets = {}
+    for i, t in ipairs(owned) do trinkets[i] = { uid = t.uid, id = t.id } end
+    local run = finisherRun(seed, "YOGG", trinkets)
+    for _, t in ipairs(run.trinkets) do T.ok(t.faceDown, "every trinket is face down") end
+    T.eq(#run.trinkets, 5)
+    for i, t in ipairs(run.trinkets) do if t.uid ~= i then moved = true end end
+    run.target = 1e9
+    setHand(run, { { 9, "S" }, { 2, "C" } })
+    local base = ns.Run.play(run, { 1 })
+    T.ok(base.total > 0)
+    if seed == 1 then
+      local mult
+      for _, e in ipairs(base.events) do if e.kind == "total" then mult = e.runMult end end
+      T.eq(mult, 1 + 20, "face-down trinkets still work")
+      run.target = 1
+      setHand(run, { { 9, "S" }, { 2, "C" } })
+      ns.Run.play(run, { 1 })
+      for _, t in ipairs(run.trinkets) do T.ok(not t.faceDown, "turned up when the blind is won") end
+    end
+  end
+  T.ok(moved, "the order was shuffled")
+end)
+
+T.test("xavius_debuffs_until_sale", function()
+  local run = finisherRun(5, "XAVIUS", { { uid = 1, id = "ARCANE_INTELLECT" }, { uid = 2, id = "ARCANE_INTELLECT" } })
+  run.target = 1e9
+  local def = ns.Bosses.def.XAVIUS
+  T.eq(def.debuff(run.hand[1], {}, run), true)
+  setHand(run, { { 9, "S" }, { 2, "C" } })
+  local before = ns.Run.play(run, { 1 })
+  T.ok(debuffEvents(before) > 0, "all cards are debuffed")
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(run.flags.soldThisBlind, true)
+  T.eq(def.debuff(run.hand[1], {}, run), false)
+  setHand(run, { { 9, "S" }, { 2, "C" } })
+  T.eq(debuffEvents(ns.Run.play(run, { 1 })), 0, "a sale lifts it")
+  run.blind = 1
+  ns.Run.startBlind(run)
+  T.ok(not run.flags.soldThisBlind, "resets at the next blind")
+end)
+
+T.test("kelthuzad_forces_a_card", function()
+  local run = finisherRun(5, "KELTHUZAD")
+  run.target = 1e9
+  local forced = run.forcedCard
+  T.ok(forced, "a card is forced")
+  local fi
+  for i, c in ipairs(run.hand) do if c == forced then fi = i end end
+  T.ok(fi, "the forced card is in the hand")
+  local other = fi == 1 and 2 or 1
+  local ok, why = ns.Run.canPlay(run, { other })
+  T.eq(ok, false)
+  local rankName = ({ [11] = "Jack", [12] = "Queen", [13] = "King", [14] = "Ace" })[forced.rank] or tostring(forced.rank)
+  T.eq(why, rankName .. " of " .. ns.Cards.SUIT_NAMES[forced.suit] .. " must be selected.")
+  T.eq((ns.Run.canDiscard(run, { other })), false)
+  T.eq((ns.Run.play(run, { other })), nil, "refused")
+  T.ok(ns.Run.canPlay(run, { fi, other }))
+  ns.Run.discard(run, { other, fi })
+  T.ok(run.forcedCard and run.forcedCard ~= forced, "a new card is forced after it leaves")
+  forced = run.forcedCard
+  T.eq(forced, run.forcedCard)
+  for i, c in ipairs(run.hand) do if c == forced then fi = i end end
+  ns.Run.play(run, { fi })
+  T.ok(run.forcedCard and run.forcedCard ~= forced, "replaced after it is played")
+  local still = run.forcedCard
+  for i, c in ipairs(run.hand) do if c ~= still then fi = i break end end
+  for i, c in ipairs(run.hand) do if c == still then other = i end end
+  ns.Run.play(run, { fi, other })
+  T.ok(run.forcedCard ~= nil)
+end)
+
+T.test("disabling_finisher_restores_everything", function()
+  local function owned()
+    return { { uid = 1, id = "ARCANE_INTELLECT" }, { uid = 2, id = "ARCANE_INTELLECT" } }
+  end
+  local rag = finisherRun(5, "RAGNAROS", owned())
+  T.ok(ns.Run.disableBoss(rag))
+  T.eq(#disabledUids(rag), 0, "Ragnaros: trinkets back on")
+  local yogg = finisherRun(5, "YOGG", owned())
+  T.ok(ns.Run.disableBoss(yogg))
+  for _, t in ipairs(yogg.trinkets) do T.ok(not t.faceDown, "Yogg-Saron: trinkets face up") end
+  local xav = finisherRun(5, "XAVIUS", owned())
+  T.ok(ns.Run.disableBoss(xav))
+  T.eq(debuffEvents(ns.Run.play(xav, { 1 })), 0, "Xavius: cards score")
+  local kt = finisherRun(5, "KELTHUZAD", owned())
+  T.ok(ns.Run.disableBoss(kt))
+  T.eq(kt.forcedCard, nil, "Kel'Thuzad: nothing forced")
+  T.ok(ns.Run.canPlay(kt, { 1 }))
+  T.eq(ns.Run.disableBoss(finisherRun(5, "CTHUN", owned())), false, "C'Thun has no rule")
+  -- Losing clears them too.
+  local lost = finisherRun(5, "RAGNAROS", owned())
+  lost.target, lost.handsLeft = 1e9, 1
+  ns.Run.play(lost, { 1 })
+  T.eq(lost.phase, "lost")
+  T.eq(#disabledUids(lost), 0)
+  local kl = finisherRun(5, "KELTHUZAD", owned())
+  kl.target, kl.handsLeft = 1e9, 1
+  local ki
+  for i, c in ipairs(kl.hand) do if c == kl.forcedCard then ki = i end end
+  ns.Run.play(kl, { ki })
+  T.eq(kl.forcedCard, nil)
+end)
+
+T.test("ragnaros_disabled_trinket_sells_without_its_effect", function()
+  local run = finisherRun(5, "RAGNAROS", {})
+  run.trinkets = { ns.Trinkets.create(run, "GLAD_MEDALLION") }
+  run.trinkets[1].disabled = true
+  T.ok(ns.Run.sellTrinket(run, 1))
+  T.eq(run.bossDisabled, false, "a disabled Gladiator's Medallion does not disable the boss")
+end)

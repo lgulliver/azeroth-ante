@@ -271,20 +271,23 @@ function Scoring.score(ctx)
     end
   end
 
+  -- A disabled trinket (Ragnaros) gives nothing here, its edition included.
   for slot, trinket in ipairs(trinkets) do
-    if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "pre") end
-    local inst, def = engine.source(trinkets, slot)
-    if inst then
-      local effect = def.onHand and def.onHand(ctx, inst, inst ~= trinket)
-      if effect then apply(effect, slot) end
+    if not trinket.disabled then
+      if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "pre") end
+      local inst, def = engine.source(trinkets, slot)
+      if inst then
+        local effect = def.onHand and def.onHand(ctx, inst, inst ~= trinket)
+        if effect then apply(effect, slot) end
+      end
+      local ownDef = ns.Trinkets.def[trinket.id]
+      engine.each(trinkets, function(other, otherInst, otherDef, otherIsCopy)
+        if other == slot or not ownDef or not otherDef.otherTrinket then return end
+        local effect = otherDef.otherTrinket(ctx, otherInst, ownDef, otherIsCopy)
+        if effect then apply(effect, other) end
+      end)
+      if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "post") end
     end
-    local ownDef = ns.Trinkets.def[trinket.id]
-    engine.each(trinkets, function(other, otherInst, otherDef, otherIsCopy)
-      if other == slot or not ownDef or not otherDef.otherTrinket then return end
-      local effect = otherDef.otherTrinket(ctx, otherInst, ownDef, otherIsCopy)
-      if effect then apply(effect, other) end
-    end)
-    if trinket.ed then applyEdition(trinket.ed, { slot = slot }, "post") end
   end
 
   for _, item in ipairs(ctx.consumables or {}) do

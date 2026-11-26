@@ -288,7 +288,7 @@ end)
 
 H.test("disable_boss_needs_a_rule", function()
   local run = H.run()
-  run.blind, run.bosses[1] = 3, "RAGNAROS"
+  run.blind, run.bosses[1] = 3, "CTHUN"
   T.eq(ns.Run.disableBoss(run), false)
   T.eq(run.bossDisabled, false)
   run.trinkets[1] = ns.Trinkets.create(run, "GLAD_MEDALLION")
