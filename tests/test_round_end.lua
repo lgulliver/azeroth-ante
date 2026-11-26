@@ -22,7 +22,8 @@ T.test("debuffed_held_gold_pays_nothing", function()
 end)
 
 T.test("debuffed_held_blue_creates_nothing", function()
-  local old = ns.Consumables
+  local old, oldOpen = ns.Consumables, ns.Shop.open
+  ns.Shop.open = function() end -- the stubbed Consumables cannot stock a shop
   ns.Consumables = {
     add = function(run, item)
       run.consumables[#run.consumables + 1] = item
@@ -35,7 +36,7 @@ T.test("debuffed_held_blue_creates_nothing", function()
     ns.Run.winBlind(run)
     T.eq(run.consumables, {})
   end)
-  ns.Consumables = old
+  ns.Consumables, ns.Shop.open = old, oldOpen
   if not ok then error(err, 0) end
 end)
 

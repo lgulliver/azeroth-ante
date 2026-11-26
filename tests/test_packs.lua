@@ -151,7 +151,11 @@ T.test("celestial_hides_secret_tomes", function()
   for _ = 1, 100 do
     run.shop.packs[1] = { type = "CELESTIAL", size = "mega", cost = 0 }
     ns.Packs.open(run, 1)
-    for _, item in ipairs(run.shop.openPack.choices) do T.ok(not ns.Hands.def[item.id].secret) end
+    for _, item in ipairs(run.shop.openPack.choices) do
+      -- Black Hole (not a hand) can replace a Tome in a Celestial pack.
+      local hand = ns.Hands.def[item.id]
+      T.ok(not (hand and hand.secret))
+    end
     ns.Packs.skip(run)
   end
 end)

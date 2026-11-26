@@ -7,6 +7,13 @@ Run.BASE_TARGETS = { 300, 800, 2000, 5000, 11000, 20000, 35000, 50000 }
 
 -- Gold paid for beating the small, big and boss blind.
 Run.BLIND_REWARDS = { 3, 4, 5 }
+Run.FINISHER_REWARD = 8
+
+-- Gold for beating the current blind: a finisher boss pays more than a regular one.
+function Run.blindReward(run)
+  if run.blind == 3 and ns.Bosses.isFinal(run.bosses[run.stage]) then return Run.FINISHER_REWARD end
+  return Run.BLIND_REWARDS[run.blind]
+end
 
 Run.BOSS_REROLL_COST = 10
 
@@ -51,7 +58,7 @@ function Run.new(seed, deckId)
     run.bosses[stage] = ns.RNG.pick(run.rng, picks)
     used[run.bosses[stage]] = (used[run.bosses[stage]] or 0) + 1
   end
-  run.bosses[8] = ns.Bosses.FINAL
+  run.bosses[8] = ns.RNG.pick(run.rng, ns.Bosses.FINALS)
   run.startDeckSize = #run.deck
   return run
 end
@@ -413,7 +420,7 @@ function Run.winBlind(run, opts)
   if run.blind == 3 then ns.TrinketEngine.fire(run, "onBossDefeated") end
   local deck = ns.Decks.def[run.deckId]
   local payout = {
-    reward = Run.BLIND_REWARDS[run.blind], hands = run.handsLeft * (deck.goldPerHand or 1),
+    reward = Run.blindReward(run), hands = run.handsLeft * (deck.goldPerHand or 1),
     discards = run.discardsLeft * (deck.goldPerDiscard or 0),
     interest = 0, trinkets = 0, held = 0,
   }
@@ -480,7 +487,6 @@ function Run.nextBlind(run)
 end
 
 function Run.canRerollBoss(run)
-  if run.stage >= 8 then return false, "The final boss cannot be rerolled." end
   if run.phase ~= "blind" then return false, "Only on the blind screen" end
   if run.bossRerollsUsed >= ns.Vouchers.bossRerolls(run) then return false, "No boss rerolls left." end
   if not Run.canAfford(run, Run.BOSS_REROLL_COST) then return false, "Not enough gold." end
@@ -488,10 +494,10 @@ function Run.canRerollBoss(run)
 end
 
 -- Picks a boss other than `current` that `stage` allows, preferring ones not
--- yet fought (the final boss is never in the pool).
+-- yet fought. Stage 8 draws among the finishers, the other stages among the pool.
 local function pickBoss(run, current, stage)
   local fresh, any = {}, {}
-  for _, id in ipairs(ns.Bosses.pool) do
+  for _, id in ipairs(stage == 8 and ns.Bosses.FINALS or ns.Bosses.pool) do
     if id ~= current and (ns.Bosses.def[id].minStage or 1) <= stage then
       any[#any + 1] = id
       if not run.bossesFought[id] then fresh[#fresh + 1] = id end

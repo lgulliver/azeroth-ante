@@ -92,10 +92,13 @@ T.test("achievement_boundary_RETCON", function()
     T.eq(ns.Profile.event(db, "bossFought", id, {}), {})
     T.eq(ns.Profile.event(db, "bossFought", id, {}), {})
   end
-  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 8, 9 })
+  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 8, 13 })
   T.eq(ns.Profile.get(db).bossesSeen.HOGGER, true)
-  T.eq(ns.Profile.event(db, "bossFought", "RAGNAROS", {}), { "RETCON" })
-  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 9, 9 })
+  for _, id in ipairs({ "RAGNAROS", "CTHUN", "YOGG", "XAVIUS" }) do
+    T.eq(ns.Profile.event(db, "bossFought", id, {}), {})
+  end
+  T.eq(ns.Profile.event(db, "bossFought", "KELTHUZAD", {}), { "RETCON" })
+  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 13, 13 })
 end)
 
 T.test("achievement_boundary_PALETTE", function()

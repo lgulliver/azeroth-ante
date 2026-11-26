@@ -148,7 +148,7 @@ function Profile.achievementProgress(db, id)
   local def = ns.Achievements.def[id]
   if not def then return 0, 0 end
   if def.counter then return profile.counters[def.counter] or 0, def.target end
-  if id == "RETCON" then return ns.Achievements.bossCount(profile), #ns.Bosses.pool + 1 end
+  if id == "RETCON" then return ns.Achievements.bossCount(profile), #ns.Bosses.pool + #ns.Bosses.FINALS end
   return profile.achievements[id] and 1 or 0, 1
 end
 

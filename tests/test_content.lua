@@ -191,8 +191,8 @@ T.test("bosses_complete", function()
     T.ok(def.name and def.name ~= "", id .. ": no name")
     T.ok(def.desc and def.desc ~= "", id .. ": no desc")
   end
-  T.eq(ns.Bosses.FINAL, "RAGNAROS")
-  local final = ns.Bosses.def[ns.Bosses.FINAL]
+  T.eq(ns.Bosses.FINALS[1], "RAGNAROS")
+  local final = ns.Bosses.def[ns.Bosses.FINALS[1]]
   T.ok(final, "missing final boss")
   T.ok(final.name and final.name ~= "", "final: no name")
   T.ok(final.desc and final.desc ~= "", "final: no desc")

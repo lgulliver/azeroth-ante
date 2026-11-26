@@ -15,7 +15,9 @@ function Achievements.bossCount(profile)
   for _, id in ipairs(ns.Bosses.pool) do
     if profile.bossesSeen[id] then count = count + 1 end
   end
-  if profile.bossesSeen[ns.Bosses.FINAL] then count = count + 1 end
+  for _, id in ipairs(ns.Bosses.FINALS) do
+    if profile.bossesSeen[id] then count = count + 1 end
+  end
   return count
 end
 
@@ -38,7 +40,7 @@ add("PETROGLYPH", "Win a run with Chronomancer's Hourglass owned.", nil, nil,
   end)
 add("RETCON", "Fight every boss across all runs, including Ragnaros.", nil, nil,
   function(profile, event)
-    return event == "bossFought" and Achievements.bossCount(profile) == #ns.Bosses.pool + 1
+    return event == "bossFought" and Achievements.bossCount(profile) == #ns.Bosses.pool + #ns.Bosses.FINALS
   end)
 add("PALETTE", "Start a blind with a hand size of 5 or less.", nil, nil,
   function(profile, event, amount)

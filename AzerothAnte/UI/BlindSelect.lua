@@ -42,6 +42,10 @@ BlindSelect.BOSS_TINT = {
   RIVENDARE = { 0.35, 0.95, 0.95 }, -- cyan
   ONYXIA = { 0.5, 0.5, 0.58 },    -- slate
   RAGNAROS = { 1, 0.5, 0.1 },     -- orange
+  CTHUN = { 0.6, 0.3, 0.85 },     -- violet
+  YOGG = { 0.95, 0.65, 0.2 },     -- amber
+  XAVIUS = { 0.5, 0.85, 0.3 },    -- leaf green
+  KELTHUZAD = { 0.3, 0.65, 1 },   -- cerulean
 }
 local NO_TINT = { 1, 1, 1 }
 
@@ -198,7 +202,7 @@ local function refreshOne(b, run, i, bossId)
   b.stamp:SetShown(st == "DEFEATED")
 
   if b.reroll then
-    local owned = ns.Vouchers.bossRerolls(run) > 0 and run.stage < 8
+    local owned = ns.Vouchers.bossRerolls(run) > 0
     b.reroll:SetShown(owned)
     if owned then
       local ok, reason = ns.Run.canRerollBoss(run)

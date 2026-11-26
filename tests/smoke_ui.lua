@@ -1557,7 +1557,7 @@ local function run(w)
     end
     local nTint = 0
     for _ in pairs(w2.ns.UI.BlindSelect.BOSS_TINT) do nTint = nTint + 1 end
-    eq(nTint, 9, "nine boss tints")
+    eq(nTint, 13, "thirteen boss tints")
     for i = 1, 3 do
       eq(tonumber(bs2.panels[i].reward:GetText():match("|cffffd100(%d+)g|r")), w2.ns.Run.BLIND_REWARDS[i], "reward g amount matches Run.BLIND_REWARDS")
     end
@@ -3528,7 +3528,7 @@ local function run(w)
     eq(boss.reroll.reason, select(2, ns2.Run.canRerollBoss(run)), "reason comes from Run.canRerollBoss")
     run.stage = 8
     m.Render(run, true)
-    check(not boss.reroll:IsShown(), "hidden at stage 8")
+    check(boss.reroll:IsShown(), "shown at stage 8: finishers can be rerolled")
     run.stage = 2
     m.Render(run, true)
 

@@ -48,7 +48,7 @@ T.test("new_run_shape", function()
   T.eq(run.lastPayout, nil)
   for _, id in ipairs(ns.Hands.order) do T.eq(run.handLevels[id], 1) end
   T.eq(#run.bosses, 8)
-  T.eq(run.bosses[8], "RAGNAROS")
+  T.ok(ns.Bosses.isFinal(run.bosses[8]))
   local seen, pool = {}, {}
   for _, id in ipairs(ns.Bosses.pool) do pool[id] = true end
   for i, id in ipairs(run.bosses) do
@@ -229,7 +229,7 @@ T.test("final_boss_win_is_won", function()
   local run = playing()
   run.stage, run.blind = 8, 3
   ns.Run.startBlind(run)
-  T.eq(run.target, 100000)
+  T.eq(run.target, ns.Run.target(8, 3, run.bosses[8]))
   run.target, run.handsLeft = 1, 1
   local oldOpen = ns.Shop.open
   ns.Shop.open = function() error("final win must not open shop") end
@@ -238,8 +238,8 @@ T.test("final_boss_win_is_won", function()
   if not ok then error(err, 0) end
   T.eq(run.phase, "won")
   T.eq(run.handsLeft, 0)
-  T.eq(run.gold, 9)
-  T.eq(run.lastPayout.reward, 5)
+  T.eq(run.gold, 12)
+  T.eq(run.lastPayout.reward, 8)
 end)
 
 T.test("payout_rewards_interest_cap_and_trinkets", function()
@@ -435,7 +435,8 @@ T.test("purple_seal_discard_creates_scroll", function()
 end)
 
 T.test("seals_work_without_consumables_module", function()
-  local old = ns.Consumables
+  local old, oldOpen = ns.Consumables, ns.Shop.open
+  ns.Shop.open = function() end -- no Consumables to stock a shop with
   ns.Consumables = nil
   local ok, err = pcall(function()
     local run = playing()
@@ -445,7 +446,7 @@ T.test("seals_work_without_consumables_module", function()
     ns.Run.winBlind(run)
     T.eq(run.consumables, {})
   end)
-  ns.Consumables = old
+  ns.Consumables, ns.Shop.open = old, oldOpen
   if not ok then error(err, 0) end
 end)
 
