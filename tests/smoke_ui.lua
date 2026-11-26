@@ -3259,7 +3259,7 @@ local function run(w)
     end
     step("boss_disabled_at_blind_start")
 
-    do -- boss_refused_hand: Play is disabled with the boss's reason (Shade of Aran)
+    do -- boss_refused_hand: Shade of Aran lets a repeated hand type be played; it scores 0 ("Not allowed!")
       local wb, panelb, m, r = lifeBoard({}, "blind")
       local ns2 = wb.ns
       r.blind, r.bosses[r.stage] = 3, "ARAN"
@@ -3268,12 +3268,22 @@ local function run(w)
       wb.stub.advance(3)
       eq(r.phase, "play", "the blind started")
       r.roundHandPlays.HIGH_CARD = 1
+      local hands, score = r.handsLeft, r.score
       local card = ns2.UI.HandView.WidgetForCard(r.hand[1].id)
       card._scripts.OnClick(card)
       check(card.selected, "the card is selected")
       local play = m.buttons.play
-      check(not play:IsEnabled(), "a repeated hand type cannot be played")
-      eq(play.reason, "High Card was already played this round.", "Play gives the boss's reason")
+      check(play:IsEnabled(), "a repeated hand type can still be played")
+      click(play, "Play")
+      local seen = false
+      for _ = 1, 60 do
+        wb.stub.advance(0.1)
+        seen = seen or wb.stub.findText("Not allowed!") ~= nil
+      end
+      eq(r.handsLeft, hands - 1, "the hand was used")
+      eq(r.score, score, "and added nothing")
+      check(r.lastResult.notAllowed, "the result is flagged not allowed")
+      check(seen, "the tally shows Not allowed!")
     end
     step("boss_refused_hand")
 

@@ -7,7 +7,8 @@ local _, ns = ...
 -- debuff(card, rules, info) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count; info: the run or scoring ctx,
 -- whose playedThisAnte is a set of card ids): a debuffed card scores no chips and no trinket effects.
 -- handSize (number) is added to the hand size while the boss is active.
--- canPlayHand(run, handId) -> ok, reason: false refuses the hand (Run.canPlay).
+-- handNotAllowed(run, handId) -> bool: true debuffs the hand (Balatro's debuff_hand): it can be played but scores 0
+-- and still spends a hand. Run.scoreCtx hands the answer to scoring as ctx.handNotAllowed.
 -- beforeScore(run, handId, played): after Run.canPlay, before scoring (Balatro's press_play and debuff_hand);
 -- the held cards are read after it. drawCount(run, why) -> n: how many cards a refill draws (nil: up to hand size).
 local Bosses = {}
@@ -160,21 +161,17 @@ Bosses.def = {
   },
   GLUTH = {
     id = "GLUTH", name = "Gluth", targetMult = 2, minStage = 2, -- The Mouth
-    desc = "Only the first hand type played this round can be played.",
-    canPlayHand = function(run, handId)
-      local first = next(run.roundHandPlays)
-      if first and first ~= handId then return false, "Only " .. ns.Hands.def[first].name .. " can be played." end
-      return true
+    desc = "Only one hand type can be played this round; others score nothing.",
+    handNotAllowed = function(run, handId)
+      local first = run.roundFirstHand
+      return first ~= nil and first ~= handId
     end,
   },
   ARAN = {
     id = "ARAN", name = "Shade of Aran", targetMult = 2, minStage = 3, -- The Eye
-    desc = "No hand type can be repeated this round.",
-    canPlayHand = function(run, handId)
-      if run.roundHandPlays[handId] then
-        return false, ns.Hands.def[handId].name .. " was already played this round."
-      end
-      return true
+    desc = "Repeating a hand type this round scores nothing.",
+    handNotAllowed = function(run, handId)
+      return run.roundHandPlays[handId] ~= nil
     end,
   },
   HAKKAR = {

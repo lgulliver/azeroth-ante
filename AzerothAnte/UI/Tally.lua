@@ -209,6 +209,10 @@ local function fire(e)
   elseif kind == "retrigger" then
     if e.uid then ns.UI.TrinketRow.PulseUid(e.uid) end -- the trinket that caused it
     stackedFloat(s, widgetFor(s, e), "Again!", CREAM)
+  elseif kind == "notAllowed" then
+    local hand = ns.Hands.def[e.handId]
+    showRun(e, hand and hand.name)
+    stackedFloat(s, main().sidebar and main().sidebar.handName, "Not allowed!", GREY)
   elseif kind == "debuff" then
     local w = widgetFor(s, e)
     if w then

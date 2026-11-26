@@ -223,6 +223,35 @@ T.test("boss_rules", function()
   T.eq(b.HOGGER.targetMult, 2)
 end)
 
+T.test("boss_roster_matches_spec", function()
+  local B = ns.Bosses
+  T.eq(#B.pool, 23)
+  T.eq(#B.FINALS, 5)
+  local spec = {
+    HOGGER = { 4, 2 }, VANCLEEF = { 1, 2 }, ARUGAL = { 1, 2 }, VAELASTRASZ = { 1, 2 }, MUTANUS = { 2, 2 },
+    HEROD = { 1, 2 }, RIVENDARE = { 2, 2 }, ONYXIA = { 2, 1 },
+    GREENSKIN = { 1, 2 }, THREDD = { 1, 2 }, TARGORR = { 1, 2 }, ARCHAEDAS = { 1, 2 },
+    MOROES = { 2, 2 }, PATCHWERK = { 2, 4 }, THERMAPLUGG = { 2, 2 }, FROSTWHISPER = { 2, 2 },
+    MOROGRIM = { 2, 2 }, GLUTH = { 2, 2 }, SKERAM = { 2, 2 }, ARAN = { 3, 2 },
+    REVILGAZ = { 3, 2 }, HAKKAR = { 5, 2 }, GRUUL = { 6, 2 },
+  }
+  local n = 0
+  for id, want in pairs(spec) do
+    n = n + 1
+    local def = B.def[id]
+    T.ok(def, id)
+    T.eq(def.minStage, want[1], id .. " minStage")
+    T.eq(def.targetMult, want[2], id .. " targetMult")
+  end
+  T.eq(n, #B.pool)
+  for _, id in ipairs(B.pool) do T.ok(spec[id], id .. " is in the spec") end
+  local finals = { RAGNAROS = 2, CTHUN = 6, YOGG = 2, XAVIUS = 2, KELTHUZAD = 2 }
+  for _, id in ipairs(B.FINALS) do
+    T.eq(B.def[id].targetMult, finals[id], id .. " targetMult")
+    T.ok(B.isFinal(id), id)
+  end
+end)
+
 T.test("decks_values", function()
   T.eq(ns.Decks.order, { "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK" })
   local d = ns.Decks.def

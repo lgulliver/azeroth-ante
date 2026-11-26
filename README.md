@@ -167,6 +167,7 @@ Run these checks in Retail and Forever:
 - [ ] Card hover and select feel smooth.
 - [ ] Jacks, Queens and Kings show their double-ended court art between the corner rank and suit.
 - [ ] The tally plays.
+- [ ] A face-down card shows its back and flips when played.
 - [ ] Buying in the shop works.
 - [ ] `/reload` mid-round resumes on the same hand.
 - [ ] Joining a queue opens the window.

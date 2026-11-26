@@ -147,7 +147,7 @@ function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
   if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw
-    or boss.handSize or boss.canPlayHand or boss.beforeScore or boss.drawCount) then
+    or boss.handSize or boss.handNotAllowed or boss.beforeScore or boss.drawCount) then
     return false
   end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
@@ -178,6 +178,7 @@ function Run.startBlind(run)
   run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
   run.roundHandPlays = {}
+  run.roundFirstHand = nil
   run.handsPlayedRound = 0
   run.discardsUsedRound = 0
   run.savedBy, run.savedById = nil, nil
@@ -237,29 +238,7 @@ function Run.canPlay(run, idx)
   if boss and boss.mustPlay and #idx ~= boss.mustPlay then
     return false, "Must play exactly " .. boss.mustPlay .. " cards."
   end
-  if boss and boss.canPlayHand then
-    local cards = {}
-    for i, index in ipairs(idx) do cards[i] = run.hand[index] end
-    local handId = ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets))
-    return boss.canPlayHand(run, handId)
-  end
   return true
-end
-
--- True when some 1-5 card selection from the hand passes Run.canPlay.
-local function anyPlayable(run)
-  local idx = {}
-  local function rec(start)
-    if #idx > 0 and Run.canPlay(run, idx) then return true end
-    if #idx == 5 then return false end
-    for i = start, #run.hand do
-      idx[#idx + 1] = i
-      if rec(i + 1) then return true end
-      idx[#idx] = nil
-    end
-    return false
-  end
-  return rec(1)
 end
 
 function Run.canDiscard(run, idx)
@@ -350,15 +329,11 @@ end
 
 -- Never leaves the player with nothing to do. An empty hand refills from the
 -- pile; if there is still nothing to play the blind is lost (unless already won).
--- Under a boss that refuses hands (Mouth, Eye) the blind is also lost when no
--- selection can be played and no discard is left to change the hand.
 function Run.checkHand(run)
   if run.phase ~= "play" then return end
   if #run.hand == 0 then refill(run) end
   if run.score >= run.target then return end
   if #run.hand == 0 then return lose(run) end
-  local boss = Run.activeBoss(run)
-  if boss and boss.canPlayHand and run.discardsLeft <= 0 and not anyPlayable(run) then lose(run) end
 end
 
 -- The scoring ctx for playing `cards` (with `held` kept) now; overrides replace fields (the bot
@@ -378,6 +353,11 @@ function Run.scoreCtx(run, cards, held, overrides)
     consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
     playedThisAnte = run.playedThisAnte,
   }
+  -- Mouth and Eye: a debuffed hand type still plays, but scores nothing.
+  if boss and boss.handNotAllowed then
+    local handId = ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets))
+    ctx.handNotAllowed = boss.handNotAllowed(run, handId)
+  end
   for k, v in pairs(overrides or {}) do ctx[k] = v end
   return ctx
 end
@@ -422,6 +402,7 @@ function Run.play(run, idx)
   end)
   run.handPlays[result.handId] = (run.handPlays[result.handId] or 0) + 1
   run.roundHandPlays[result.handId] = (run.roundHandPlays[result.handId] or 0) + 1
+  run.roundFirstHand = run.roundFirstHand or result.handId
   event("cardsPlayed", #cards, run)
   run.gold = goldRef.gold
   run.seenHands[result.handId] = true

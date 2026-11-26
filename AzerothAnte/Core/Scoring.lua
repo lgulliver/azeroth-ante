@@ -195,6 +195,16 @@ function Scoring.score(ctx)
     return extra
   end
 
+  -- A hand type the boss does not allow (Mouth, Eye) plays but scores nothing: no base, no card or trinket effects.
+  if ctx.handNotAllowed then
+    emit({ kind = "notAllowed", handId = handId })
+    emit({ kind = "total", total = 0 })
+    ctx.bossTriggered = true
+    return { handId = handId, chips = 0, mult = 0, total = 0, events = events, gold = 0, destroyed = {},
+      trinketsAfter = trinkets, levelUps = {}, destroyedTrinkets = {}, cardsAfter = {}, sideEffects = {},
+      bossTriggered = true, luckyTriggers = 0, notAllowed = true }
+  end
+
   -- Before hooks run left to right once the hand is known; levelHand counts toward this base.
   local pending = {}
   engine.each(trinkets, function(slot, inst, def, isCopy)

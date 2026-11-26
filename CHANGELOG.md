@@ -19,6 +19,8 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Mirror Image also retriggers end-of-round held effects: Gold cards pay again and Blue seals make another Tome.
 
 ### Added
+- Fifteen new bosses, each playing as a Balatro boss with its rule, target and minimum ante: Captain Greenskin, Bazil Thredd, Targorr the Dread, Archaedas, Moroes, Patchwerk, Mekgineer Thermaplugg, Ras Frostwhisper, Morogrim Tidewalker, Gluth, The Prophet Skeram, Shade of Aran, Baron Revilgaz, Hakkar the Soulflayer and Gruul the Dragonkiller; and four new ante 8 finishers beside Ragnaros: C'Thun, Yogg-Saron, Xavius and Kel'Thuzad. Face-down cards show their back and flip when played.
+- Gluth and Shade of Aran work like The Mouth and The Eye: a hand type they do not allow can still be played, but it scores nothing ("Not allowed!") and uses up the hand.
 - New painted card backs in the court-card style: a compass for the default deck, Ravenholdt daggers for Rogue, a Horde war banner for Warrior, coins and gears for Goblin, a jade lotus for Monk and a fel eye for Warlock.
 - Jacks, Queens and Kings are double-ended court cards of Warcraft characters: Sir Finley, Azshara and King Mrgl-Mrgl on Spades; Arthas, Jaina and Varian on Hearts; Garrosh, Sylvanas and Durotan on Clubs; Gazlowe, Sassy Hardwrench and Gallywix on Diamonds. A Stone court card still shows no art.
 

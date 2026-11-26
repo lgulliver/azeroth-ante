@@ -405,36 +405,53 @@ T.test("ox_no_history_means_high_card", function()
   T.eq(run.gold, 0, "High Card is")
 end)
 
-T.test("mouth_locks_first_hand_type", function()
+T.test("mouth_debuffs_other_hand_types", function()
   local run = bossRun(5, "GLUTH")
   T.eq(ns.Bosses.def.GLUTH.name, "Gluth")
   T.eq(ns.Bosses.def.GLUTH.minStage, 2)
   run.target = 1e9
-  setHand(run, { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" } })
+  local cards = { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" } }
+  setHand(run, cards)
   T.ok(ns.Run.canPlay(run, { 1 }), "anything goes before the first hand")
-  T.ok(ns.Run.play(run, { 1, 2 }))
-  setHand(run, { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" } })
-  local ok, why = ns.Run.canPlay(run, { 3 })
-  T.eq(ok, false)
-  T.eq(why, "Only Pair can be played.")
-  local result, err = ns.Run.play(run, { 3 })
-  T.eq(result, nil)
-  T.eq(err, "Only Pair can be played.")
-  T.ok(ns.Run.canPlay(run, { 4, 5 }))
+  local first = ns.Run.play(run, { 1, 2 })
+  T.ok(first.total > 0, "the first hand type scores")
+  setHand(run, cards)
+  local hands = run.handsLeft
+  T.ok(ns.Run.canPlay(run, { 3 }), "another hand type can still be played")
+  local result = ns.Run.play(run, { 3 })
+  T.eq(result.total, 0, "but scores nothing")
+  T.eq(result.events[1].kind, "notAllowed")
+  T.eq(run.handsLeft, hands - 1, "and spends a hand")
+  setHand(run, cards)
+  T.ok(ns.Run.play(run, { 4, 5 }).total > 0, "the locked type still scores")
 end)
 
-T.test("eye_refuses_repeat", function()
+T.test("eye_debuffs_repeat", function()
   local run = bossRun(5, "ARAN")
   T.eq(ns.Bosses.def.ARAN.name, "Shade of Aran")
   T.eq(ns.Bosses.def.ARAN.minStage, 3)
   run.target = 1e9
-  setHand(run, { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" } })
-  T.ok(ns.Run.play(run, { 1, 2 }))
-  setHand(run, { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" } })
-  local ok, why = ns.Run.canPlay(run, { 4, 5 })
-  T.eq(ok, false)
-  T.eq(why, "Pair was already played this round.")
-  T.ok(ns.Run.canPlay(run, { 3 }))
+  local cards = { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" } }
+  setHand(run, cards)
+  T.ok(ns.Run.play(run, { 1, 2 }).total > 0)
+  setHand(run, cards)
+  local score, hands = run.score, run.handsLeft
+  local result = ns.Run.play(run, { 4, 5 })
+  T.eq(result.total, 0, "a repeated Pair scores nothing")
+  T.eq(result.events[1].kind, "notAllowed")
+  T.eq(run.score, score)
+  T.eq(run.handsLeft, hands - 1, "and uses a hand")
+  setHand(run, cards)
+  T.ok(ns.Run.play(run, { 3 }).total > 0, "a new hand type scores")
+end)
+
+T.test("disallowed_hand_has_no_trinket_effects", function()
+  local run = bossRun(5, "ARAN")
+  run.target = 1e9
+  run.trinkets = { { uid = 1, id = "ARCANE_INTELLECT" } }
+  run.roundHandPlays = { HIGH_CARD = 1 }
+  setHand(run, { { 9, "S" }, { 2, "C" } })
+  T.eq(ns.Run.play(run, { 1 }).total, 0, "no trinket mult on a debuffed hand")
 end)
 
 T.test("serpent_draws_three", function()
@@ -451,24 +468,6 @@ T.test("serpent_draws_three", function()
   T.eq(#run.hand, 10, "over the hand size")
 end)
 
-T.test("mouth_no_legal_hand_loses_when_no_discards", function()
-  local run = bossRun(5, "GLUTH")
-  run.target = 1e9
-  run.roundHandPlays = { FLUSH = 1 }
-  run.discardsLeft = 0
-  setHand(run, { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" }, { 4, "S" }, { 7, "H" }, { 13, "C" }, { 5, "D" } })
-  ns.Run.checkHand(run)
-  T.eq(run.phase, "lost")
-  -- A discard left keeps the blind alive.
-  local run2 = bossRun(5, "GLUTH")
-  run2.target = 1e9
-  run2.roundHandPlays = { FLUSH = 1 }
-  run2.discardsLeft = 1
-  setHand(run2, { { 9, "S" }, { 9, "H" }, { 2, "C" }, { 4, "D" } })
-  ns.Run.checkHand(run2)
-  T.eq(run2.phase, "play")
-end)
-
 T.test("disabling_play_bosses", function()
   for _, id in ipairs({ "GREENSKIN", "FROSTWHISPER", "REVILGAZ", "GRUUL", "GLUTH", "ARAN", "HAKKAR" }) do
     local run = bossRun(5, id)
@@ -477,5 +476,5 @@ T.test("disabling_play_bosses", function()
   local run = bossRun(5, "ARAN")
   run.roundHandPlays = { HIGH_CARD = 1 }
   ns.Run.disableBoss(run)
-  T.ok(ns.Run.canPlay(run, { 1 }), "a disabled Aran allows repeats")
+  T.ok(ns.Run.play(run, { 1 }).total > 0, "a disabled Aran allows repeats")
 end)
