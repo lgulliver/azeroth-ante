@@ -19,6 +19,7 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Mirror Image also retriggers end-of-round held effects: Gold cards pay again and Blue seals make another Tome.
 
 ### Added
+- New painted card backs in the court-card style: a compass for the default deck, Ravenholdt daggers for Rogue, a Horde war banner for Warrior, coins and gears for Goblin, a jade lotus for Monk and a fel eye for Warlock.
 - Jacks, Queens and Kings are double-ended court cards of Warcraft characters: Sir Finley, Azshara and King Mrgl-Mrgl on Spades; Arthas, Jaina and Varian on Hearts; Garrosh, Sylvanas and Durotan on Clubs; Gazlowe, Sassy Hardwrench and Gallywix on Diamonds. A Stone court card still shows no art.
 
 ## [0.7.0] - 2026-11-09
