@@ -79,13 +79,28 @@ T.test("moroes_first_hand_face_down", function()
   T.eq(faceDownCount(run.hand), #run.hand)
   T.ok(#run.hand > 0)
   run.target = 1e9
+  local opening = {}
+  for _, c in ipairs(run.hand) do opening[c] = true end
+  local size = #run.hand
   ns.Run.play(run, { 1 })
   T.eq(run.handsPlayedRound, 1)
-  local newcomers = 0
+  T.eq(#run.hand, size)
+  local survivors = 0
   for _, c in ipairs(run.hand) do
-    if not c.faceDown then newcomers = newcomers + 1 end
+    if opening[c] then
+      survivors = survivors + 1
+      T.ok(c.faceDown, "a surviving opening card stays face down")
+    else
+      T.eq(c.faceDown, nil, "a newly drawn card is face up")
+    end
   end
-  T.ok(newcomers >= 1, "the card drawn after the play is face up")
+  T.eq(survivors, size - 1)
+  local before = {}
+  for _, c in ipairs(run.hand) do before[c] = true end
+  ns.Run.discard(run, { 1 })
+  for _, c in ipairs(run.hand) do
+    if not before[c] then T.eq(c.faceDown, nil, "a discard refill is face up") end
+  end
 end)
 
 T.test("thermaplugg_one_in_seven", function()

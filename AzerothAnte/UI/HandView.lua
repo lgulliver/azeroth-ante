@@ -309,9 +309,13 @@ function HandView.FlyIn(card, speed)
   return w
 end
 
--- A disabled boss: the debuff markers clear at once, on the hand and on cards mid-play.
+-- A disabled boss: the debuff markers clear at once, on the hand and on cards mid-play, and
+-- face-down cards (already turned up in the run) flip to their faces.
 function HandView.ClearDebuffs()
-  for _, w in ipairs(list) do w:SetDebuffed(false) end
+  for _, w in ipairs(list) do
+    w:SetDebuffed(false)
+    if w.card and not w.card.faceDown and w.back:IsShown() then w:SetFaceUp(true) end
+  end
   for _, w in ipairs(held) do w:SetDebuffed(false) end
 end
 
@@ -366,7 +370,7 @@ function HandView.Update(run, animate)
       w:EnableMouse(false) -- not clickable until it has landed
       local function landed()
         if w.locked then return end
-        w:SetFaceUp(true)
+        w:SetFaceUp(not card.faceDown)
         w:EnableMouse(true)
       end
       Tween.To(w, { x = x, y = BASE_Y, alpha = 1 }, DEAL_TIME, landed, dealt * DEAL_STAGGER, landed)

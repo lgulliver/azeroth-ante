@@ -371,6 +371,22 @@ local function run(w)
     HandView.Update(fdRun, false)
     stub.advance(1)
     check(not fdw.back:IsShown(), "turned up, the card shows its face")
+    -- A dealt (animated) face-down card keeps its back after landing; disabling the boss flips it.
+    fdCard.faceDown = true
+    HandView.Update(fdRun, false)
+    local fdIdx
+    for i, c in ipairs(fdRun.hand) do if c == fdCard then fdIdx = i end end
+    table.remove(fdRun.hand, fdIdx)
+    HandView.Update(fdRun, false)
+    stub.advance(1)
+    table.insert(fdRun.hand, fdIdx, fdCard)
+    HandView.Update(fdRun, true)
+    stub.advance(3)
+    for _, hw in ipairs(handWidgets()) do if hw.card == fdCard then fdw = hw end end
+    check(fdw.back:IsShown(), "a dealt face-down card still shows its back after landing")
+    fdCard.faceDown = nil
+    HandView.ClearDebuffs()
+    check(not fdw.back:IsShown(), "disabling the boss flips the card up at once")
   end
 
   -- 2c. Card type visuals, edition FX and the deck view.
