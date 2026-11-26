@@ -182,6 +182,7 @@ function Run.canAfford(run, cost)
 end
 
 function Run.startBlind(run)
+  if not Run.canStart(run) then return end
   local bossId = Run.bossId(run)
   run.phase = "play"
   run.bossDisabled = false
@@ -204,6 +205,7 @@ function Run.startBlind(run)
   end
   -- Blind-select hooks fire before the draw (Balatro's set_blind): a trinket they destroy never adds cards.
   ns.TrinketEngine.fire(run, "onBlindSelect")
+  ns.Tags.fire(run, "onBlindStart") -- Juggler's Gloves: hand size for this blind (blindHandSizeBonus)
   drawCards(run, ns.Deck.handSize(run) - #run.hand, "start")
   ns.Cards.sort(run.hand, run.sortMode or "rank")
   local boss = Run.activeBoss(run)
@@ -225,6 +227,7 @@ local function lose(run)
   ns.TrinketEngine.fire(run, "onLose")
   if run.savedBy then return Run.winBlind(run, { saved = true }) end
   clearFinisher(run)
+  run.blindHandSizeBonus = nil
   run.phase = "lost"
   event("runEnded", 0, run)
 end
@@ -507,6 +510,7 @@ end
 function Run.winBlind(run, opts)
   Run.revealHand(run)
   clearFinisher(run)
+  run.blindHandSizeBonus = nil
   if run.blind == 3 then run.shopVoucher = nil end
   ns.TrinketEngine.fire(run, "roundUpdate")
   if run.blind == 3 then ns.TrinketEngine.fire(run, "onBossDefeated") end
@@ -554,7 +558,9 @@ function Run.winBlind(run, opts)
       end
     end
   end
+  if run.blind == 3 then ns.Tags.fire(run, "onBossDefeated", payout) end -- Goblin Investment: payout.investment
   payout.total = payout.reward + payout.hands + payout.discards + payout.interest + payout.trinkets + payout.held
+    + (payout.investment or 0)
   run.lastPayout = payout
   run.gold = run.gold + payout.total
   run.discardsUnusedTotal = run.discardsUnusedTotal + run.discardsLeft -- Scrapper's Pay

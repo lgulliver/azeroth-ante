@@ -27,7 +27,7 @@ end
 
 H.test("STONEFORM_effect", function()
   local run = H.run { trinkets = { "STONEFORM" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.deck, 53)
   local card = run.deck[53]
   T.eq(card.enh, "STONE"); T.ok(card.rank >= 2 and card.rank <= 14)
@@ -41,7 +41,7 @@ end)
 H.test("marble_stone_drawable_same_round", function()
   local run = H.run { trinkets = { "STONEFORM" } }
   run.deck = { H.card(2) }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 2); T.eq(#run.pile, 0)
   local stones = 0
   for _, c in ipairs(run.hand) do if c.enh == "STONE" then stones = stones + 1 end end
@@ -246,7 +246,7 @@ H.test("d_creation_copies_and_capacity", function()
   play(run, single(2))
   T.eq(#run.deck, 3); T.eq(#run.hand, 2); T.eq(run.trinkets[3].state.x, 1.5)
   run = H.run { trinkets = { "SCHEMATIC", "STONEFORM", "PHANTASM" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.deck, 54); T.eq(run.trinkets[3].state.x, 1.5)
   run = H.run { trinkets = { "SCHEMATIC", "PEDDLER" }, gold = 4 }
   run.maxConsumables = 1
@@ -354,7 +354,7 @@ H.test("GOLDEN_TICKET_effect", function()
 end)
 H.test("COMMENDATION_effect", function()
   local run = H.run { trinkets = { "COMMENDATION" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.deck, 53); T.eq(#run.hand, ns.Deck.handSize(run) + 1)
   local c = run.deck[53]
   T.ok(c.rank >= 2 and c.rank <= 14); T.ok(ns.Cards.SUIT_NAMES[c.suit])
@@ -365,11 +365,11 @@ H.test("COMMENDATION_effect", function()
 end)
 H.test("certificate_card_permanent", function()
   local run = H.run { trinkets = { "SCHEMATIC", "COMMENDATION", "PHANTASM" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.deck, 54); T.eq(run.trinkets[3].state.x, 1.5)
   local c = run.deck[53]
   T.ok(c == ns.Deck.find(run, c.id)); T.ok(run.deck[54].id ~= c.id)
-  run.blind = 2; ns.Run.startBlind(run)
+  run.blind = 2; T.startBlind(run)
   T.eq(#run.deck, 56); T.ok(ns.Deck.find(run, c.id) == c)
 end)
 H.test("GLASS_CANNON_effect", function()
@@ -440,7 +440,7 @@ H.test("INSCRIPTIONIST_effect", function()
   for _, room in ipairs({ 0, 1, 2 }) do
     local run = H.run { trinkets = { "SCHEMATIC", "INSCRIPTIONIST" } }
     run.maxConsumables = room
-    ns.Run.startBlind(run)
+    T.startBlind(run)
     T.eq(#run.consumables, room)
     for _, item in ipairs(run.consumables) do T.eq(item.kind, "scroll") end
   end

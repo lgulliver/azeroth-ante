@@ -614,23 +614,68 @@ local function layoutShop(p, n)
 end
 
 ---------------------------------------------------------------------------
--- The voucher tile: one coupon per shop visit, under the payout.
+-- The voucher tile: one coupon per shop visit, under the payout. A Vendor Restock tag's second
+-- offer (run.shop.extraVoucher) gets a second tile beside it; both then shrink to half width.
 
 local VW, VH, VX, VY = 176, 156, 12, -226
+local VW_HALF, V_GAP = 86, 4
 local SOLD_IN_DELAY = 0.6
 
 local function voucherArt(def)
   return MEDIA .. (def.tier == 2 and "Voucher_Plus" or "Voucher")
 end
 
-local function buildVoucherTile(p)
+-- The offer a tile shows: the shop's voucher, or with which = "extra" the tag's second one.
+local function voucherOffer(run, which)
+  if which == "extra" then return run.shop and run.shop.extraVoucher end
+  return run.shopVoucher
+end
+
+local function at(region, parent, x, y, w)
+  region:ClearAllPoints()
+  region:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+  if w then region:SetWidth(w) end
+end
+
+-- Full width: art beside name and price, the effect below. Half width: art over name and price,
+-- the effect in the art's tooltip.
+local function layoutVoucher(v, half)
+  if v.half == half then return end
+  v.half = half
+  local w = half and VW_HALF or VW
+  v:SetWidth(w)
+  local artX = half and math.floor((w - 48) / 2) or 8
+  at(v.face, v.content, artX, -22)
+  at(v.ghost.art, v.ghost, artX, -22)
+  if half then
+    at(v.name, v.content, 4, -91, w - 8)
+    v.name:SetHeight(24)
+    at(v.ghost.name, v.ghost, 4, -91, w - 8)
+    at(v.price, v.content, 4, -115, 36)
+    at(v.orig, v.content, 44, -117, 38)
+  else
+    at(v.name, v.content, 62, -22, 106)
+    v.name:SetHeight(28)
+    at(v.ghost.name, v.ghost, 62, -22, 106)
+    at(v.price, v.content, 62, -66, 106)
+    at(v.orig, v.content, 62, -52, 60)
+  end
+  v.desc:SetShown(not half)
+  v.header:SetWidth(w - 16)
+  v.buy:SetWidth(w - 16)
+  v.soldBox.text:SetWidth(w - 16)
+end
+
+local function buildVoucherTile(p, which)
   local v = CreateFrame("Frame", nil, p)
   v:SetSize(VW, VH)
   v:SetPoint("TOPLEFT", p, "TOPLEFT", VX, VY)
+  v.which = which
   Theme.Raised(v)
   local header = text(v, Theme.fonts.small, "TOPLEFT", 8, -6, 100)
   header:SetText("Voucher")
   Theme.Label(header)
+  v.header = header
 
   local c = CreateFrame("Frame", nil, v)
   c:SetAllPoints(v)
@@ -663,9 +708,9 @@ local function buildVoucherTile(p)
   Theme.setColor(v.desc, Theme.parchment)
   v.buy = button(c, "Buy", 160, 22, function()
     local run = main().run
-    local offer = run and run.shopVoucher
+    local offer = run and voucherOffer(run, which)
     local id = offer and offer.id
-    shopAction(ns.Shop.buyVoucher, function() Screens.PlayVoucherSold(p, id) end, nil)
+    shopAction(ns.Shop.buyVoucher, function() Screens.PlayVoucherSold(p, id, which) end, nil, which)
   end, "primary")
   v.buy:SetPoint("BOTTOM", c, "BOTTOM", 0, 4)
   reasonTip(v.buy)
@@ -698,13 +743,13 @@ local function buildVoucherTile(p)
   Theme.setColor(soldBox.text, GREY)
   soldBox:Hide()
   v.soldBox = soldBox
-  p.voucher = v
+  if which == "extra" then p.voucher2 = v else p.voucher = v end
   return v
 end
 
 -- The stamp-and-fade after a purchase. Safe if cancelled: refreshShop restores the static look.
-function Screens.PlayVoucherSold(p, id)
-  local v, def = p.voucher, id and ns.Vouchers.def[id]
+function Screens.PlayVoucherSold(p, id, which)
+  local v, def = which == "extra" and p.voucher2 or p.voucher, id and ns.Vouchers.def[id]
   if not v or not def then return end
   local g = v.ghost
   Tween.Cancel(g)
@@ -722,12 +767,12 @@ function Screens.PlayVoucherSold(p, id)
   Tween.To(v.soldBox, { alpha = 1 }, 0.3, nil, SOLD_IN_DELAY)
 end
 
-local function refreshVoucher(p, run)
-  local v = p.voucher
-  local offer = run.shopVoucher
+local function refreshVoucherTile(v, run)
+  local offer = voucherOffer(run, v.which)
   local def = offer and ns.Vouchers.def[offer.id]
   if not def then
-    v.soldBox.text:SetText(offer == nil and "No voucher this stage" or "Sold out this stage")
+    local sold = v.which == "extra" and "Sold out" or "Sold out this stage"
+    v.soldBox.text:SetText(offer == nil and "No voucher this stage" or sold)
     v.content:Hide()
     v.soldBox:Show()
     if not Tween.IsActive(v.soldBox) then v.soldBox:SetAlpha(1) end
@@ -760,6 +805,15 @@ local function refreshVoucher(p, run)
   if ok then v.buy:Enable() else v.buy:Disable() end
   local why = blockedByPack and BUY_ERRORS.pack or (not afford and BUY_ERRORS.gold) or "Only in the shop"
   setReason(v.buy, (not ok) and why or nil)
+end
+
+local function refreshVoucher(p, run)
+  local two = run.shop ~= nil and run.shop.extraVoucher ~= nil
+  layoutVoucher(p.voucher, two)
+  layoutVoucher(p.voucher2, two)
+  p.voucher2:SetShown(two)
+  refreshVoucherTile(p.voucher, run)
+  if two then refreshVoucherTile(p.voucher2, run) end
 end
 
 -- One payout line: a label and a right-aligned amount. refreshShop places and shows them.
@@ -819,6 +873,7 @@ local function buildShop()
     end
   end
   buildVoucherTile(p)
+  buildVoucherTile(p, "extra")
 
   p.err = text(p, Theme.fonts.text, "BOTTOM", 0, 56, 560, "CENTER")
   Theme.setColor(p.err, RED)
@@ -909,6 +964,11 @@ local function refreshShop(p, run)
     lines[key] = { def and def.name or "Trinkets", line.gold }
     keys[#keys + 1] = key
   end
+  if (pay.investment or 0) > 0 then -- Goblin Investment, after a boss
+    if not p.payout.investment then addPayoutRow(p, "investment") end
+    lines.investment = { ns.Tags.def.INVESTMENT.name, pay.investment }
+    keys[#keys + 1] = "investment"
+  end
   keys[#keys + 1] = "held"
   keys[#keys + 1] = "total"
   local listed = {}
@@ -942,6 +1002,8 @@ local function refreshShop(p, run)
   -- The voucher tile sits under the last payout line (it keeps its spot while the lines fit above it).
   p.voucher:ClearAllPoints()
   p.voucher:SetPoint("TOPLEFT", p, "TOPLEFT", VX, math.min(VY, y - 4))
+  p.voucher2:ClearAllPoints()
+  p.voucher2:SetPoint("TOPLEFT", p.voucher, "TOPRIGHT", V_GAP, 0)
 
   local shop = run.shop or { cards = {}, packs = {}, rerollCost = 0 }
   local blockedByPack = ns.Packs.current(run) ~= nil

@@ -206,7 +206,7 @@ end)
 T.test("sacrifice_destroys_two", function()
   local run = newRun()
   run.phase = "play"
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   local a, b = run.hand[1], run.hand[2]
   local outcome = apply(run, "SACRIFICE", { a, b })
   T.eq(#run.deck, 50)
@@ -257,7 +257,7 @@ end)
 T.test("undeath_orders_by_hand_position", function()
   local run = newRun()
   run.phase = "play"
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.consumables = { { kind = "scroll", id = "UNDEATH" } }
   local first, second = run.hand[1], run.hand[3]
   second.enh = "STEEL"

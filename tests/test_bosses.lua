@@ -64,7 +64,7 @@ end)
 local function bossRun(seed, bossId)
   local run = ns.Run.new(seed, "ADVENTURER")
   run.blind, run.bosses[run.stage] = 3, bossId
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   return run
 end
 
@@ -186,7 +186,7 @@ T.test("targorr_hand_size_minus_one", function()
   local fresh = ns.Run.new(5, "ADVENTURER")
   T.eq(ns.Deck.handSize(fresh), 8)
   fresh.blind = 1
-  ns.Run.startBlind(fresh)
+  T.startBlind(fresh)
   T.eq(#fresh.hand, 8)
 end)
 
@@ -198,14 +198,14 @@ end)
 T.test("archaedas_debuffs_cards_played_this_ante", function()
   local run = ns.Run.new(5, "ADVENTURER")
   run.bosses[run.stage] = "ARCHAEDAS"
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.target = 1e9
   local card = run.hand[1]
   ns.Run.play(run, { 1 })
   T.ok(run.playedThisAnte[card.id])
   -- The card is met again in the boss blind.
   run.blind = 3
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.target = 1e9
   run.hand[1] = card
   local result = ns.Run.play(run, { 1 })
@@ -487,7 +487,7 @@ local function finisherRun(seed, bossId, trinkets)
   run.stage, run.blind = 8, 3
   run.bosses[8] = bossId
   run.trinkets = trinkets or {}
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   return run
 end
 
@@ -571,7 +571,7 @@ T.test("xavius_debuffs_until_sale", function()
   setHand(run, { { 9, "S" }, { 2, "C" } })
   T.eq(debuffEvents(ns.Run.play(run, { 1 })), 0, "a sale lifts it")
   run.blind = 1
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.ok(not run.flags.soldThisBlind, "resets at the next blind")
 end)
 

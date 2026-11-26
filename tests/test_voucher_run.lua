@@ -31,10 +31,10 @@ end
 
 T.test("grabber_wasteful_paintbrush", function()
   local base = fresh()
-  ns.Run.startBlind(base)
+  T.startBlind(base)
   local run = fresh()
   run.vouchers.GRABBER, run.vouchers.WASTEFUL, run.vouchers.PAINT_BRUSH = true, true, true
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.handsLeft, base.handsLeft + 1)
   T.eq(run.discardsLeft, base.discardsLeft + 1)
   T.eq(#run.hand, 9)
@@ -61,7 +61,7 @@ T.test("seed_money_cap", function()
     local run = fresh()
     run.gold, run.hand = gold, {}
     for id in pairs(vouchers) do run.vouchers[id] = true end
-    ns.Run.startBlind(run)
+    T.startBlind(run)
     run.hand = {}
     ns.Run.winBlind(run)
     return run.lastPayout.interest
@@ -76,7 +76,7 @@ T.test("max_interest_streak", function()
   local events = withEvents(function()
     local run = fresh()
     run.gold = 100
-    ns.Run.startBlind(run)
+    T.startBlind(run)
     run.hand = {}
     ns.Run.winBlind(run)
     T.eq(run.streak.maxInterest, 1)
@@ -103,8 +103,8 @@ T.test("hieroglyph_floor", function()
   T.eq(run.gold, 10)
   T.eq(run.stage, 1)
   local base = fresh()
-  ns.Run.startBlind(base)
-  ns.Run.startBlind(run)
+  T.startBlind(base)
+  T.startBlind(run)
   T.eq(run.handsLeft, base.handsLeft - 1)
 end)
 
@@ -233,7 +233,7 @@ T.test("observatory_xmult", function()
   -- Run.play only passes consumables when the voucher is owned.
   local run = fresh()
   run.consumables = { { kind = "tome", id = "HIGH_CARD" }, { kind = "tome", id = "PAIR" }, { kind = "tome", id = "TRIPLE" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.hand = { { rank = 9, suit = "S", id = 1 }, { rank = 9, suit = "H", id = 2 }, { rank = 3, suit = "C", id = 3 } }
   local plain = ns.Run.play(run, { 1, 2 })
   local hasVoucher = false
@@ -254,7 +254,7 @@ T.test("events_from_run", function()
     run.bosses[1] = ns.Bosses.pool[1]
     run.blind = 3
     run.trinkets = { { id = "X", ed = "FOIL" }, { id = "Y" } }
-    ns.Run.startBlind(run)
+    T.startBlind(run)
     ns.Run.discard(run, { 1, 2 })
     ns.Run.play(run, { 1, 2, 3 })
     T.eq(run.bossesFought[ns.Bosses.pool[1]], true)
@@ -273,13 +273,13 @@ T.test("events_run_ended", function()
   local events = withEvents(function()
     local run = fresh()
     run.stage, run.blind = 8, 3
-    ns.Run.startBlind(run)
+    T.startBlind(run)
     run.hand = {}
     run.score = run.target
     ns.Run.winBlind(run)
     T.eq(run.phase, "won")
     local lost = fresh()
-    ns.Run.startBlind(lost)
+    T.startBlind(lost)
     lost.handsLeft = 1
     lost.target = 10 ^ 9
     ns.Run.play(lost, { 1 })
@@ -306,7 +306,7 @@ T.test("blind_hands_discards_helpers", function()
   run.vouchers.GRABBER, run.vouchers.WASTEFUL = true, true
   T.eq(ns.Run.blindHands(run), deck.hands + 1)
   T.eq(ns.Run.blindDiscards(run), deck.discards + 1)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.handsLeft, ns.Run.blindHands(run), "startBlind uses the helper")
   T.eq(run.discardsLeft, ns.Run.blindDiscards(run))
 end)

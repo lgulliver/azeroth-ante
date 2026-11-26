@@ -10,7 +10,7 @@ end
 
 local function blindRun(opts)
   local run = H.run(opts)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   return run
 end
 
@@ -66,7 +66,7 @@ H.test("mods_hand_size_live", function()
   run.shop.cards = { { type = "trinket", id = "S_HS", cost = 1, baseCost = 1 } }
   T.eq(ns.Shop.buy(run, 1), true)
   ns.Run.nextBlind(run)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 9)
   T.eq(ns.Run.sellTrinket(run, 1) ~= nil, true)
   T.eq(#run.hand, 9) -- A smaller size never discards.
@@ -117,7 +117,7 @@ H.test("credit_card_floor", function()
   T.eq(run.gold, -15)
   -- Interest on debt is zero, and the debt stays.
   run.phase = "play"
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.gold = -15
   ns.Run.winBlind(run)
   T.eq(run.lastPayout.interest, 0)

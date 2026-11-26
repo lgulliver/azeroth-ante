@@ -6,11 +6,12 @@ local function event(name, amount)
   if ns.Profile and ns.Profile.onEvent then ns.Profile.onEvent(name, amount) end
 end
 
-function Shop.rollVoucher(run)
+-- A voucher offer (false when none is left); `exclude` is an id already offered (Vendor Restock).
+function Shop.rollVoucher(run, exclude)
   local pool = {}
   for _, id in ipairs(ns.Vouchers.order) do
     local def = ns.Vouchers.def[id]
-    if not ns.Vouchers.owns(run, id) and (def.tier == 1
+    if id ~= exclude and not ns.Vouchers.owns(run, id) and (def.tier == 1
       or (ns.Vouchers.owns(run, def.base) and ns.Profile and ns.Profile.hasAchievement
         and ns.Profile.hasAchievement(def.achievement))) then
       pool[#pool + 1] = id
@@ -71,7 +72,8 @@ function Shop.priceOf(run, item)
   return ns.Vouchers.price(run, item.baseCost or item.cost)
 end
 
--- Re-prices every open offer; called after anything that can change prices mid-shop.
+-- Re-prices every open offer; called after anything that can change prices mid-shop. A tag-freed
+-- offer (tagFree) stays free.
 function Shop.reprice(run)
   local shop = run.shop
   if not shop then return end
@@ -83,7 +85,7 @@ function Shop.reprice(run)
     for _, item in ipairs(stock) do
       if item then
         item.baseCost = item.baseCost or item.cost
-        item.cost = Shop.priceOf(run, item)
+        item.cost = item.tagFree and 0 or Shop.priceOf(run, item)
       end
     end
   end
@@ -141,6 +143,7 @@ function Shop.open(run)
   run.shop.chaosSeen = run.shop.freeRerolls
   run.firstShopDone = true -- Balatro's first shop of a run always has a Buffoon pack
   Shop.reprice(run)
+  ns.Tags.fire(run, "onShopOpen") -- after pricing, so a tag's change is final
 end
 
 local function buyItem(run, i)
@@ -149,16 +152,18 @@ local function buyItem(run, i)
   local item = shop and shop.cards[i]
   if not item then return false, "gone" end
   if not ns.Run.canAfford(run, item.cost) then return false, "gold" end
+  -- A tag-freed offer sells as if bought at its listed price (Balatro prices the sale before the coupon).
+  local listed = item.tagFree and Shop.priceOf(run, item) or item.cost
   if item.type == "trinket" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
-    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, item.cost)
+    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, listed)
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
   elseif item.type == "card" then
     ns.Deck.add(run, { rank = item.rank, suit = item.suit, enh = item.enh,
-      ed = item.ed, seal = item.seal, paid = item.cost })
+      ed = item.ed, seal = item.seal, paid = listed })
   else
-    if not ns.Consumables.add(run, { kind = item.type, id = item.id, paid = item.cost }) then
+    if not ns.Consumables.add(run, { kind = item.type, id = item.id, paid = listed }) then
       return false, "slots"
     end
   end
@@ -180,9 +185,12 @@ function Shop.buy(run, i)
   end)
 end
 
-function Shop.buyVoucher(run)
+-- Buys the shop's voucher, or with which = "extra" the second offer a Vendor Restock tag added.
+function Shop.buyVoucher(run, which)
   if ns.Packs.current(run) then return false, "pack" end
-  local offer = run.shopVoucher
+  local extra = which == "extra"
+  local offer
+  if extra then offer = run.shop and run.shop.extraVoucher else offer = run.shopVoucher end
   if not offer or ns.Vouchers.owns(run, offer.id) then return false, "gone" end
   local paid = ns.Vouchers.price(run, ns.Vouchers.def[offer.id].cost)
   if not ns.Run.canAfford(run, paid) then return false, "gold" end
@@ -190,7 +198,7 @@ function Shop.buyVoucher(run)
   run.gold = run.gold - paid
   run.vouchers[offer.id] = true
   ns.Vouchers.onBuy(run, offer.id)
-  run.shopVoucher = false
+  if extra then run.shop.extraVoucher = false else run.shopVoucher = false end
   if run.shop and (offer.id == "OVERSTOCK" or offer.id == "OVERSTOCK_PLUS") then
     generateCards(run, run.shop.cards)
   end

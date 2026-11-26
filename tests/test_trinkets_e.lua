@@ -32,17 +32,17 @@ H.test("VENTURE_LOAN_effect", function()
 end)
 H.test("SOUL_HARVEST_effect", function()
   local run = H.run { trinkets = { "SOUL_HARVEST", "ARCANE_INTELLECT" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.trinkets, 1); T.eq(run.trinkets[1].state.mult, 2)
   T.eq(H.score(run, single()).mult, 3)
 end)
 H.test("dagger_eats_right_neighbour_doubles_sell", function()
   local run = H.run { trinkets = { "SOUL_HARVEST", "WHELP_EGG" } }
   run.trinkets[2].paid, run.trinkets[2].sellBonus = 10, 3
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.trinkets[1].state.mult, 16)
   T.eq(run.lifecycleEvents[1].text, "+16 Mult")
-  ns.Run.startBlind(run); T.eq(run.trinkets[1].state.mult, 16)
+  T.startBlind(run); T.eq(run.trinkets[1].state.mult, 16)
 end)
 H.test("DARKMOON_TICKET_effect", function()
   local run = H.run { trinkets = { "DARKMOON_TICKET" }, gold = 10 }
@@ -88,7 +88,7 @@ H.test("WHELP_EGG_effect", function()
 end)
 H.test("SI7_AGENT_effect", function()
   local run = H.run { trinkets = { "SI7_AGENT" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.handsLeft, 7); T.eq(run.discardsLeft, 0)
 end)
 H.test("FACELESS_ONE_effect", function()
@@ -169,21 +169,21 @@ H.test("PACK_RAT_effect", function()
 end)
 H.test("OLD_GODS_effect", function()
   local run = H.run { trinkets = { "OLD_GODS", "ARCANE_INTELLECT" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.trinkets, 1); T.eq(run.trinkets[1].id, "OLD_GODS")
   T.eq(H.score(run, single()).mult, 1.5)
   run.blind = 2
-  ns.Run.startBlind(run); T.eq(H.score(run, single()).mult, 2)
+  T.startBlind(run); T.eq(H.score(run, single()).mult, 2)
 end)
 H.test("madness_skips_boss_blind", function()
   local run = H.run { trinkets = { "OLD_GODS", "ARCANE_INTELLECT" } }
   run.blind = 3
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.trinkets, 2); T.eq(run.trinkets[1].state.x, 1)
 end)
 H.test("CALL_TO_ARMS_effect", function()
   local run = H.run { trinkets = { "CALL_TO_ARMS" } }
-  ns.Run.startBlind(run); T.eq(#run.trinkets, 3)
+  T.startBlind(run); T.eq(#run.trinkets, 3)
   for i = 2, 3 do
     T.eq(ns.Trinkets.def[run.trinkets[i].id].rarity, "common")
     T.ok(run.trinkets[i].id ~= "CALL_TO_ARMS")
@@ -194,15 +194,15 @@ H.test("riff_raff_respects_room", function()
   for _, room in ipairs({ 0, 1 }) do
     local run = H.run { trinkets = { "CALL_TO_ARMS", "ARCANE_INTELLECT", "WHETSTONE", "HEALTHSTONE" } }
     run.maxTrinkets = 4 + room
-    ns.Run.startBlind(run); T.eq(#run.trinkets, 4 + room)
+    T.startBlind(run); T.eq(#run.trinkets, 4 + room)
   end
 end)
 H.test("dagger_and_madness_skip_marked_victims", function()
   H.stub { id = "E_MARK", onBlindSelect = function(run) return { destroyTrinket = run.trinkets[3].uid } end }
   local run = H.run { trinkets = { "E_MARK", "SOUL_HARVEST", "ARCANE_INTELLECT" } }
-  ns.Run.startBlind(run); T.eq(run.trinkets[2].state.mult, 0)
+  T.startBlind(run); T.eq(run.trinkets[2].state.mult, 0)
   run = H.run { trinkets = { "SOUL_HARVEST", "ARCANE_INTELLECT", "OLD_GODS", "WHETSTONE" } }
-  forced(0.5, function() ns.Run.startBlind(run) end)
+  forced(0.5, function() T.startBlind(run) end)
   T.eq(#run.trinkets, 2); T.eq(run.trinkets[1].id, "SOUL_HARVEST")
   T.eq(run.trinkets[2].id, "OLD_GODS"); T.eq(run.trinkets[2].state.x, 1.5)
 end)
@@ -213,10 +213,10 @@ H.test("copy_guards_preserve_single_scaling", function()
   run.trinkets = r.trinketsAfter
   discard(run, single()); T.eq(run.trinkets[2].state.mult, 0)
   run = H.run { trinkets = { "SCHEMATIC", "SOUL_HARVEST", "ARCANE_INTELLECT" } }
-  ns.Run.startBlind(run); T.eq(#run.trinkets, 2)
+  T.startBlind(run); T.eq(#run.trinkets, 2)
   T.eq(run.trinkets[2].state.mult, 2); T.eq(H.score(run, single()).mult, 5)
   run = H.run { trinkets = { "SCHEMATIC", "OLD_GODS" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.trinkets, 1); T.eq(run.trinkets[1].state.x, 1.5)
   run = H.run { trinkets = { "SCHEMATIC", "PACK_RAT" } }
   ns.Shop.open(run); run.shop.openPack = { picksLeft = 1 }; ns.Packs.skip(run)
@@ -253,7 +253,7 @@ end)
 H.test("FERTILE_SEED_effect", function()
   local run = H.run { trinkets = { "FERTILE_SEED" } }
   T.eq(ns.Deck.handSize(run), 13)
-  ns.Run.startBlind(run); T.eq(#run.hand, 13)
+  T.startBlind(run); T.eq(#run.hand, 13)
 end)
 H.test("turtle_bean_decays_and_shrinks_hand", function()
   local run = H.run { trinkets = { "SCHEMATIC", "FERTILE_SEED" } }
@@ -288,11 +288,11 @@ H.test("to_the_moon_interest", function()
 end)
 H.test("REAGENT_BAG_effect", function()
   local run = H.run { trinkets = { "REAGENT_BAG" } }
-  ns.Run.startBlind(run); T.eq(#run.hand, 9)
+  T.startBlind(run); T.eq(#run.hand, 9)
 end)
 H.test("DWARVEN_STOUT_effect", function()
   local run = H.run { trinkets = { "DWARVEN_STOUT" } }
-  ns.Run.startBlind(run); T.eq(run.discardsLeft, 5)
+  T.startBlind(run); T.eq(run.discardsLeft, 5)
 end)
 H.test("TRADING_POST_effect", function()
   local run = H.run { trinkets = { "SCHEMATIC", "TRADING_POST" }, gold = 0 }
@@ -376,13 +376,13 @@ H.test("mr_bones_saves_once", function()
   local run = H.run { trinkets = { "SCHEMATIC", "SOULSTONE" } }
   run.score = 75
   ns.Run.checkHand(run); T.eq(#run.trinkets, 1)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.hand, run.pile, run.score = {}, {}, 75
   ns.Run.checkHand(run); T.eq(run.phase, "lost")
 end)
 H.test("MINSTREL_effect", function()
   local run = H.run { trinkets = { "MINSTREL" } }
-  ns.Run.startBlind(run); T.eq(#run.hand, 10); T.eq(run.handsLeft, 3)
+  T.startBlind(run); T.eq(#run.hand, 10); T.eq(run.handsLeft, 3)
 end)
 H.test("SILAS_effect", function()
   local run = H.run { trinkets = { "SILAS" } }
@@ -399,7 +399,7 @@ H.test("SILAS_effect", function()
 end)
 H.test("BRAWLER_effect", function()
   local run = H.run { trinkets = { "BRAWLER" } }
-  ns.Run.startBlind(run); T.eq(#run.hand, 7); T.eq(run.discardsLeft, 7)
+  T.startBlind(run); T.eq(#run.hand, 7); T.eq(run.discardsLeft, 7)
 end)
 H.test("MOUNT_UP_effect", function()
   local run = H.run { trinkets = { "SCHEMATIC", "MOUNT_UP" } }
@@ -409,12 +409,12 @@ H.test("MOUNT_UP_effect", function()
 end)
 H.test("LEEROY_effect", function()
   local run = H.run { trinkets = { "LEEROY" } }
-  ns.Run.startBlind(run); T.eq(#run.hand, 6)
+  T.startBlind(run); T.eq(#run.hand, 6)
   T.eq(H.score(run, single()).chips, 257)
 end)
 H.test("stuntman_chips_copyable_hand_size_not", function()
   local run = H.run { trinkets = { "SCHEMATIC", "LEEROY" } }
-  ns.Run.startBlind(run); T.eq(#run.hand, 6)
+  T.startBlind(run); T.eq(#run.hand, 6)
   T.eq(H.score(run, single()).chips, 507)
 end)
 H.test("INVIS_POTION_effect", function()
@@ -463,7 +463,7 @@ H.test("ramen_eaten_on_100th_discard", function()
 end)
 H.test("sell_hand_size_and_discard_trinkets_mid_blind", function()
   local run = H.run { trinkets = { "REAGENT_BAG", "DWARVEN_STOUT" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   local base = ns.Decks.def[run.deckId].discards
   T.eq(#run.hand, 9); T.eq(run.discardsLeft, base + 1)
   local hand = {}
@@ -479,7 +479,7 @@ H.test("sell_hand_size_and_discard_trinkets_mid_blind", function()
   run.discardsLeft = 0
   T.ok(ns.Run.sellTrinket(run, 1)); T.eq(run.discardsLeft, 0)
   -- The next blind deals the base hand size.
-  run.phase = "play"; ns.Run.startBlind(run)
+  run.phase = "play"; T.startBlind(run)
   T.eq(#run.hand, 8); T.eq(run.discardsLeft, base)
 end)
 H.test("invisible_needs_two_rounds", function()

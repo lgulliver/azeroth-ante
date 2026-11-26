@@ -170,7 +170,7 @@ end)
 
 H.test("card_sharp_round_counter", function()
   local run = H.run()
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.target = 1000000
   T.eq(run.roundHandPlays, {})
   local seen
@@ -182,7 +182,7 @@ H.test("card_sharp_round_counter", function()
   ns.Run.play(run, { 1 })
   T.eq(seen, { 1, 1 })
   T.eq(run.roundHandPlays[r.handId], 2)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.roundHandPlays, {})
 end)
 

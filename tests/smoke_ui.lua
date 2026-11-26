@@ -3665,6 +3665,42 @@ local function run(w)
     check(shop.offerCards[3]:IsShown(), "a third card column shows with Overstock")
     check(shop.offerCards[1]:GetWidth() < 90, "columns narrow to fit")
 
+    -- Vendor Restock: a second voucher tile beside the first; both halve.
+    check(not shop.voucher2:IsShown(), "no second tile without the tag")
+    run.shopVoucher = { id = "GRABBER", cost = 10 }
+    run.shop.extraVoucher = { id = "WASTEFUL", cost = 10 }
+    run.gold = 100
+    m.Render(run, true)
+    local v2 = shop.voucher2
+    check(v2:IsShown() and v2.content:IsShown(), "the second offer shows")
+    eq(v2.name:GetText(), ns2.Vouchers.def.WASTEFUL.name, "second voucher name")
+    check(v:GetWidth() == v2:GetWidth() and v:GetWidth() < 100, "both tiles at half width")
+    check(not v.desc:IsShown(), "half tiles leave the effect to the tooltip")
+    gold = run.gold
+    clickOn(v2.buy, "second voucher Buy")
+    check(run.vouchers.WASTEFUL and run.shop.extraVoucher == false, "bought the second offer")
+    eq(run.gold, gold - ns2.Vouchers.price(run, 10), "paid for it")
+    check(run.shopVoucher and run.shopVoucher.id == "GRABBER", "the first offer stays")
+    stub2.advance(2)
+    eq(v2.soldBox.text:GetText(), "Sold out", "the second tile sells out")
+    run.vouchers.WASTEFUL = nil
+    run.shop.extraVoucher = nil
+    run.shopVoucher = false
+    m.Render(run, true)
+    check(not v2:IsShown() and v:GetWidth() == 176, "one full tile again")
+
+    -- Goblin Investment pays its own payout line.
+    run.lastPayout = { reward = 5, hands = 0, discards = 0, interest = 0, trinkets = 0, held = 0,
+      investment = 25, total = 30, trinketLines = {} }
+    m.Render(run, true)
+    local inv = shop.payout.investment
+    check(inv and inv.label:IsShown(), "an investment line shows")
+    eq(inv.label:GetText(), ns2.Tags.def.INVESTMENT.name, "named for the tag")
+    eq(inv.value:GetText(), "+25g", "its amount")
+    run.lastPayout.investment, run.lastPayout.total = nil, 5
+    m.Render(run, true)
+    check(not inv.label:IsShown(), "no line without it")
+
     -- The voucher changes after the boss.
     run.shopVoucher = nil
     run.blind = 3

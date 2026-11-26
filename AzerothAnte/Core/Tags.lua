@@ -17,14 +17,28 @@ function Tags.rollBlindTags(run)
   run.blindTags = { Tags.roll(run), Tags.roll(run) }
 end
 
--- Takes a tag: it joins the held tags, then its onTake runs; one returning true is spent at once.
-function Tags.add(run, id)
+local function addOne(run, id)
   local at = #run.tags + 1
   run.tags[at] = id
   local def = Tags.def[id]
   if def and def.onTake and def.onTake(run) == true and run.tags[at] == id then
     table.remove(run.tags, at)
   end
+end
+
+-- Takes a tag: it joins the held tags, then its onTake runs; one returning true is spent at once.
+-- Each held Bonus Roll (DOUBLE) is spent to take another copy (Balatro's Double; never of a DOUBLE).
+function Tags.add(run, id)
+  local copies = 1
+  if id ~= "DOUBLE" then
+    for i = #run.tags, 1, -1 do
+      if run.tags[i] == "DOUBLE" then
+        table.remove(run.tags, i)
+        copies = copies + 1
+      end
+    end
+  end
+  for _ = 1, copies do addOne(run, id) end
 end
 
 -- Runs hook(run, ...) on each held tag, oldest first; a hook returning true consumes its tag.

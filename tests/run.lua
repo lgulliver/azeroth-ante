@@ -51,6 +51,12 @@ function T.eq(actual, expected, msg)
     error((msg and (msg .. ": ") or "") .. "expected " .. dump(expected) .. ", got " .. dump(actual), 2)
   end
 end
+-- Starts a blind from whatever phase a test left the run in (Run.startBlind only starts one from
+-- the blind screen, Run.canStart); an open pack still refuses it.
+function T.startBlind(run)
+  run.phase = "blind"
+  return ns.Run.startBlind(run)
+end
 
 local files = {}
 local ls = io.popen("ls tests/test_*.lua")

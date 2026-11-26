@@ -14,7 +14,7 @@ end
 local function playing(deckId, bossId)
   local run = ns.Run.new(7, deckId or "ADVENTURER")
   if bossId then run.blind, run.bosses[1] = 3, bossId end
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   return run
 end
 
@@ -82,7 +82,7 @@ T.test("start_blind_deals_8", function()
     end
   end
   run.score, run.handsLeft, run.discardsLeft = 100, 1, 0
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 8)
   T.eq(#run.pile, 44)
   T.eq(run.score, 0)
@@ -228,7 +228,7 @@ end)
 T.test("final_boss_win_is_won", function()
   local run = playing()
   run.stage, run.blind = 8, 3
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.target, ns.Run.target(8, 3, run.bosses[8]))
   run.target, run.handsLeft = 1, 1
   local oldOpen = ns.Shop.open
@@ -359,7 +359,7 @@ T.test("run_has_persistent_deck", function()
   end
   run.hand[1].enh = "MULT"
   local id = run.hand[1].id
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(ns.Deck.find(run, id).enh, "MULT")
 end)
 
@@ -380,14 +380,14 @@ T.test("glass_destroyed_leaves_deck", function()
     if rawequal(card, survivor) then found = true end
   end
   T.ok(found, "destroying played glass removed an unplayed card")
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.pile, 43)
 end)
 
 T.test("tiny_deck_draws_available", function()
   local run = ns.Run.new(7, "ADVENTURER")
   for id = 4, 52 do ns.Deck.destroy(run, id) end
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 3)
   T.eq(#run.pile, 0)
   T.ok(ns.Run.play(run, { 1 }))
@@ -453,7 +453,7 @@ end)
 T.test("negative_card_grows_hand", function()
   local run = ns.Run.new(7, "ADVENTURER")
   run.deck[1].ed = "NEGATIVE"
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 9)
   T.eq(#run.pile, 43)
   run.target = 10 ^ 9
@@ -513,7 +513,7 @@ end)
 T.test("exhausted_deck_with_hands_left_is_lost", function()
   local run = ns.Run.new(7, "ADVENTURER")
   while #run.deck > 12 do table.remove(run.deck) end
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.target = 10 ^ 9
   T.eq(#run.hand, 8)
   T.eq(#run.pile, 4)
@@ -542,7 +542,7 @@ T.test("hand_size_floor_deals_one_card", function()
   local run = ns.Run.new(7, "ADVENTURER")
   run.handSizeMod = -8
   T.eq(ns.Deck.handSize(run), 1)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 1)
   T.eq(run.phase, "play")
 end)
@@ -550,7 +550,7 @@ end)
 T.test("empty_deck_at_start_of_blind_is_lost", function()
   local run = ns.Run.new(7, "ADVENTURER")
   run.deck = {}
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.phase, "lost")
 end)
 

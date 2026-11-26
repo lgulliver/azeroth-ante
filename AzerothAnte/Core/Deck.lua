@@ -76,6 +76,7 @@ end
 
 function Deck.handSize(run)
   local size = run.baseHandSize + run.handSizeMod + ns.Vouchers.extraHandSize(run)
+    + (run.blindHandSizeBonus or 0) -- Juggler's Gloves, this blind only
   if run.trinkets then size = size + ns.Trinkets.mods(run).handSize end
   local boss = ns.Run.activeBoss(run)
   if boss and boss.handSize and run.phase == "play" then size = size + boss.handSize end

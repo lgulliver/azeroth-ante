@@ -70,7 +70,7 @@ H.test("round_passes_order", function()
     onRoundEnd = function(_, self) return self.state.pay end })
   H.stub({ id = "S_BP", copies = "right" })
   local run = H.run({ trinkets = { "S_BP", "S_PAY" } })
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   ns.Run.winBlind(run)
   T.eq(updates, 1)
   T.eq(run.lastPayout.trinkets, 18)
@@ -94,20 +94,20 @@ H.test("discard_hook_once_per_action", function()
     used[#used + 1] = run.discardsUsedRound
   end })
   local run = H.run({ trinkets = { "S_DISC" } })
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   local c1, c2 = run.hand[1], run.hand[2]
   ns.Run.discard(run, { 1, 2 })
   T.eq(seen, { 2 })
   T.eq(used, { 0 })
   T.eq(run.discardsUsedRound, 1)
   T.ok(c1 ~= run.hand[1] and c2 ~= run.hand[2])
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.discardsUsedRound, 0)
 end)
 
 -- An empty hand and pile below target is the loss path (Run.checkHand -> lose).
 local function stuck(run, score)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.target, run.score, run.hand, run.pile = 300, score, {}, {}
   ns.Run.checkHand(run)
 end
@@ -142,7 +142,7 @@ end)
 H.test("on_lose_via_play", function()
   bones()
   local run = H.run({ trinkets = { "S_BONES" } })
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   run.target, run.handsLeft, run.score = 300, 1, 70
   run.hand = { H.card(14, "S") }
   run.deck[#run.deck + 1] = run.hand[1]

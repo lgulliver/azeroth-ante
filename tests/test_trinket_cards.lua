@@ -3,7 +3,7 @@ local H = loadfile("tests/trinket_helper.lua")(ns, T)
 
 local function blindRun(opts)
   local run = H.run(opts)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   return run
 end
 
@@ -210,7 +210,7 @@ H.test("play_supplies_ctx_fields", function()
   T.eq(seen[1], { first = true, room = 2, gold = 9, deck = 52, start = 52 })
   T.eq(seen[2].first, false)
   T.eq(run.handsPlayedRound, 2)
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.handsPlayedRound, 0)
 end)
 

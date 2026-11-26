@@ -24,26 +24,26 @@ local function boss(run, id) run.blind, run.bosses[run.stage] = 3, id end
 -- 1. Blind-select hooks fire before the hand is drawn.
 H.test("blind select destroys a hand-size trinket before the draw", function()
   local run = H.run { trinkets = { "OLD_GODS", "FERTILE_SEED" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.trinkets, 1)
   T.eq(#run.hand, ns.Deck.handSize(run))
   T.eq(#run.hand, 8)
 end)
 H.test("Soul Harvest eating Reagent Bag leaves a normal hand", function()
   local run = H.run { trinkets = { "SOUL_HARVEST", "REAGENT_BAG" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.trinkets, 1)
   T.eq(#run.hand, 8)
 end)
 H.test("blind select hooks still see hands and discards set", function()
   local run = H.run { trinkets = { "SI7_AGENT" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(run.discardsLeft, 0)
   T.eq(run.handsLeft, ns.Run.blindHands(run) + 3)
 end)
 H.test("blind select still draws up to a hand-size trinket", function()
   local run = H.run { trinkets = { "REAGENT_BAG" } }
-  ns.Run.startBlind(run)
+  T.startBlind(run)
   T.eq(#run.hand, 9)
 end)
 
