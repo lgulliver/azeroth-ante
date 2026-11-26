@@ -2,7 +2,8 @@ local _, ns = ...
 
 local Run = {}
 
-Run.BASE_TARGETS = { 300, 700, 1400, 2800, 5000, 8000, 11500, 16000 }
+-- Balatro's ante base scores; the big blind is x1.5 and a boss usually x2.
+Run.BASE_TARGETS = { 300, 800, 2000, 5000, 11000, 20000, 35000, 50000 }
 
 -- Gold paid for beating the small, big and boss blind.
 Run.BLIND_REWARDS = { 3, 4, 5 }

@@ -443,4 +443,5 @@ Same as before:
   - Every deck change is reported once per action through `flushCards`.
 - Boss disable uses `Run.activeBoss`. A boss with no rule (Ragnaros) can't be disabled.
 - Balance: 4-seed means (seeds 1-4, 200 runs each) at targets `300…16000` are ROGUE 19.0, WARRIOR 26.5, GOBLIN 20.9, MONK 23.3 and WARLOCK 7.4. **Warlock (7.4%) is accepted as the hardest deck [Liam, 2026-11-07]: it unlocks last, so being toughest fits.**
+- **Superseded [Liam, 2026-11-26]:** targets are back to Balatro's `300, 800, 2000, 5000, 11000, 20000, 35000, 50000`. Tuning to the greedy bot's 10–25% band made the game too easy for a person: the curve never asked for trinkets or deck building. At Balatro's curve the bot wins 1–4% (100 runs, seed 1: ROGUE 2, WARRIOR 4, GOBLIN 1, MONK 2, WARLOCK 1); that is expected, as the bot plays far worse than a person. Judge balance in play, not by the bot's band.
 - Remaining roadmap: legendary trinkets plus The Soul, skip tags (with Diet Cola and Throwback), stakes, the other Balatro decks, and endless mode.
