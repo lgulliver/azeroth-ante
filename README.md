@@ -32,7 +32,7 @@ The shop after a cleared blind: payout, trinkets, packs and a voucher.
 
 ![Shop](docs/screenshots/shop.png)
 
-Opening a pack: here a Jumbo Standard Pack with an enhanced card and an
+Opening a pack: here a Large Darkmoon Card Bundle with an enhanced card and an
 edition.
 
 ![Opening a pack](docs/screenshots/pack.png)
@@ -96,7 +96,7 @@ create consumables, and disable a boss's effect (Gladiator's Medallion).
 - Seals (Gold, Red, Blue, Purple) trigger when a card is played, held or discarded.
 
 **Packs** are bought in the shop. Opening one shows a choice; pick from it, or Skip.
-Arcana and Spectral packs also show a hand to aim Scrolls at. A pack left open survives `/reload`.
+Scribe's Satchels and Relic Caches also show a hand to aim Scrolls at. A pack left open survives `/reload`.
 
 **Deck view**: the Deck button in the sidebar lists every card you own, with its
 types, grouped by suit. Hover a card for details.

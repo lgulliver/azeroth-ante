@@ -224,18 +224,18 @@ local TRINKET_FULL = "Trinket slots full - sell one first"
 local CONSUMABLE_FULL = "Consumable slots full"
 local GOLD_HEX = "|cffffd100"
 local PACK_TYPES = {
-  ARCANA = { name = "Arcana", contents = "Scrolls", tint = { 0.72, 0.52, 1 },
+  ARCANA = { name = "Scribe's Satchel", contents = "Scrolls", tint = { 0.72, 0.52, 1 },
     note = "Aim them at cards drawn from your deck" },
-  CELESTIAL = { name = "Celestial", contents = "Tomes", tint = { 0.45, 0.7, 1 },
+  CELESTIAL = { name = "Archivist's Crate", contents = "Tomes", tint = { 0.45, 0.7, 1 },
     note = "Each one levels up a hand" },
-  STANDARD = { name = "Standard", contents = "playing cards", tint = { 0.92, 0.84, 0.66 },
+  STANDARD = { name = "Darkmoon Card Bundle", contents = "playing cards", tint = { 0.92, 0.84, 0.66 },
     note = "Added to your deck" },
-  BUFFOON = { name = "Buffoon", contents = "Trinkets", tint = { 0.5, 1, 0.55 },
+  BUFFOON = { name = "Trinket Lockbox", contents = "Trinkets", tint = { 0.5, 1, 0.55 },
     note = "Needs a free trinket slot" },
-  SPECTRAL = { name = "Spectral", contents = "Relics", tint = { 0.4, 1, 0.9 },
+  SPECTRAL = { name = "Relic Cache", contents = "Relics", tint = { 0.4, 1, 0.9 },
     note = "Aim them at cards drawn from your deck" },
 }
-local SIZE_NAMES = { normal = "", jumbo = "Jumbo ", mega = "Mega " }
+local SIZE_NAMES = { normal = "", jumbo = "Large ", mega = "Heavy " }
 
 -- Exposed so the pack view builds the same buttons and tooltips.
 Screens.Widgets = { text = text, button = button, reasonTip = reasonTip, setReason = setReason }
@@ -395,7 +395,7 @@ function Screens.PackInfo(pack)
   local size = ns.Packs.SIZES[pack.size]
   local show = ns.Packs.showCount(pack.type, pack.size)
   return {
-    label = SIZE_NAMES[pack.size] .. t.name .. " Pack", tint = t.tint, show = show, picks = size.pick,
+    label = SIZE_NAMES[pack.size] .. t.name, tint = t.tint, show = show, picks = size.pick,
     sizeText = pack.size == "normal" and "" or pack.size:upper(),
     desc = ("Choose %d of %d %s\n%s"):format(size.pick, show, t.contents, t.note),
   }

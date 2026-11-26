@@ -129,27 +129,27 @@ local EDITIONLESS_REASON = "No eligible trinket"
 
 local def = {
   COURT = {
-    name = "Relic of the Court",
+    name = "Relic of Heroes",
     desc = "Destroy 1 random card in hand; add 3 random enhanced face cards.",
     untargeted = true, check = handCheck(1), use = swapForEnhanced(11, 13, 3),
   },
   ACES = {
-    name = "Relic of Aces",
+    name = "Relic of the Champion",
     desc = "Destroy 1 random card in hand; add 2 random enhanced Aces.",
     untargeted = true, check = handCheck(1), use = swapForEnhanced(14, 14, 2),
   },
   NUMBERS = {
-    name = "Relic of Numbers",
+    name = "Relic of the Legion",
     desc = "Destroy 1 random card in hand; add 4 random enhanced numbered cards.",
     untargeted = true, check = handCheck(1), use = swapForEnhanced(2, 10, 4),
   },
   GOLD = {
-    name = "Relic of Gold",
+    name = "Relic of Gallywix",
     desc = "Add a Gold seal to 1 selected card.",
     select = { min = 1, max = 1 }, use = setSeal("GOLD"),
   },
   RADIANCE = {
-    name = "Relic of Radiance",
+    name = "Relic of the Naaru",
     desc = "Add Foil, Holo or Polychrome to 1 selected card.",
     select = { min = 1, max = 1 },
     checkCards = function(_, cards)
@@ -172,7 +172,7 @@ local def = {
     end,
   },
   UNITY = {
-    name = "Relic of Unity",
+    name = "Relic of the Titans",
     desc = "Every card in hand becomes one random suit.",
     untargeted = true, check = handCheck(1),
     use = function(run, _, api)
@@ -184,7 +184,7 @@ local def = {
     end,
   },
   WHISPERS = {
-    name = "Relic of Whispers",
+    name = "Relic of N'Zoth",
     desc = "Every card in hand becomes one random rank; -1 hand size.",
     untargeted = true, check = handCheck(1),
     use = function(run, _, api)
@@ -213,7 +213,7 @@ local def = {
     end,
   },
   FLAME = {
-    name = "Relic of Flame",
+    name = "Relic of Ragnaros",
     desc = "Destroy up to 5 random cards in hand; gain 20g.",
     untargeted = true, check = handCheck(1),
     use = function(run, _, api)
@@ -240,7 +240,7 @@ local def = {
     end,
   },
   RECURRENCE = {
-    name = "Relic of Recurrence",
+    name = "Relic of the Bronze Dragonflight",
     desc = "Add a Red seal to 1 selected card.",
     select = { min = 1, max = 1 }, use = setSeal("RED"),
   },
@@ -259,17 +259,17 @@ local def = {
     end,
   },
   INSIGHT = {
-    name = "Relic of Insight",
+    name = "Relic of Elune",
     desc = "Add a Blue seal to 1 selected card.",
     select = { min = 1, max = 1 }, use = setSeal("BLUE"),
   },
   SPIRITS = {
-    name = "Relic of Spirits",
+    name = "Relic of the Spirit Healer",
     desc = "Add a Purple seal to 1 selected card.",
     select = { min = 1, max = 1 }, use = setSeal("PURPLE"),
   },
   MIRRORS = {
-    name = "Relic of Mirrors",
+    name = "Relic of the Infinite",
     desc = "Add 2 copies of 1 selected card to the deck.",
     select = { min = 1, max = 1 },
     use = function(_, cards, api)
@@ -280,7 +280,7 @@ local def = {
     end,
   },
   LEGENDS = {
-    name = "Relic of Legends",
+    name = "Heart of Azeroth",
     desc = "Create the rarest trinket available (no legendaries in v2).",
     untargeted = true, check = createRarestCheck,
     use = function(run, _, api)
@@ -289,7 +289,7 @@ local def = {
     end,
   },
   COSMOS = {
-    name = "Relic of the Cosmos",
+    name = "Relic of the Twisting Nether",
     desc = "Levels up every hand type.",
     untargeted = true,
     use = function(_, _, api)

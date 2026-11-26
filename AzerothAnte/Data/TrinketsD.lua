@@ -129,7 +129,7 @@ ns.Trinkets.add {
 
 -- 66: Speak with Dead.
 ns.Trinkets.add {
-  id = "SPEAK_DEAD", name = "Speak with Dead", rarity = "uncommon", cost = 6,
+  id = "SPEAK_DEAD", name = "Ancestral Spirit", rarity = "uncommon", cost = 6,
   desc = "Straight Flush: create a random Relic",
   icon = "Interface\\Icons\\Spell_Shadow_RaiseDead",
   before = function(ctx)
@@ -233,7 +233,7 @@ ns.Trinkets.add {
 
 -- 86: Seer.
 ns.Trinkets.add {
-  id = "SEER", name = "Seer", rarity = "common", cost = 6,
+  id = "SEER", name = "Farseer", rarity = "common", cost = 6,
   desc = "+1 Mult per Scroll used this run",
   icon = "Interface\\Icons\\Spell_Nature_FarSight",
   onHand = function(ctx)
@@ -264,7 +264,7 @@ ns.Trinkets.add {
 
 -- 91: Fortune Cat.
 ns.Trinkets.add {
-  id = "FORTUNE_CAT", name = "Fortune Cat", rarity = "uncommon", cost = 6,
+  id = "FORTUNE_CAT", name = "Lucky Quilen Cub", rarity = "uncommon", cost = 6,
   desc = "Gains ×0.25 Mult per Lucky card trigger",
   icon = "Interface\\Icons\\Ability_Hunter_Pet_Cat",
   init = initMult,
@@ -280,7 +280,7 @@ ns.Trinkets.add {
 
 -- 106: Golden Ticket.
 ns.Trinkets.add {
-  id = "GOLDEN_TICKET", name = "Golden Ticket", rarity = "common", cost = 5,
+  id = "GOLDEN_TICKET", name = "Kezan Gold Bar", rarity = "common", cost = 5,
   desc = "Played Gold cards give 4g",
   icon = "Interface\\Icons\\INV_Misc_Coin_02",
   inPool = function(run) return enhancedCount(run.deck, "GOLD") > 0 end,
@@ -303,7 +303,7 @@ ns.Trinkets.add {
 
 -- 120: Glass Cannon.
 ns.Trinkets.add {
-  id = "GLASS_CANNON", name = "Glass Cannon", rarity = "uncommon", cost = 6,
+  id = "GLASS_CANNON", name = "Shatter", rarity = "uncommon", cost = 6,
   desc = "Gains ×0.75 Mult per Glass card destroyed",
   icon = "Interface\\Icons\\INV_Misc_Gem_Crystal_02",
   init = initMult,

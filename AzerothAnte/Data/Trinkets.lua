@@ -158,7 +158,7 @@ local LEGACY_DEFS = {
   },
   WHETSTONE = {
     id = "WHETSTONE", name = "Whetstone", rarity = "common", cost = 5,
-    desc = "Spades +3 Mult",
+    desc = "Played Spades give +3 Mult when scored",
     icon = "Interface\\Icons\\INV_Stone_SharpeningStone_01",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "S", ctx.rules) then return { mult = 3 } end
@@ -166,7 +166,7 @@ local LEGACY_DEFS = {
   },
   HEALTHSTONE = {
     id = "HEALTHSTONE", name = "Healthstone", rarity = "common", cost = 5,
-    desc = "Hearts +3 Mult",
+    desc = "Played Hearts give +3 Mult when scored",
     icon = "Interface\\Icons\\INV_Stone_04",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "H", ctx.rules) then return { mult = 3 } end
@@ -174,7 +174,7 @@ local LEGACY_DEFS = {
   },
   OGRE_CUDGEL = {
     id = "OGRE_CUDGEL", name = "Ogre Cudgel", rarity = "common", cost = 5,
-    desc = "Clubs +3 Mult",
+    desc = "Played Clubs give +3 Mult when scored",
     icon = "Interface\\Icons\\INV_Mace_01",
     onCard = function(ctx, _, card)
       if ns.Cards.hasSuit(card, "C", ctx.rules) then return { mult = 3 } end

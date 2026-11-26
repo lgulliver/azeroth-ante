@@ -2,7 +2,7 @@ local _, ns = ...
 
 -- 8: Twin Fangs.
 ns.Trinkets.add {
-  id = "TWIN_FANGS", name = "Twin Fangs", rarity = "common", cost = 4,
+  id = "TWIN_FANGS", name = "Twin Emperors", rarity = "common", cost = 4,
   desc = "+10 Mult if Two Pair",
   icon = "Interface\\Icons\\Ability_DualWield",
   onHand = function(ctx)
@@ -73,7 +73,7 @@ ns.Trinkets.add {
 -- 17: Spirit Healer.
 ns.Trinkets.add {
   id = "SPIRIT_HEALER", name = "Spirit Healer", rarity = "uncommon", cost = 8,
-  desc = "×1 Mult per empty trinket slot (Stencil counts as empty)",
+  desc = "×1 Mult per empty trinket slot (Spirit Healer counts as empty)",
   icon = "Interface\\Icons\\Spell_Holy_WordFortitude",
   onHand = function(ctx)
     local empty = ctx.trinketSlots - #ctx.trinkets
@@ -112,7 +112,7 @@ ns.Trinkets.add {
 
 -- 28: Eventide.
 ns.Trinkets.add {
-  id = "EVENTIDE", name = "Eventide", rarity = "uncommon", cost = 5,
+  id = "EVENTIDE", name = "Twilight's Hammer", rarity = "uncommon", cost = 5,
   desc = "Retrigger all played cards in final hand of round",
   icon = "Interface\\Icons\\Spell_Holy_AvenginWrath",
   retrigger = function(ctx)
@@ -151,7 +151,7 @@ ns.Trinkets.add {
 
 -- 36: Hack and Slash.
 ns.Trinkets.add {
-  id = "HACK_SLASH", name = "Hack and Slash", rarity = "uncommon", cost = 6,
+  id = "HACK_SLASH", name = "Sweeping Strikes", rarity = "uncommon", cost = 6,
   desc = "Retrigger played 2, 3, 4, 5",
   icon = "Interface\\Icons\\Ability_Warrior_Cleave",
   retrigger = function(_, _, card)
@@ -507,7 +507,7 @@ ns.Trinkets.add {
 
 -- 115: Echo of Doom.
 ns.Trinkets.add {
-  id = "ECHO_DOOM", name = "Echo of Doom", rarity = "common", cost = 4,
+  id = "ECHO_DOOM", name = "Windfury Weapon", rarity = "common", cost = 4,
   desc = "Retrigger first scoring card 2 more times",
   icon = "Interface\\Icons\\Spell_Shadow_ShadowWordPain",
   retrigger = function(ctx, _, _, index)
@@ -539,7 +539,7 @@ ns.Trinkets.add {
 
 -- 118: Rugged Arrowhead.
 ns.Trinkets.add {
-  id = "ARROWHEAD", name = "Rugged Arrowhead", rarity = "uncommon", cost = 7,
+  id = "ARROWHEAD", name = "Rhok'delar", rarity = "uncommon", cost = 7,
   desc = "Played Spades +50 Chips",
   icon = "Interface\\Icons\\Ability_Hunter_MarkedForDeath",
   onCard = function(ctx, _, card)
@@ -614,7 +614,7 @@ ns.Trinkets.add {
 
 -- 126: Loaded Dice.
 ns.Trinkets.add {
-  id = "LOADED_DICE", name = "Loaded Dice", rarity = "uncommon", cost = 4,
+  id = "LOADED_DICE", name = "Gnomish Loaded Dice", rarity = "uncommon", cost = 4,
   desc = "Doubles all listed probabilities",
   icon = "Interface\\Icons\\INV_Misc_Coin_01",
   copyable = false, rule = "OOPS",
@@ -641,7 +641,7 @@ ns.Trinkets.add {
 
 -- 128: Double Vision.
 ns.Trinkets.add {
-  id = "DOUBLE_VISION", name = "Double Vision", rarity = "uncommon", cost = 6,
+  id = "DOUBLE_VISION", name = "Cho'gall", rarity = "uncommon", cost = 6,
   desc = "×2 Mult if scoring has a Club and a non-Club",
   icon = "Interface\\Icons\\Ability_DualWield",
   onHand = function(ctx)

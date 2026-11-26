@@ -58,7 +58,7 @@ end
 
 local def = {
   ECHOES = {
-    name = "Scroll of Echoes", desc = "Create a copy of the last Scroll or Tome used this run (not itself).",
+    name = "Scroll of Chronomancy", desc = "Create a copy of the last Scroll or Tome used this run (not itself).",
     untargeted = true, creates = true,
     check = function(run)
       if not run.lastConsumable then return false, "Nothing to copy" end
@@ -70,23 +70,23 @@ local def = {
     end,
   },
   FORTUNE = {
-    name = "Scroll of Fortune", desc = "Up to 2 selected cards become Lucky.",
+    name = "Scroll of Darkmoon Fortune", desc = "Up to 2 selected cards become Lucky.",
     select = { min = 1, max = 2 }, use = setEnhancement("LUCKY"),
   },
   STARS = {
-    name = "Scroll of the Stars", desc = "Create up to 2 random Tomes.",
+    name = "Scroll of Starfall", desc = "Create up to 2 random Tomes.",
     untargeted = true, creates = true, use = createConsumables("tome"),
   },
   FURY = {
-    name = "Scroll of Fury", desc = "Up to 2 selected cards become Mult.",
+    name = "Scroll of Berserking", desc = "Up to 2 selected cards become Mult.",
     select = { min = 1, max = 2 }, use = setEnhancement("MULT"),
   },
   KNOWLEDGE = {
-    name = "Scroll of Knowledge", desc = "Create up to 2 random Scrolls.",
+    name = "Scroll of Inscription", desc = "Create up to 2 random Scrolls.",
     untargeted = true, creates = true, use = createConsumables("scroll"),
   },
   BLESSING = {
-    name = "Scroll of Blessing", desc = "Up to 2 selected cards become Bonus.",
+    name = "Scroll of Kings", desc = "Up to 2 selected cards become Bonus.",
     select = { min = 1, max = 2 }, use = setEnhancement("BONUS"),
   },
   WILDGROWTH = {
@@ -98,16 +98,16 @@ local def = {
     select = { min = 1, max = 1 }, use = setEnhancement("STEEL"),
   },
   CRYSTAL = {
-    name = "Scroll of Crystal", desc = "1 selected card becomes Glass.",
+    name = "Scroll of Arcane Crystal", desc = "1 selected card becomes Glass.",
     select = { min = 1, max = 1 }, use = setEnhancement("GLASS"),
   },
   GREED = {
-    name = "Scroll of Greed", desc = "Double your gold (max +20g).",
+    name = "Scroll of the Trade Prince", desc = "Double your gold (max +20g).",
     untargeted = true,
     use = function(run, _, api) api.gold(math.max(0, math.min(run.gold, 20))) end,
   },
   CHANCE = {
-    name = "Scroll of Chance",
+    name = "Scroll of Enchanting",
     desc = "{1} in 4 chance: a random trinket with no edition gains Foil, Holo or Polychrome.",
     untargeted = true,
     check = function(run)
@@ -136,7 +136,7 @@ local def = {
     end,
   },
   SACRIFICE = {
-    name = "Scroll of Sacrifice", desc = "Destroy up to 2 selected cards.",
+    name = "Scroll of Banishment", desc = "Destroy up to 2 selected cards.",
     select = { min = 1, max = 2 },
     use = function(_, cards, api)
       for _, card in ipairs(cards) do api.destroy(card) end
@@ -153,7 +153,7 @@ local def = {
     end,
   },
   THRIFT = {
-    name = "Scroll of Thrift", desc = "Gain the total sell value of your trinkets (max 50g).",
+    name = "Scroll of the Auction House", desc = "Gain the total sell value of your trinkets (max 50g).",
     untargeted = true,
     use = function(_, _, api)
       local total = 0
@@ -166,7 +166,7 @@ local def = {
     select = { min = 1, max = 1 }, use = setEnhancement("GOLD"),
   },
   EARTH = {
-    name = "Scroll of Earth", desc = "1 selected card becomes Stone.",
+    name = "Scroll of Stoneform", desc = "1 selected card becomes Stone.",
     select = { min = 1, max = 1 },
     use = function(_, cards, api)
       local card = cards[1]
@@ -175,7 +175,7 @@ local def = {
     end,
   },
   GEMS = {
-    name = "Scroll of Gems", desc = "Up to 3 selected cards become Diamonds.",
+    name = "Scroll of Jewelcrafting", desc = "Up to 3 selected cards become Diamonds.",
     select = { min = 1, max = 3 }, use = setSuit("D"),
   },
   GROVE = {
@@ -210,7 +210,7 @@ local def = {
     end,
   },
   BLADES = {
-    name = "Scroll of Blades", desc = "Up to 3 selected cards become Spades.",
+    name = "Scroll of the Blademaster", desc = "Up to 3 selected cards become Spades.",
     select = { min = 1, max = 3 }, use = setSuit("S"),
   },
 }

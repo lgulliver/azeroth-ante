@@ -53,14 +53,14 @@ ns.Trinkets.add {
 
 -- 38: Ripe Banana.
 ns.Trinkets.add {
-  id = "RIPE_BANANA", name = "Ripe Banana", rarity = "common", cost = 5,
+  id = "RIPE_BANANA", name = "Tel'Abim Banana", rarity = "common", cost = 5,
   desc = "+15 Mult; {1} in 6 chance destroyed at round end",
   icon = "Interface\\Icons\\INV_Misc_Food_24",
   onHand = function() return { mult = 15 } end,
   roundUpdate = function(run, _, isCopy)
     if not isCopy and ns.Prob.roll(run.rng, run.trinkets, 1, 6) then
       run.flags.grosMichelExtinct = true
-      return { destroySelf = true, msg = "Extinct!" }
+      return { destroySelf = true, msg = "Rotten!" }
     end
   end,
   inPool = function(run) return not run.flags.grosMichelExtinct end,
@@ -155,13 +155,13 @@ ns.Trinkets.add {
 
 -- 61: Golden Banana.
 ns.Trinkets.add {
-  id = "GOLDEN_BANANA", name = "Golden Banana", rarity = "common", cost = 4,
+  id = "GOLDEN_BANANA", name = "Golden Tel'Abim Banana", rarity = "common", cost = 4,
   desc = "×3 Mult; {1} in 1000 destroyed at round end",
   icon = "Interface\\Icons\\INV_Misc_Food_24",
   onHand = function() return { xmult = 3 } end,
   roundUpdate = function(run, _, isCopy)
     if not isCopy and ns.Prob.roll(run.rng, run.trinkets, 1, 1000) then
-      return { destroySelf = true, msg = "Extinct!" }
+      return { destroySelf = true, msg = "Rotten!" }
     end
   end,
   inPool = function(run) return run.flags.grosMichelExtinct end,
@@ -561,7 +561,7 @@ ns.Trinkets.add {
 -- 143: Stargazer.
 ns.Trinkets.add {
   id = "STARGAZER", name = "Stargazer", rarity = "uncommon", cost = 8,
-  desc = "Tomes and Celestial packs in shop are free",
+  desc = "Tomes and Archivist's Crates in shop are free",
   icon = "Interface\\Icons\\Spell_Holy_MagicalSentry",
   copyable = false, rule = "ASTRONOMER",
 }

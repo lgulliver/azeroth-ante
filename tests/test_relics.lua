@@ -38,7 +38,7 @@ T.test("relic_catalog", function()
     T.eq(d.creates, false, id)
   end
   T.eq(ns.Consumables.COST.relic, 4)
-  T.eq(ns.Consumables.def(relic("COSMOS")).name, "Relic of the Cosmos")
+  T.eq(ns.Consumables.def(relic("COSMOS")).name, "Relic of the Twisting Nether")
 end)
 
 T.test("relic_overfills_hand", function()

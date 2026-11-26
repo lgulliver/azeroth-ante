@@ -19,7 +19,7 @@ ConsumableRow.HEIGHT = SLOT_H
 local row, popover
 local openSlot                                -- slot index the popover belongs to, or nil
 local USE_IN_PLAY = "Use while playing a hand"
-local USE_IN_SHOP = "Use in a hand, or open an Arcana or Spectral pack"
+local USE_IN_SHOP = "Use in a hand, or open a Scribe's Satchel or Relic Cache"
 local openPhase, catcher, globalMouse
 local pending = {}                            -- items waiting for their pop: kept hidden by Update
 local openItem                                -- the item that slot held when it opened

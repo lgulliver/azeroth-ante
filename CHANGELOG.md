@@ -5,11 +5,12 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 ## [Unreleased]
 
 ### Changed
+- Packs, Tomes and many Scrolls, Relics, vouchers and trinkets have Warcraft names: Scribe's Satchel, Archivist's Crate, Darkmoon Card Bundle, Trinket Lockbox and Relic Cache (Large and Heavy sizes); Tomes are named for worlds such as Argus and Draenor; Netherweave Bag, Titan Orrery, Kezan Gold Bar, Windfury Weapon and more.
 - Blind targets now follow Balatro's curve (300, 800, 2000, 5000, 11000, 20000, 35000, 50000), up from a flatter curve that topped out at 16000. Later antes need a built deck, so trinkets and new cards matter.
-- Black Hole (Relic of the Cosmos) and The Soul (Relic of Legends) are hidden again, as in Balatro: never rolled at random, only a 0.3% chance per card in Celestial/Arcana/Spectral packs (Black Hole also in Arcana packs with Omen Globe). They were turning up about 18 times too often.
+- The Relic of the Twisting Nether (Black Hole) and the Heart of Azeroth (The Soul) are hidden again, as in Balatro: never rolled at random, only a 0.3% chance per card in Archivist's Crates, Scribe's Satchels and Relic Caches (the Twisting Nether also in Scribe's Satchels with the Orb of the Kirin Tor). They were turning up about 18 times too often.
 - Bosses respect Balatro's minimum antes (Hogger from ante 4; Mutanus, Rivendare and Onyxia from ante 2), and each ante draws among the least-seen bosses.
 - Onyxia always leaves exactly one hand and Mutanus exactly no discards; extra-hand and extra-discard vouchers and trinkets no longer undo them.
-- The first shop of a run always has a Buffoon pack.
+- The first shop of a run always has a Trinket Lockbox.
 - The shop no longer offers a Scroll or Tome you hold (unless you have Showman) or one another slot already shows.
 - Shop playing cards cost 1g plus their edition; enhancements are free and shop cards never carry a seal. With Illusion, 40% are enhanced and 20% get an edition.
 - Edition odds follow Balatro: Standard pack cards roll at double odds (about 8% instead of 4%), and Hone and Glow Up raise Polychrome correctly.

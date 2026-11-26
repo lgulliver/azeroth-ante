@@ -19,7 +19,7 @@ end)
 
 T.test("catalog_sizes", function()
   T.eq(#ns.Tomes.order, 12)
-  T.eq(ns.Tomes.def.PAIR.name, "Tome of Pair")
+  T.eq(ns.Tomes.def.PAIR.name, "Tome of the White Lady")
   T.eq(#ns.Scrolls.order, 22)
   for _, id in ipairs(ns.Scrolls.order) do
     local d = ns.Scrolls.def[id]

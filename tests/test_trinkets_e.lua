@@ -77,7 +77,7 @@ H.test("gros_michel_extinct_unlocks_cavendish", function()
   T.eq(#run.trinkets, 0); T.eq(run.flags.grosMichelExtinct, true)
   T.eq(ns.Trinkets.inPool(run, "GOLDEN_BANANA"), true)
   T.eq(ns.Trinkets.inPool(run, "RIPE_BANANA"), false)
-  T.eq(run.lifecycleEvents[1].text, "Extinct!")
+  T.eq(run.lifecycleEvents[1].text, "Rotten!")
 end)
 H.test("WHELP_EGG_effect", function()
   local run = H.run { trinkets = { "WHELP_EGG" } }
