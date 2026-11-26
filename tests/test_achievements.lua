@@ -88,17 +88,17 @@ end)
 T.test("achievement_boundary_RETCON", function()
   local db = {}
   T.eq(ns.Profile.event(db, "bossFought", "UNKNOWN", {}), {})
-  for _, id in ipairs({ "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ", "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM", "THREDD", "TARGORR", "PATCHWERK", "ARCHAEDAS" }) do
+  for _, id in ipairs({ "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ", "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM", "THREDD", "TARGORR", "PATCHWERK", "ARCHAEDAS", "GREENSKIN", "FROSTWHISPER", "REVILGAZ", "GRUUL", "GLUTH", "ARAN", "HAKKAR" }) do
     T.eq(ns.Profile.event(db, "bossFought", id, {}), {})
     T.eq(ns.Profile.event(db, "bossFought", id, {}), {})
   end
-  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 16, 21 })
+  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 23, 28 })
   T.eq(ns.Profile.get(db).bossesSeen.HOGGER, true)
   for _, id in ipairs({ "RAGNAROS", "CTHUN", "YOGG", "XAVIUS" }) do
     T.eq(ns.Profile.event(db, "bossFought", id, {}), {})
   end
   T.eq(ns.Profile.event(db, "bossFought", "KELTHUZAD", {}), { "RETCON" })
-  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 21, 21 })
+  T.eq({ ns.Profile.achievementProgress(db, "RETCON") }, { 28, 28 })
 end)
 
 T.test("achievement_boundary_PALETTE", function()

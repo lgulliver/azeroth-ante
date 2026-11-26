@@ -1591,7 +1591,7 @@ local function run(w)
     end
     local nTint = 0
     for _ in pairs(w2.ns.UI.BlindSelect.BOSS_TINT) do nTint = nTint + 1 end
-    eq(nTint, 21, "one tint per boss")
+    eq(nTint, 28, "one tint per boss")
     for i = 1, 3 do
       eq(tonumber(bs2.panels[i].reward:GetText():match("|cffffd100(%d+)g|r")), w2.ns.Run.BLIND_REWARDS[i], "reward g amount matches Run.BLIND_REWARDS")
     end
@@ -3258,6 +3258,24 @@ local function run(w)
       unstub(ns2, defs)
     end
     step("boss_disabled_at_blind_start")
+
+    do -- boss_refused_hand: Play is disabled with the boss's reason (Shade of Aran)
+      local wb, panelb, m, r = lifeBoard({}, "blind")
+      local ns2 = wb.ns
+      r.blind, r.bosses[r.stage] = 3, "ARAN"
+      m.Render(r, true)
+      click(panelb("preview").start, "Start Blind")
+      wb.stub.advance(3)
+      eq(r.phase, "play", "the blind started")
+      r.roundHandPlays.HIGH_CARD = 1
+      local card = ns2.UI.HandView.WidgetForCard(r.hand[1].id)
+      card._scripts.OnClick(card)
+      check(card.selected, "the card is selected")
+      local play = m.buttons.play
+      check(not play:IsEnabled(), "a repeated hand type cannot be played")
+      eq(play.reason, "High Card was already played this round.", "Play gives the boss's reason")
+    end
+    step("boss_refused_hand")
 
     do -- medallion_sell_floats_once: the bossDisabled event floats it; the sale adds no second one
       local w2, panel2, m, r = lifeBoard({ "GLAD_MEDALLION" }, "play")

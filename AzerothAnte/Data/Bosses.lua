@@ -7,11 +7,15 @@ local _, ns = ...
 -- debuff(card, rules, info) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count; info: the run or scoring ctx,
 -- whose playedThisAnte is a set of card ids): a debuffed card scores no chips and no trinket effects.
 -- handSize (number) is added to the hand size while the boss is active.
+-- canPlayHand(run, handId) -> ok, reason: false refuses the hand (Run.canPlay).
+-- beforeScore(run, handId): after Run.canPlay, before scoring. afterPlay(run, played, handId): after the
+-- score is added, before the refill. drawCount(run, why) -> n: how many cards a refill draws (nil: up to hand size).
 local Bosses = {}
 
 Bosses.pool = {
   "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ",
   "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM", "THREDD", "TARGORR", "PATCHWERK", "ARCHAEDAS",
+  "GREENSKIN", "FROSTWHISPER", "REVILGAZ", "GRUUL", "GLUTH", "ARAN", "HAKKAR",
 }
 
 Bosses.FINALS = { "RAGNAROS", "CTHUN", "YOGG", "XAVIUS", "KELTHUZAD" }
@@ -103,6 +107,69 @@ Bosses.def = {
     desc = "Cards played earlier this ante are debuffed.",
     debuff = function(card, _, info)
       return info and info.playedThisAnte and info.playedThisAnte[card.id] and true or false
+    end,
+  },
+  GREENSKIN = {
+    id = "GREENSKIN", name = "Captain Greenskin", targetMult = 2, minStage = 1, -- The Hook
+    desc = "After each hand, 2 random held cards are discarded.",
+    -- Thrown away, not a discard: no discard is spent, and discard trinkets and Purple seals stay quiet.
+    afterPlay = function(run)
+      for _ = 1, math.min(2, #run.hand) do
+        table.remove(run.hand, ns.RNG.int(run.rng, 1, #run.hand))
+      end
+    end,
+  },
+  FROSTWHISPER = {
+    id = "FROSTWHISPER", name = "Ras Frostwhisper", targetMult = 2, minStage = 2, -- The Arm
+    desc = "The played hand loses a level.",
+    beforeScore = function(run, handId)
+      run.handLevels[handId] = math.max(1, (run.handLevels[handId] or 1) - 1)
+    end,
+  },
+  REVILGAZ = {
+    id = "REVILGAZ", name = "Baron Revilgaz", targetMult = 2, minStage = 3, -- The Tooth
+    desc = "Lose 1g per card played.",
+    afterPlay = function(run, played)
+      local floor = ns.Run.goldFloor(run)
+      run.gold = math.min(run.gold, math.max(floor, run.gold - #played))
+    end,
+  },
+  GRUUL = {
+    id = "GRUUL", name = "Gruul the Dragonkiller", targetMult = 2, minStage = 6, -- The Ox
+    desc = "Playing your most played hand sets gold to 0.",
+    -- run.handPlays already counts this hand, so its count before the play is one less. Ties count.
+    afterPlay = function(run, _, handId)
+      local before = (run.handPlays[handId] or 1) - 1
+      for id, n in pairs(run.handPlays) do
+        if id ~= handId and n > before then return end
+      end
+      run.gold = math.min(run.gold, 0)
+    end,
+  },
+  GLUTH = {
+    id = "GLUTH", name = "Gluth", targetMult = 2, minStage = 2, -- The Mouth
+    desc = "Only the first hand type played this round can be played.",
+    canPlayHand = function(run, handId)
+      local first = next(run.roundHandPlays)
+      if first and first ~= handId then return false, "Only " .. ns.Hands.def[first].name .. " can be played." end
+      return true
+    end,
+  },
+  ARAN = {
+    id = "ARAN", name = "Shade of Aran", targetMult = 2, minStage = 3, -- The Eye
+    desc = "No hand type can be repeated this round.",
+    canPlayHand = function(run, handId)
+      if run.roundHandPlays[handId] then
+        return false, ns.Hands.def[handId].name .. " was already played this round."
+      end
+      return true
+    end,
+  },
+  HAKKAR = {
+    id = "HAKKAR", name = "Hakkar the Soulflayer", targetMult = 2, minStage = 5, -- The Serpent
+    desc = "After a play or discard, always draw exactly 3 cards.",
+    drawCount = function(_, why)
+      if why == "play" or why == "discard" then return 3 end
     end,
   },
   RAGNAROS = {

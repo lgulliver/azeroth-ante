@@ -132,8 +132,11 @@ local function drawCards(run, n, why)
   end
 end
 
+-- Draws up to the hand size, or the active boss's drawCount (Serpent) when it sets one.
 local function refill(run, why)
-  drawCards(run, ns.Deck.handSize(run) - #run.hand, why)
+  local boss = Run.activeBoss(run)
+  local n = boss and boss.drawCount and boss.drawCount(run, why)
+  drawCards(run, n or ns.Deck.handSize(run) - #run.hand, why)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
 end
 
@@ -144,7 +147,7 @@ function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
   if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw
-    or boss.handSize) then
+    or boss.handSize or boss.canPlayHand or boss.beforeScore or boss.afterPlay or boss.drawCount) then
     return false
   end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
@@ -234,7 +237,29 @@ function Run.canPlay(run, idx)
   if boss and boss.mustPlay and #idx ~= boss.mustPlay then
     return false, "Must play exactly " .. boss.mustPlay .. " cards."
   end
+  if boss and boss.canPlayHand then
+    local cards = {}
+    for i, index in ipairs(idx) do cards[i] = run.hand[index] end
+    local handId = ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets))
+    return boss.canPlayHand(run, handId)
+  end
   return true
+end
+
+-- True when some 1-5 card selection from the hand passes Run.canPlay.
+local function anyPlayable(run)
+  local idx = {}
+  local function rec(start)
+    if #idx > 0 and Run.canPlay(run, idx) then return true end
+    if #idx == 5 then return false end
+    for i = start, #run.hand do
+      idx[#idx + 1] = i
+      if rec(i + 1) then return true end
+      idx[#idx] = nil
+    end
+    return false
+  end
+  return rec(1)
 end
 
 function Run.canDiscard(run, idx)
@@ -325,10 +350,15 @@ end
 
 -- Never leaves the player with nothing to do. An empty hand refills from the
 -- pile; if there is still nothing to play the blind is lost (unless already won).
+-- Under a boss that refuses hands (Mouth, Eye) the blind is also lost when no
+-- selection can be played and no discard is left to change the hand.
 function Run.checkHand(run)
   if run.phase ~= "play" then return end
   if #run.hand == 0 then refill(run) end
-  if #run.hand == 0 and run.score < run.target then lose(run) end
+  if run.score >= run.target then return end
+  if #run.hand == 0 then return lose(run) end
+  local boss = Run.activeBoss(run)
+  if boss and boss.canPlayHand and run.discardsLeft <= 0 and not anyPlayable(run) then lose(run) end
 end
 
 -- The scoring ctx for playing `cards` (with `held` kept) now; overrides replace fields (the bot
@@ -364,6 +394,10 @@ function Run.play(run, idx)
     if not selected[i] then held[#held + 1] = card end
   end
   for _, card in ipairs(cards) do card.faceDown = nil end -- played cards turn up
+  local boss = Run.activeBoss(run)
+  if boss and boss.beforeScore then
+    boss.beforeScore(run, ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets)))
+  end
   local goldRef = { gold = run.gold }
   local ctx = Run.scoreCtx(run, cards, held, { goldRef = goldRef })
   run.handsPlayedTotal = run.handsPlayedTotal + 1
@@ -395,6 +429,8 @@ function Run.play(run, idx)
   run.handsLeft = run.handsLeft - 1
   for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
   ns.TrinketEngine.flushCards(run)
+  boss = Run.activeBoss(run)
+  if boss and boss.afterPlay then boss.afterPlay(run, cards, result.handId) end
   if run.score < run.target then refill(run, "play") end
   run.lastResult = result
   if run.score >= run.target then
