@@ -39,7 +39,7 @@ function Run.new(seed, deckId)
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
     usage = { scroll = 0, tome = 0, relic = 0, tomeIds = {} }, cardLog = { added = {}, destroyed = {} },
-    bossDisabled = false, tags = {}, blindTags = {}, skips = 0, skippedBlinds = {}, playedThisAnte = {},
+    bossDisabled = false, tags = {}, blindTags = {}, skips = 0, skippedBlinds = {}, playedThisAnte = {}, discardsUnusedTotal = 0,
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
@@ -557,6 +557,7 @@ function Run.winBlind(run, opts)
   payout.total = payout.reward + payout.hands + payout.discards + payout.interest + payout.trinkets + payout.held
   run.lastPayout = payout
   run.gold = run.gold + payout.total
+  run.discardsUnusedTotal = run.discardsUnusedTotal + run.discardsLeft -- Scrapper's Pay
   if run.stage == 8 and run.blind == 3 then
     run.phase = "won"
     event("runEnded", 1, run)
@@ -567,7 +568,7 @@ function Run.winBlind(run, opts)
 end
 
 function Run.nextBlind(run)
-  if run.shop and run.shop.openPack then return false, "pack" end
+  if ns.Packs.current(run) then return false, "pack" end
   if run.phase ~= "shop" then return end
   if run.blind == 3 then
     run.stage, run.blind = run.stage + 1, 1
@@ -581,8 +582,18 @@ function Run.nextBlind(run)
   run.phase = "blind"
 end
 
+-- A tag's gift pack opens on the blind screen: it must be picked from or skipped first.
+local PACK_OPEN = "Finish the open pack first"
+
+function Run.canStart(run)
+  if run.phase ~= "blind" then return false, "Only on the blind screen" end
+  if ns.Packs.current(run) then return false, PACK_OPEN end
+  return true
+end
+
 function Run.canSkip(run)
   if run.phase ~= "blind" then return false, "Only on the blind screen" end
+  if ns.Packs.current(run) then return false, PACK_OPEN end
   if run.blind ~= 1 and run.blind ~= 2 then return false, "The boss blind cannot be skipped." end
   return true
 end
@@ -603,6 +614,7 @@ end
 
 function Run.canRerollBoss(run)
   if run.phase ~= "blind" then return false, "Only on the blind screen" end
+  if ns.Packs.current(run) then return false, PACK_OPEN end
   if run.bossRerollsUsed >= ns.Vouchers.bossRerolls(run) then return false, "No boss rerolls left." end
   if not Run.canAfford(run, Run.BOSS_REROLL_COST) then return false, "Not enough gold." end
   return true
@@ -627,6 +639,11 @@ function Run.refreshReplayedBoss(run, stage)
   local current = run.bosses and run.bosses[stage]
   if stage >= 8 or not current or not run.bossesFought[current] then return end
   run.bosses[stage] = pickBoss(run, current, stage)
+end
+
+-- Wanted Poster: a new boss for this stage, free and outside the voucher's rerolls.
+function Run.redrawBoss(run)
+  run.bosses[run.stage] = pickBoss(run, run.bosses[run.stage], run.stage)
 end
 
 function Run.rerollBoss(run)

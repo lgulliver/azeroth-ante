@@ -49,9 +49,14 @@ local function persist()
   if ns.UI.OnRunChanged then ns.UI.OnRunChanged() end
 end
 
+-- The pack to show: a shop pack in the shop, a tag's gift pack on the blind screen.
+local function packFor(run)
+  if not run then return nil end
+  if run.phase == "shop" or (run.phase == "blind" and run.giftPack) then return ns.Packs.current(run) end
+end
+
 local function currentPack()
-  local run = main() and main().run
-  return run and run.phase == "shop" and run.shop and run.shop.openPack or nil
+  return packFor(main() and main().run)
 end
 
 local function handBusy()
@@ -599,9 +604,9 @@ local function doSkip()
   if not run or not currentPack() or busy or handBusy() then return end
   ns.Packs.skip(run)
   persist()
-  -- onPackSkipped hooks play their events over the pack, then the shop returns.
+  -- onPackSkipped hooks play their events over the pack, then the shop (or blind screen) returns.
   ns.UI.Lifecycle.Drain(run, function()
-    main().Render(run, true) -- the shop returns; this closes the overlay
+    main().Render(run, true) -- the screen under the pack returns; this closes the overlay
     persist()
   end)
 end
@@ -681,10 +686,10 @@ function PackView.Hide()
   frame:Hide()
 end
 
--- Shows the overlay for run.shop.openPack, or hides it when there is none. Cheap
+-- Shows the overlay for the open pack (Packs.current), or hides it when there is none. Cheap
 -- and idempotent. While an animation plays the layout waits: its finish re-lays out.
 function PackView.Show(run)
-  local pack = run and run.phase == "shop" and run.shop and run.shop.openPack
+  local pack = packFor(run)
   if not pack then return PackView.Hide() end
   if not frame then build() end
   if shown == pack and (busy or handBusy()) then

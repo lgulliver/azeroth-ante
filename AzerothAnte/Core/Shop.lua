@@ -33,8 +33,9 @@ local function owns(run, id)
   return false
 end
 
--- Shared with Buffoon packs: distinct, unowned trinkets at 70/25/5 rarity.
-function Shop.rollTrinket(run, taken)
+-- Shared with Buffoon packs: distinct, unowned trinkets at 70/25/5 rarity, or only of `rarity`
+-- (Recruit-a-Friend's commons; false when none is left).
+function Shop.rollTrinket(run, taken, rarity)
   local byRarity = { common = {}, uncommon = {}, rare = {} }
   local any = {}
   local dupes = ns.TrinketRules.has(run.trinkets, "SHOWMAN")
@@ -45,11 +46,16 @@ function Shop.rollTrinket(run, taken)
       list[#list + 1] = id
     end
   end
-  if #any == 0 then return false end
-  local roll = ns.RNG.next(run.rng) * 100
-  local rarity = roll < 70 and "common" or (roll < 95 and "uncommon" or "rare")
-  local pool = byRarity[rarity]
-  if #pool == 0 then pool = any end
+  local pool
+  if rarity then
+    pool = byRarity[rarity]
+    if #pool == 0 then return false end
+  else
+    if #any == 0 then return false end
+    local roll = ns.RNG.next(run.rng) * 100
+    pool = byRarity[roll < 70 and "common" or (roll < 95 and "uncommon" or "rare")]
+    if #pool == 0 then pool = any end
+  end
   local id = ns.RNG.pick(run.rng, pool)
   taken[id] = true
   local ed = Shop.rollEdition(run, true)
@@ -139,7 +145,7 @@ end
 
 local function buyItem(run, i)
   local shop = run.shop
-  if shop and shop.openPack then return false, "pack" end
+  if ns.Packs.current(run) then return false, "pack" end
   local item = shop and shop.cards[i]
   if not item then return false, "gone" end
   if not ns.Run.canAfford(run, item.cost) then return false, "gold" end
@@ -175,7 +181,7 @@ function Shop.buy(run, i)
 end
 
 function Shop.buyVoucher(run)
-  if run.shop and run.shop.openPack then return false, "pack" end
+  if ns.Packs.current(run) then return false, "pack" end
   local offer = run.shopVoucher
   if not offer or ns.Vouchers.owns(run, offer.id) then return false, "gone" end
   local paid = ns.Vouchers.price(run, ns.Vouchers.def[offer.id].cost)
@@ -213,7 +219,7 @@ end
 
 function Shop.reroll(run)
   local shop = run.shop
-  if shop.openPack then return false, "pack" end
+  if ns.Packs.current(run) then return false, "pack" end
   local free = (shop.freeRerolls or 0) > 0
   local cost = free and 0 or math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
   if not ns.Run.canAfford(run, cost) then return false, "gold" end

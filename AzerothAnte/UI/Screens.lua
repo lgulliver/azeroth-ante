@@ -177,7 +177,7 @@ end
 
 local function startBlind()
   local run = main().run
-  if not run or run.phase ~= "blind" then return end
+  if not run or not ns.Run.canStart(run) then return end
   ns.Run.startBlind(run)
   -- onBlindSelect hooks may have melted or made trinkets: their events play, then the table renders.
   ns.UI.Lifecycle.Drain(run, function()
@@ -742,7 +742,7 @@ local function refreshVoucher(p, run)
   v.content:Show()
   local price = ns.Vouchers.price(run, def.cost)
   local afford = ns.Run.canAfford(run, price)
-  local blockedByPack = run.shop and run.shop.openPack ~= nil
+  local blockedByPack = ns.Packs.current(run) ~= nil
   v.face.voucherId = def.id
   v.face.art:SetTexture(voucherArt(def))
   v.name:SetText(def.name)
@@ -944,7 +944,7 @@ local function refreshShop(p, run)
   p.voucher:SetPoint("TOPLEFT", p, "TOPLEFT", VX, math.min(VY, y - 4))
 
   local shop = run.shop or { cards = {}, packs = {}, rerollCost = 0 }
-  local blockedByPack = shop.openPack ~= nil
+  local blockedByPack = ns.Packs.current(run) ~= nil
   local slots = math.max(2, math.min(MAX_CARDS, math.max(ns.Vouchers.shopCardSlots(run), #shop.cards)))
   layoutShop(p, slots)
   refreshVoucher(p, run)

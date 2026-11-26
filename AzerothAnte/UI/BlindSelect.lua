@@ -229,9 +229,12 @@ local function refreshOne(b, run, i, bossId)
   Theme.Selected(b.body, current)
 
   -- Play: live on the current panel, visibly disabled on upcoming ones, gone on beaten ones.
+  -- An open gift pack (from a skip's tag) holds it until the pack is done.
   b.play:SetShown(st ~= "DEFEATED")
-  if current then b.play:Enable() else b.play:Disable() end
-  b.host.setReason(b.play, st == "UPCOMING" and "Beat the earlier blinds first" or nil)
+  local canPlay, why = ns.Run.canStart(run)
+  if st == "UPCOMING" then canPlay, why = false, "Beat the earlier blinds first" end
+  if current and canPlay then b.play:Enable() else b.play:Disable() end
+  b.host.setReason(b.play, (st ~= "DEFEATED" and not canPlay) and why or nil)
 
   b.stamp:SetShown(st == "DEFEATED")
   b.stamp.text:SetText((st == "DEFEATED" and run.skippedBlinds and run.skippedBlinds[i]) and "SKIPPED" or "DEFEATED")

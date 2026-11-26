@@ -3,8 +3,26 @@ local _, ns = ...
 -- Skip tags: skipping a small or big blind gives that blind's tag (Run.skipBlind). Each stage rolls
 -- one tag per skippable blind from the defs its minStage allows (Tags.roll in Core/Tags.lua).
 -- Hooks (all optional; one returning true consumes the tag): onTake(run) when the tag is taken,
--- onShopOpen(run), onBlindStart(run), onBossDefeated(run), fired through Tags.fire.
+-- onShopOpen(run), onBlindStart(run), onBossDefeated(run), onGiftClosed(run), fired through Tags.fire.
 local Tags = {}
+
+local function gain(run, gold)
+  run.gold = run.gold + gold
+  return true
+end
+
+-- Recruit-a-Friend: up to two commons, each into a free slot (a Negative one makes its own).
+local function topUp(run)
+  local taken = {}
+  for _ = 1, 2 do
+    if #run.trinkets >= ns.Run.trinketSlots(run) then break end
+    local item = ns.Shop.rollTrinket(run, taken, "common")
+    if not item then break end
+    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed)
+    if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
+  end
+  return true
+end
 
 Tags.order = {
   "UNCOMMON", "RARE", "NEGATIVE", "FOIL", "HOLO", "POLY", "INVESTMENT", "VOUCHER", "BOSS", "STANDARD",
@@ -57,6 +75,7 @@ Tags.def = {
     id = "BOSS", name = "Wanted Poster", minStage = 1, -- Boss
     desc = "Rerolls the boss blind",
     icon = "Interface\\Icons\\INV_Misc_Note_06",
+    onTake = function(run) ns.Run.redrawBoss(run); return true end,
   },
   STANDARD = {
     id = "STANDARD", name = "Darkmoon Card Gift", minStage = 2, -- Standard
@@ -87,11 +106,13 @@ Tags.def = {
     id = "HANDY", name = "Veteran's Pay", minStage = 2, -- Handy
     desc = "1g per hand played this run",
     icon = "Interface\\Icons\\INV_Gauntlets_04",
+    onTake = function(run) return gain(run, run.handsPlayedTotal) end,
   },
   GARBAGE = {
     id = "GARBAGE", name = "Scrapper's Pay", minStage = 2, -- Garbage
     desc = "1g per unused discard this run",
     icon = "Interface\\Icons\\INV_Gizmo_02",
+    onTake = function(run) return gain(run, run.discardsUnusedTotal) end,
   },
   COUPON = {
     id = "COUPON", name = "Darkmoon Faire Coupon", minStage = 1, -- Coupon
@@ -117,22 +138,41 @@ Tags.def = {
     id = "TOPUP", name = "Recruit-a-Friend", minStage = 2, -- Top-up
     desc = "Create up to 2 common trinkets (needs free slots)",
     icon = "Interface\\Icons\\Achievement_Reputation_01",
+    onTake = topUp,
   },
   SPEED = {
     id = "SPEED", name = "Flight Master's Whistle", minStage = 1, -- Speed
     desc = "5g per blind skipped this run",
     icon = "Interface\\Icons\\Ability_Mount_Gryphon_01",
+    onTake = function(run) return gain(run, 5 * run.skips) end,
   },
   ORBITAL = {
     id = "ORBITAL", name = "Algalon's Insight", minStage = 2, -- Orbital
     desc = "Levels up a random hand three times",
     icon = "Interface\\Icons\\Spell_Arcane_StarFire",
+    onTake = function(run)
+      local handId = ns.RNG.pick(run.rng, ns.Hands.visible(run))
+      run.handLevels[handId] = run.handLevels[handId] + 3
+      return true
+    end,
   },
   ECONOMY = {
     id = "ECONOMY", name = "Auction House Flip", minStage = 1, -- Economy
     desc = "Doubles your gold (max +40g)",
     icon = "Interface\\Icons\\INV_Misc_Coin_04",
+    onTake = function(run) return gain(run, math.min(math.max(run.gold, 0), 40)) end,
   },
 }
+
+-- Pack tags open their pack at once, free (Heavy, or a normal Relic Cache). One that finds a pack
+-- open stays held and opens its own when that one closes.
+local GIFTS = {
+  STANDARD = { "STANDARD", "mega" }, CHARM = { "ARCANA", "mega" }, METEOR = { "CELESTIAL", "mega" },
+  BUFFOON = { "BUFFOON", "mega" }, ETHEREAL = { "SPECTRAL", "normal" },
+}
+for id, gift in pairs(GIFTS) do
+  local function open(run) return ns.Packs.openGift(run, gift[1], gift[2]) end
+  Tags.def[id].onTake, Tags.def[id].onGiftClosed = open, open
+end
 
 ns.Tags = Tags

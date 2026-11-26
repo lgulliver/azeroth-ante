@@ -73,12 +73,14 @@ function Packs.showCount(packType, size)
   return show
 end
 
-function Packs.open(run, i)
-  local shop = run.shop
-  if shop and shop.openPack then return false, "pack" end
-  local offer = shop and shop.packs[i]
-  if not offer then return false, "gone" end
-  if not ns.Run.canAfford(run, offer.cost) then return false, "gold" end
+-- The open pack: a tag's free gift pack (on the blind screen) or the one opened in the shop.
+function Packs.current(run)
+  return run.giftPack or (run.shop and run.shop.openPack) or nil
+end
+
+-- Rolls a pack's choices for offer ({ type, size }), and for Arcana and Spectral packs a hand
+-- drawn from the deck to aim at.
+local function buildPack(run, offer)
   local size = Packs.SIZES[offer.size]
   local show = Packs.showCount(offer.type, offer.size)
   local pack = { type = offer.type, size = offer.size, choices = {}, picksLeft = size.pick, paid = offer.cost }
@@ -141,6 +143,16 @@ function Packs.open(run, i)
     pack.hand = {}
     ns.Cards.draw(ns.Deck.shuffledPile(run), pack.hand, ns.Deck.handSize(run))
   end
+  return pack
+end
+
+function Packs.open(run, i)
+  local shop = run.shop
+  if Packs.current(run) then return false, "pack" end
+  local offer = shop and shop.packs[i]
+  if not offer then return false, "gone" end
+  if not ns.Run.canAfford(run, offer.cost) then return false, "gold" end
+  local pack = buildPack(run, offer)
   run.gold = run.gold - offer.cost
   shop.packs[i] = false
   shop.openPack = pack
@@ -148,6 +160,27 @@ function Packs.open(run, i)
   if ns.Profile and ns.Profile.onEvent then ns.Profile.onEvent("spend", offer.paid) end
   ns.TrinketEngine.fire(run, "onPackOpened", pack)
   return true
+end
+
+-- A pack tag's free pack (Balatro opens it at once, outside the shop). Only one opens at a time:
+-- returns false while a pack is open, and the tag waits for onGiftClosed.
+function Packs.openGift(run, packType, size)
+  if Packs.current(run) then return false end
+  local pack = buildPack(run, { type = packType, size = size })
+  pack.paid = 0
+  run.giftPack = pack
+  ns.TrinketEngine.fire(run, "onPackOpened", pack)
+  return true
+end
+
+-- Closes the open pack; a held pack tag waiting on a gift pack opens its own next.
+local function close(run)
+  if run.giftPack then
+    run.giftPack = nil
+    ns.Tags.fire(run, "onGiftClosed")
+  elseif run.shop then
+    run.shop.openPack = nil
+  end
 end
 
 local function selectedCards(pack, item, idx)
@@ -168,7 +201,7 @@ local function selectedCards(pack, item, idx)
 end
 
 local function pickChoice(run, c, idx)
-  local pack = run.shop and run.shop.openPack
+  local pack = Packs.current(run)
   local item = pack and pack.choices[c]
   if not item then return false, "gone" end
   local outcome
@@ -195,7 +228,7 @@ local function pickChoice(run, c, idx)
   end
   pack.choices[c] = false
   pack.picksLeft = pack.picksLeft - 1
-  if pack.picksLeft == 0 then run.shop.openPack = nil end
+  if pack.picksLeft == 0 then close(run) end
   return true, nil, outcome
 end
 
@@ -208,9 +241,10 @@ function Packs.pick(run, c, idx)
 end
 
 function Packs.skip(run)
-  local pack = run.shop and run.shop.openPack
-  if run.shop then run.shop.openPack = nil end
-  if pack and pack.picksLeft > 0 then ns.TrinketEngine.fire(run, "onPackSkipped") end
+  local pack = Packs.current(run)
+  if not pack then return end
+  close(run)
+  if pack.picksLeft > 0 then ns.TrinketEngine.fire(run, "onPackSkipped") end
 end
 
 ns.Packs = Packs

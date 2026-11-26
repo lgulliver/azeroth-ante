@@ -135,3 +135,26 @@ T.test("save_roundtrip_keeps_boss_state", function()
     { { "RARE" }, { "FOIL", "UNCOMMON" }, 1, { [1] = true } })
   T.eq(loaded, run)
 end)
+
+T.test("save_roundtrip_keeps_gift_pack", function()
+  local run = ns.Run.new(9, "ADVENTURER")
+  run.blindTags[1] = "CHARM"
+  ns.Run.skipBlind(run)
+  local db = {}
+  ns.Save.store(db, run)
+  local loaded = ns.Save.load(db)
+  T.eq(loaded.giftPack, run.giftPack)
+  T.ok(#loaded.giftPack.hand > 0, "pack hand saved")
+  for _, card in ipairs(loaded.giftPack.hand) do
+    local inDeck = false
+    for _, d in ipairs(loaded.deck) do if rawequal(d, card) then inDeck = true end end
+    T.ok(inDeck, "pack hand card relinked to the deck")
+  end
+  T.eq(loaded, run)
+end)
+
+T.test("save_v6_defaults_unused_discards", function()
+  local run = playing()
+  run.discardsUnusedTotal = nil
+  T.eq(ns.Save.load({ version = 6, run = run }).discardsUnusedTotal, 0)
+end)

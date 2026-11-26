@@ -49,7 +49,7 @@ end
 
 function Consumables.targetCards(run)
   if run.phase == "play" then return run.hand end
-  local pack = run.shop and run.shop.openPack
+  local pack = ns.Packs.current(run)
   if pack and pack.hand then return pack.hand end
 end
 
@@ -147,8 +147,8 @@ local function buildApi(run, outcome, touched)
     ns.Deck.add(run, card)
     if run.phase == "play" then
       run.hand[#run.hand + 1] = card
-    elseif run.shop and run.shop.openPack and run.shop.openPack.hand then
-      local hand = run.shop.openPack.hand
+    elseif ns.Packs.current(run) and ns.Packs.current(run).hand then
+      local hand = ns.Packs.current(run).hand
       hand[#hand + 1] = card
     end
     outcome.added[#outcome.added + 1] = card.id
@@ -156,7 +156,7 @@ local function buildApi(run, outcome, touched)
   end
   function api.destroy(card)
     ns.Deck.destroy(run, card.id)
-    local pack = run.shop and run.shop.openPack
+    local pack = ns.Packs.current(run)
     if pack and pack.hand then removeFrom(pack.hand, card) end
     note(outcome.destroyed, card.id)
   end

@@ -347,6 +347,36 @@ local function run(w)
     check(not sb.tagIcons[1]:IsShown(), "held tags clear with the run's")
   end
   step("2-skip Skip buttons and tags on the blind screen, held tags in the sidebar")
+  -- 2-gift. Skipping for Scribe's Gift opens a free Heavy Scribe's Satchel over the blind screen;
+  -- Play and Skip wait until it is done, and skipping it leaves the blind screen as it was.
+  do
+    local bs = panel("preview")
+    local run0 = Main.run
+    local gold = run0.gold
+    run0.blindTags[1] = "CHARM"
+    Main.Render(run0, true)
+    click(bs.panels[1].skip, "Skip for Scribe's Gift")
+    stub.advance(1)
+    local pv = panel("packChoices")
+    check(run0.giftPack and run0.giftPack.type == "ARCANA", "the gift pack is open")
+    check(pv and pv:IsVisible(), "the pack overlay shows over the blind screen")
+    check(visible("preview"), "the blind screen stays under it")
+    eq(run0.phase, "blind", "still on the blind screen")
+    eq(run0.gold, gold, "the gift pack is free")
+    eq(run0.blind, 2, "the skip moved on")
+    check(not bs.panels[2].play:IsEnabled() and not bs.panels[2].skip:IsEnabled(), "Play and Skip wait for the pack")
+    check(env.AzerothAnteDB.run.giftPack ~= nil, "the gift pack is saved")
+    click(pv.skip, "Skip the gift pack")
+    stub.advance(1)
+    eq(run0.giftPack, nil, "skip closes the gift pack")
+    check(not pv:IsVisible(), "the overlay hides")
+    check(bs.panels[2].play:IsEnabled() and bs.panels[2].skip:IsEnabled(), "Play and Skip are back")
+    check(env.AzerothAnteDB.run.giftPack == nil, "the closed pack is saved")
+    run0.blind, run0.tags, run0.skips, run0.skippedBlinds = 1, {}, 0, {}
+    Main.Render(run0, true)
+    stub.advance(1)
+  end
+  step("2-gift a pack tag opens its free pack over the blind screen")
   click(panel("preview").start, "Play (current blind)")
   stub.advance(3)
   eq(Main.run.phase, "play", "phase after Play")

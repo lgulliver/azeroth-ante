@@ -225,7 +225,8 @@ function Main.Render(run, force)
   else
     Screens.Show("newrun", run)
   end
-  -- An open pack (also after a reload) overlays the shop; it closes itself when none is open.
+  -- An open pack (also after a reload) overlays the shop, or the blind screen for a tag's gift pack;
+  -- it closes itself when none is open.
   if ns.UI.PackView then ns.UI.PackView.Show(run) end
 end
 
