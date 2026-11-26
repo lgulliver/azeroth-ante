@@ -218,7 +218,7 @@ local function refreshOne(b, run, i, bossId)
 
   b.name:SetText(i == 3 and (boss and boss.name or "Boss Blind") or NAMES[i])
   Theme.setColor(b.name, current and Theme.gold or Theme.parchment)
-  b.rule:SetText(boss and boss.desc or "")
+  b.rule:SetText(boss and ns.Bosses.describe(run, bossId) or "")
   b.target:SetText(tostring(ns.Run.target(run.stage, i, i == 3 and bossId or nil)))
   Theme.setColor(b.target, current and Theme.gold or Theme.parchment)
   b.reward:SetText("Reward: " .. GOLD_HEX .. ns.Run.BLIND_REWARDS[i] .. "g|r")

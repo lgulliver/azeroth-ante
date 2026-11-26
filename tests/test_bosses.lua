@@ -114,6 +114,27 @@ T.test("thermaplugg_one_in_seven", function()
   T.ok(share > 0.10 and share < 0.19, "share " .. share)
 end)
 
+T.test("thermaplugg_odds_double_with_loaded_dice", function()
+  local function share(trinkets)
+    local drawn, down = 0, 0
+    for seed = 1, 400 do
+      local run = ns.Run.new(seed, "ADVENTURER")
+      run.blind, run.bosses[run.stage] = 3, "THERMAPLUGG"
+      run.trinkets = trinkets(run)
+      T.startBlind(run)
+      drawn, down = drawn + #run.hand, down + faceDownCount(run.hand)
+    end
+    return down / drawn
+  end
+  local doubled = share(function(run) return { ns.Trinkets.create(run, "LOADED_DICE") } end)
+  T.ok(doubled > 0.23 and doubled < 0.34, "2 in 7: share " .. doubled)
+  T.eq(ns.Bosses.describe(nil, "THERMAPLUGG"), "1 in 7 cards is drawn face down.")
+  local run = ns.Run.new(5, "ADVENTURER")
+  run.trinkets = { ns.Trinkets.create(run, "LOADED_DICE") }
+  T.eq(ns.Bosses.describe(run, "THERMAPLUGG"), "2 in 7 cards is drawn face down.")
+  T.eq(ns.Bosses.describe(run, "HOGGER"), ns.Bosses.def.HOGGER.desc)
+end)
+
 T.test("morogrim_face_down_after_play_only", function()
   local run = bossRun(7, "MOROGRIM")
   run.target = 1e9
@@ -345,16 +366,15 @@ T.test("tooth_charges_before_scoring", function()
   T.eq(chips, 14, "Tauren Charge reads the 7g left after the charge")
 end)
 
-T.test("tooth_respects_gold_floor", function()
+T.test("tooth_can_go_below_zero", function()
   local run = bossRun(5, "REVILGAZ")
   run.target = 1e9
   run.gold = 2
   ns.Run.play(run, { 1, 2, 3, 4, 5 })
-  T.eq(run.gold, 0)
-  run.trinkets = { { uid = 1, id = "VENTURE_LOAN" } }
+  T.eq(run.gold, -3, "Balatro's ease_dollars has no floor")
   run.gold = -18
   ns.Run.play(run, { 1, 2, 3, 4, 5 })
-  T.eq(run.gold, -20)
+  T.eq(run.gold, -23)
 end)
 
 T.test("ox_zeroes_gold_on_most_played", function()
@@ -374,7 +394,7 @@ T.test("ox_zeroes_gold_on_most_played", function()
   run.trinkets = { { uid = 1, id = "VENTURE_LOAN" } }
   setHand(run, { { 9, "S" }, { 9, "H" }, { 4, "D" } })
   ns.Run.play(run, { 1, 2 })
-  T.eq(run.gold, -5, "debt is left alone")
+  T.eq(run.gold, 0, "debt is set to 0 too")
 end)
 
 T.test("ox_zeroes_gold_before_scoring", function()
@@ -627,7 +647,9 @@ T.test("disabling_finisher_restores_everything", function()
   T.ok(ns.Run.disableBoss(kt))
   T.eq(kt.forcedCard, nil, "Kel'Thuzad: nothing forced")
   T.ok(ns.Run.canPlay(kt, { 1 }))
-  T.eq(ns.Run.disableBoss(finisherRun(5, "CTHUN", owned())), false, "C'Thun has no rule")
+  local cthun = finisherRun(5, "CTHUN", owned())
+  T.ok(ns.Run.disableBoss(cthun), "C'Thun's rule is its target")
+  T.eq(cthun.target, ns.Run.BASE_TARGETS[8] * 2)
   -- Losing clears them too.
   local lost = finisherRun(5, "RAGNAROS", owned())
   lost.target, lost.handsLeft = 1e9, 1
@@ -640,6 +662,52 @@ T.test("disabling_finisher_restores_everything", function()
   for i, c in ipairs(kl.hand) do if c == kl.forcedCard then ki = i end end
   ns.Run.play(kl, { ki })
   T.eq(kl.forcedCard, nil)
+end)
+
+T.test("ragnaros_repick_skips_the_disabled_trinket", function()
+  for seed = 1, 30 do
+    local run = finisherRun(seed, "RAGNAROS", {
+      { uid = 1, id = "ARCANE_INTELLECT" }, { uid = 2, id = "ARCANE_INTELLECT" },
+    })
+    run.target, run.handsLeft = 1e9, 9
+    for _ = 1, 4 do
+      local before = disabledUids(run)[1]
+      ns.Run.play(run, { 1 })
+      local after = disabledUids(run)
+      T.eq(#after, 1)
+      T.ok(after[1] ~= before, "seed " .. seed .. ": a different trinket each hand")
+    end
+  end
+  local solo = finisherRun(5, "RAGNAROS", { { uid = 1, id = "ARCANE_INTELLECT" } })
+  solo.target = 1e9
+  ns.Run.play(solo, { 1 })
+  T.eq(disabledUids(solo), { 1 }, "the only trinket is picked again")
+end)
+
+T.test("medallion_brings_wall_and_vessel_to_2x", function()
+  for _, case in ipairs({ { "PATCHWERK", 3 }, { "CTHUN", 8 } }) do
+    local id, stage = case[1], case[2]
+    local function start()
+      local run = ns.Run.new(5, "ADVENTURER")
+      run.stage, run.blind, run.bosses[stage] = stage, 3, id
+      T.startBlind(run)
+      run.trinkets = { ns.Trinkets.create(run, "GLAD_MEDALLION") }
+      return run
+    end
+    local run = start()
+    T.eq(run.target, ns.Run.target(stage, 3, id))
+    T.ok(ns.Run.sellTrinket(run, 1))
+    T.eq(run.bossDisabled, true, id)
+    T.eq(run.target, ns.Run.BASE_TARGETS[stage] * 2, id .. " target is base x2")
+    T.eq(run.phase, "play")
+    local won = start()
+    won.score = ns.Run.BASE_TARGETS[stage] * 2
+    local gold, value = won.gold, ns.Shop.sellValue(won.trinkets[1])
+    T.ok(ns.Run.sellTrinket(won, 1))
+    T.eq(won.phase, stage == 8 and "won" or "shop", id .. " wins at once")
+    T.eq(#won.trinkets, 0, "the Medallion is gone before the payout")
+    T.eq(won.gold, gold + value + won.lastPayout.total, "sale and payout both paid")
+  end
 end)
 
 T.test("ragnaros_disabled_trinket_sells_without_its_effect", function()

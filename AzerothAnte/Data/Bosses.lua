@@ -85,8 +85,8 @@ Bosses.def = {
   },
   THERMAPLUGG = {
     id = "THERMAPLUGG", name = "Mekgineer Thermaplugg", targetMult = 2, minStage = 2, -- The Wheel
-    desc = "1 in 7 cards is drawn face down.",
-    onDraw = function(run) return ns.RNG.next(run.rng) < 1 / 7 end,
+    desc = "{1} in 7 cards is drawn face down.", -- Bosses.describe fills in the odds
+    onDraw = function(run) return ns.Prob.roll(run.rng, run.trinkets, 1, 7) end,
   },
   MOROGRIM = {
     id = "MOROGRIM", name = "Morogrim Tidewalker", targetMult = 2, minStage = 2, -- The Fish
@@ -151,10 +151,8 @@ Bosses.def = {
   REVILGAZ = {
     id = "REVILGAZ", name = "Baron Revilgaz", targetMult = 2, minStage = 3, -- The Tooth
     desc = "Lose 1g per card played.",
-    beforeScore = function(run, _, played)
-      local floor = ns.Run.goldFloor(run)
-      run.gold = math.min(run.gold, math.max(floor, run.gold - #played))
-    end,
+    -- No gold floor: Balatro's ease_dollars can take you below zero.
+    beforeScore = function(run, _, played) run.gold = run.gold - #played end,
   },
   GRUUL = {
     id = "GRUUL", name = "Gruul the Dragonkiller", targetMult = 2, minStage = 6, -- The Ox
@@ -167,7 +165,7 @@ Bosses.def = {
         if id ~= handId and n > mine then return end
       end
       if not any and handId ~= "HIGH_CARD" then return end
-      run.gold = math.min(run.gold, 0)
+      run.gold = 0 -- debt included
     end,
   },
   GLUTH = {
@@ -195,9 +193,14 @@ Bosses.def = {
   RAGNAROS = {
     id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 2, -- Crimson Heart
     desc = "One random trinket is disabled each hand.",
+    -- The trinket disabled last hand sits this pick out, unless it is the only one.
     beforeHand = function(run)
-      for _, t in ipairs(run.trinkets) do t.disabled = nil end
-      if #run.trinkets > 0 then ns.RNG.pick(run.rng, run.trinkets).disabled = true end
+      local picks = {}
+      for _, t in ipairs(run.trinkets) do
+        if not t.disabled or #run.trinkets < 2 then picks[#picks + 1] = t end
+        t.disabled = nil
+      end
+      if #picks > 0 then ns.RNG.pick(run.rng, picks).disabled = true end
     end,
   },
   CTHUN = {
@@ -224,5 +227,11 @@ Bosses.def = {
     afterDraw = forceCard, -- the start draw included
   },
 }
+
+-- The boss's rule text, with "{N}" odds scaled for the owner's probability trinkets (Prob.describe).
+function Bosses.describe(run, id)
+  local def = Bosses.def[id]
+  return def and ns.Prob.describe(run and run.trinkets, def.desc) or ""
+end
 
 ns.Bosses = Bosses

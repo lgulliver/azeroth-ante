@@ -120,6 +120,9 @@ function Run.revealHand(run)
   for _, card in ipairs(run.deck or {}) do card.faceDown = nil end
 end
 
+-- Above 0 while Run.sellTrinket runs: a win a sale causes waits until the trinket is gone.
+local selling = 0
+
 -- Ends a finisher's hold: trinkets enabled and face up (Ragnaros, Yogg-Saron), nothing forced (Kel'Thuzad).
 local function clearFinisher(run)
   for _, t in ipairs(run.trinkets or {}) do t.disabled, t.faceDown = nil, nil end
@@ -152,14 +155,17 @@ local function refill(run, why)
 end
 
 -- Switches the boss's rules off for the rest of the blind. A boss that overrode hands or discards
--- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable
--- (no boss, not in play, or a boss with no rules, like C'Thun).
+-- hands back the difference to the normal count. A boss whose rule is a bigger target (Patchwerk,
+-- C'Thun) drops to the normal x2 boss target, as Balatro's Blind:disable does, and a score already
+-- past it wins the blind (after the sale, when a sold trinket did the disabling). Returns false if
+-- there was nothing to disable (no boss, not in play, or a boss with no rules).
 function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
+  local bigTarget = boss.targetMult > 2
   if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw
     or boss.handSize or boss.handNotAllowed or boss.beforeScore or boss.drawCount or boss.onStart or boss.beforeHand
-    or boss.afterDraw) then
+    or boss.afterDraw or bigTarget) then
     return false
   end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
@@ -169,6 +175,10 @@ function Run.disableBoss(run)
   if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
   if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
   if boss.handSize then refill(run) end
+  if bigTarget then
+    run.target = math.floor(Run.BASE_TARGETS[run.stage] * 2)
+    if selling == 0 and run.score >= run.target then Run.winBlind(run) end
+  end
   return true
 end
 
@@ -350,10 +360,13 @@ function Run.withMods(run, fn)
 end
 
 -- Sells the trinket in `slot` in a shop or a blind. Returns the gold gained, or nil and a reason.
+-- A sale that lowers the boss's target past the score (Gladiator's Medallion) wins the blind once
+-- the trinket is gone and paid for.
 function Run.sellTrinket(run, slot)
   if run.phase ~= "shop" and run.phase ~= "play" then return nil, "phase" end
   if not run.trinkets[slot] then return nil, "gone" end
-  return Run.withMods(run, function()
+  selling = selling + 1
+  local ok, gained = pcall(Run.withMods, run, function()
     local trinket = run.trinkets[slot]
     local def = ns.Trinkets.def[trinket.id]
     -- Before removal, original only (a copier never runs its target's farewell); a disabled one has none.
@@ -369,6 +382,10 @@ function Run.sellTrinket(run, slot)
     ns.TrinketEngine.flushCards(run)
     return gained
   end)
+  selling = selling - 1
+  if not ok then error(gained, 0) end
+  if run.phase == "play" and run.score >= run.target then Run.winBlind(run) end
+  return gained
 end
 
 -- Never leaves the player with nothing to do. An empty hand refills from the

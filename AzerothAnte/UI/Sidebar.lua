@@ -284,7 +284,7 @@ local function showBoss(frame, run)
   local off = boss and run.bossDisabled
   if boss then
     frame.blindName:SetText(boss.name)
-    frame.bossRule:SetText(off and "Disabled" or boss.desc or "")
+    frame.bossRule:SetText(off and "Disabled" or ns.Bosses.describe(run, boss.id))
   else
     frame.blindName:SetText(BLIND_NAMES[run.blind] or "")
     frame.bossRule:SetText("")

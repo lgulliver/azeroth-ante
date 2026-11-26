@@ -288,11 +288,15 @@ end)
 
 H.test("disable_boss_needs_a_rule", function()
   local run = H.run()
-  run.blind, run.bosses[1] = 3, "CTHUN"
-  T.eq(ns.Run.disableBoss(run), false)
-  T.eq(run.bossDisabled, false)
-  run.trinkets[1] = ns.Trinkets.create(run, "GLAD_MEDALLION")
-  T.ok(ns.Run.sellTrinket(run, 1))
-  T.eq(run.bossDisabled, false)
-  for _, e in ipairs(run.lifecycleEvents) do T.ok(e.kind ~= "bossDisabled", "no event for a rule-less boss") end
+  run.blind, run.bosses[1] = 3, "HOGGER"
+  run.phase = "play"
+  T.ok(ns.Run.disableBoss(run), "a rule-bearing boss disables")
+  local plain = H.run()
+  plain.phase = "play" -- a small blind: no boss to disable
+  T.eq(ns.Run.disableBoss(plain), false)
+  T.eq(plain.bossDisabled, false)
+  plain.trinkets[1] = ns.Trinkets.create(plain, "GLAD_MEDALLION")
+  T.ok(ns.Run.sellTrinket(plain, 1))
+  T.eq(plain.bossDisabled, false)
+  for _, e in ipairs(plain.lifecycleEvents) do T.ok(e.kind ~= "bossDisabled", "no event without a boss") end
 end)
