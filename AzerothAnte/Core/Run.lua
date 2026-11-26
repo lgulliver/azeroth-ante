@@ -39,7 +39,7 @@ function Run.new(seed, deckId)
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
     usage = { scroll = 0, tome = 0, relic = 0, tomeIds = {} }, cardLog = { added = {}, destroyed = {} },
-    bossDisabled = false,
+    bossDisabled = false, tags = {}, blindTags = {}, skips = 0, playedThisAnte = {},
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
@@ -59,6 +59,7 @@ function Run.new(seed, deckId)
     used[run.bosses[stage]] = (used[run.bosses[stage]] or 0) + 1
   end
   run.bosses[8] = ns.RNG.pick(run.rng, ns.Bosses.FINALS)
+  ns.Tags.rollBlindTags(run)
   run.startDeckSize = #run.deck
   return run
 end
@@ -572,10 +573,30 @@ function Run.nextBlind(run)
     run.stage, run.blind = run.stage + 1, 1
     run.playedThisAnte = {}
     run.bossRerollsUsed = 0
+    ns.Tags.rollBlindTags(run)
   else
     run.blind = run.blind + 1
   end
   run.phase = "blind"
+end
+
+function Run.canSkip(run)
+  if run.phase ~= "blind" then return false, "Only on the blind screen" end
+  if run.blind ~= 1 and run.blind ~= 2 then return false, "The boss blind cannot be skipped." end
+  return true
+end
+
+-- Skips the small or big blind: no reward and no interest, its tag instead, then on to the next
+-- blind with no shop between (as Balatro). Returns the tag taken (nil for a save from before tags).
+function Run.skipBlind(run)
+  if not Run.canSkip(run) then return nil end
+  local tagId = run.blindTags[run.blind]
+  if tagId then ns.Tags.add(run, tagId) end
+  run.skips = run.skips + 1
+  event("blindSkipped", 1, run)
+  ns.TrinketEngine.fire(run, "onSkip")
+  run.blind = run.blind + 1
+  return tagId
 end
 
 function Run.canRerollBoss(run)

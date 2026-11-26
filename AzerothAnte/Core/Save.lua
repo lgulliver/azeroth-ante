@@ -2,7 +2,7 @@ local _, ns = ...
 
 local Save = {}
 
-Save.VERSION = 6
+Save.VERSION = 7
 
 local function deepCopy(value)
   if type(value) ~= "table" then return value end
@@ -13,6 +13,9 @@ end
 
 function Save.store(db, run)
   db.run = deepCopy(run)
+  -- Kel'Thuzad's forced card is a reference into the hand: stored by id, relinked on load.
+  db.run.forcedCard = nil
+  db.run.forcedCardId = run.forcedCard and run.forcedCard.id or nil
   db.version = Save.VERSION
 end
 
@@ -61,10 +64,22 @@ function Save.load(db)
     run.bossDisabled = run.bossDisabled or false
     run.startDeckSize = run.startDeckSize or 52
   end
+  if db.version < 7 then
+    run.tags = run.tags or {}
+    run.blindTags = run.blindTags or {}
+    run.skips = run.skips or 0
+    run.playedThisAnte = run.playedThisAnte or {}
+    -- Gluth locks the blind's first hand: a mid-blind save from before it was stored has played one.
+    if run.roundFirstHand == nil then run.roundFirstHand = next(run.roundHandPlays or {}) end
+  end
   run.pendingDestroy = nil
   run.cardLog = { added = {}, destroyed = {} } -- Like events: a reload never replays pending notifications.
   run.lifecycleEvents = {} -- Events are for the live UI only; never replayed after a reload.
   ns.Deck.relink(run)
+  -- Older saves held a detached copy of the forced card; either way it relinks by id.
+  local forcedId = run.forcedCardId or (type(run.forcedCard) == "table" and run.forcedCard.id)
+  run.forcedCard = forcedId and ns.Deck.find(run, forcedId) or nil
+  run.forcedCardId = nil
   return run
 end
 

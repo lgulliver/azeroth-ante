@@ -303,6 +303,47 @@ local function run(w)
     Main.Render(run0, true)
   end
   step("2-pre blind select panels, states, rewards, boss rule, sidebar info, stray pile")
+  -- 2-skip. Small and big blinds offer Skip and their tag (with a tooltip); the boss does not.
+  -- Skipping moves on with no reward and the tag joins the sidebar.
+  do
+    local bs = panel("preview")
+    local run0 = Main.run
+    local sb = Main.sidebar
+    local small = run0.blindTags[1]
+    local smallIcon = bs.panels[1].tagIcon
+    check(bs.panels[1].skip and bs.panels[1].skip:IsVisible() and bs.panels[1].skip:IsEnabled(), "small Skip is live")
+    check(bs.panels[2].skip:IsVisible() and not bs.panels[2].skip:IsEnabled(), "big Skip shows, not live yet")
+    check(bs.panels[3].skip == nil and bs.panels[3].tagIcon == nil, "no Skip or tag on the boss")
+    check(smallIcon:IsVisible() and bs.panels[2].tagIcon:IsVisible(), "both tags show")
+    eq(smallIcon.art:GetTexture(), ns.Tags.def[small].icon, "small blind's tag art")
+    smallIcon._scripts.OnEnter(smallIcon)
+    check(stub.tooltip:IsShown(), "tag tooltip shows")
+    eq(stub.tooltip._lines[1], ns.Tags.def[small].name, "tooltip names the tag")
+    eq(stub.tooltip._lines[2], ns.Tags.def[small].desc, "tooltip gives its effect")
+    smallIcon._scripts.OnLeave(smallIcon)
+    check(not (sb.tagIcons[1] and sb.tagIcons[1]:IsShown()), "no held tags yet")
+    local gold = run0.gold
+    click(bs.panels[1].skip, "Skip (small blind)")
+    stub.advance(1)
+    eq(run0.blind, 2, "skip moves to the big blind")
+    eq(run0.phase, "blind", "still on the blind screen")
+    eq(run0.gold, gold, "no reward for a skip")
+    eq(bs.panels[2].state, "CURRENT", "the big blind is current")
+    check(bs.panels[2].skip:IsEnabled(), "big Skip is live now")
+    check(not bs.panels[1].skip:IsShown() and not smallIcon:IsShown(), "a passed blind loses its Skip and tag")
+    check(sb.tagIcons[1] and sb.tagIcons[1]:IsVisible(), "the tag shows in the sidebar")
+    eq(sb.tagIcons[1].id, small, "the sidebar holds the small blind's tag")
+    sb.tagIcons[1]._scripts.OnEnter(sb.tagIcons[1])
+    eq(stub.tooltip._lines[1], ns.Tags.def[small].name, "sidebar tag tooltip")
+    sb.tagIcons[1]._scripts.OnLeave(sb.tagIcons[1])
+    eq(env.AzerothAnteDB.run.skips, 1, "the skip is saved")
+    -- Back to the small blind for the rest of the session.
+    run0.blind, run0.tags, run0.skips = 1, {}, 0
+    Main.Render(run0, true)
+    stub.advance(1)
+    check(not sb.tagIcons[1]:IsShown(), "held tags clear with the run's")
+  end
+  step("2-skip Skip buttons and tags on the blind screen, held tags in the sidebar")
   click(panel("preview").start, "Play (current blind)")
   stub.advance(3)
   eq(Main.run.phase, "play", "phase after Play")

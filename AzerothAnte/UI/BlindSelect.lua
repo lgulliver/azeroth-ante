@@ -19,6 +19,7 @@ local PANEL_W, PANEL_H, GAP = 184, 330, 12
 local TOP_Y = -46                       -- slot top, below the stage header
 local LIFT = 10                         -- the current panel sits this much higher
 local CHIP = 76
+local TAG = 24                          -- the skip tag's icon
 local RISE = 14                         -- entrance: panels rise this far
 local ENTER_T, STAGGER = 0.25, 0.06
 local POP_UP, POP_DOWN, POP_SCALE = 0.1, 0.14, 1.06
@@ -153,6 +154,24 @@ local function makeBlind(p, i, host)
     slot.reroll:Hide()
   end
 
+  if i < 3 and host.skip then
+    -- Small and big blinds: Skip, just under the panel, with the tag it gives on its left.
+    slot.skip = host.button(slot, "Skip", 110, 24, host.skip)
+    slot.skip:SetPoint("TOP", slot, "TOP", TAG / 2 + 4, -(PANEL_H + 6))
+    host.reasonTip(slot.skip)
+    local icon = CreateFrame("Frame", nil, slot)
+    icon:SetSize(TAG, TAG)
+    icon:SetPoint("RIGHT", slot.skip, "LEFT", -8, 0)
+    icon:EnableMouse(true)
+    icon.art = icon:CreateTexture(nil, "ARTWORK")
+    icon.art:SetAllPoints()
+    icon:SetScript("OnEnter", function(self)
+      if self.id then ns.UI.Screens.ShowTagTip(self, self.id, "ANCHOR_TOP") end
+    end)
+    icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    slot.tagIcon = icon
+  end
+
   local stamp = CreateFrame("Frame", nil, slot)
   stamp:SetSize(PANEL_W, 44)
   stamp:SetPoint("CENTER", slot, "CENTER", 0, 10)
@@ -215,6 +234,20 @@ local function refreshOne(b, run, i, bossId)
   b.host.setReason(b.play, st == "UPCOMING" and "Beat the earlier blinds first" or nil)
 
   b.stamp:SetShown(st == "DEFEATED")
+
+  -- Skip and its tag: until the blind is passed; live only on the current one.
+  if b.skip then
+    local tagId = run.blindTags and run.blindTags[i]
+    local open = st ~= "DEFEATED"
+    b.skip:SetShown(open)
+    local ok, reason = ns.Run.canSkip(run)
+    if st == "UPCOMING" then ok, reason = false, "Beat or skip the earlier blinds first" end
+    if ok then b.skip:Enable() else b.skip:Disable() end
+    b.host.setReason(b.skip, (not ok) and reason or nil)
+    b.tagIcon.id = tagId
+    b.tagIcon:SetShown(open and tagId ~= nil)
+    if tagId then b.tagIcon.art:SetTexture(ns.Tags.def[tagId].icon) end
+  end
 
   if b.reroll then
     local owned = ns.Vouchers.bossRerolls(run) > 0

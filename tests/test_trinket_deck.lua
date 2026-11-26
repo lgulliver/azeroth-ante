@@ -165,7 +165,7 @@ H.test("v5_save_migrates", function()
   ns.Run.startBlind(run)
   local db = {}
   ns.Save.store(db, run)
-  T.eq(db.version, 6)
+  T.eq(db.version, 7)
   db.version = 5
   db.run.usage, db.run.cardLog, db.run.bossDisabled, db.run.startDeckSize = nil, nil, nil, nil
   db.run.handsPlayedRound = nil

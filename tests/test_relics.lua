@@ -110,7 +110,7 @@ end)
 
 T.test("radiance_adds_edition", function()
   local seen = {}
-  for seed = 1, 40 do
+  for seed = 1, 120 do
     local run = ns.Run.new(seed, "ADVENTURER")
     ns.Run.startBlind(run)
     local card = run.hand[1]

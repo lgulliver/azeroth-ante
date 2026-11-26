@@ -202,10 +202,23 @@ local function rerollBoss()
   end
 end
 
+-- Skips the small or big blind for its tag: the next panel settles in, with no shop between.
+local function skipBlind()
+  local run = main().run
+  if blocked() or not run or not ns.Run.canSkip(run) then return end
+  ns.Run.skipBlind(run)
+  -- onSkip hooks may have queued events: they play, then the screen moves on.
+  ns.UI.Lifecycle.Drain(run, function()
+    main().Render(run, true)
+    ns.UI.BlindSelect.Enter(panels.blind, run, true)
+    persist()
+  end)
+end
+
 local function buildBlind()
   return ns.UI.BlindSelect.Build({
     makePanel = makePanel, button = button, reasonTip = reasonTip, setReason = setReason,
-    addAbandon = addAbandon, start = startBlind, rerollBoss = rerollBoss,
+    addAbandon = addAbandon, start = startBlind, rerollBoss = rerollBoss, skip = skipBlind,
   })
 end
 
@@ -311,6 +324,15 @@ function Screens.ShowVoucherTip(owner, id, anchor)
   GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
   GameTooltip:AddLine(def.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
   GameTooltip:AddLine(def.tier == 2 and "Voucher (upgrade)" or "Voucher", Theme.parchment[1], Theme.parchment[2], Theme.parchment[3])
+  GameTooltip:AddLine(def.desc, 1, 1, 1, true)
+  GameTooltip:Show()
+end
+
+function Screens.ShowTagTip(owner, id, anchor)
+  local def = ns.Tags.def[id]
+  if not def then return end
+  GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  GameTooltip:AddLine(def.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
   GameTooltip:AddLine(def.desc, 1, 1, 1, true)
   GameTooltip:Show()
 end

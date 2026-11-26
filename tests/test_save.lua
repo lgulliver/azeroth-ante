@@ -70,7 +70,7 @@ T.test("v3_save_migrates_trinkets", function()
   T.eq({ t.uid, t.sellBonus, t.state, t.paid }, { 1, 0, { hands = 0 }, 8 }) -- Spec row 25: fresh purchase counter.
   T.eq(loaded.nextTrinketUid, 2)
   T.eq(loaded.roundHandPlays, {})
-  T.eq(ns.Save.VERSION, 6)
+  T.eq(ns.Save.VERSION, 7)
 end)
 
 T.test("v4_save_migrates_lifecycle_fields", function()
@@ -90,4 +90,46 @@ T.test("load_does_not_replay_lifecycle_events", function()
   local db = {}
   ns.Save.store(db, run)
   T.eq(ns.Save.load(db).lifecycleEvents, {})
+end)
+
+T.test("save_v6_loads_with_empty_tag_state", function()
+  local run = playing()
+  ns.Run.play(run, { 1 })
+  run.tags, run.blindTags, run.skips, run.playedThisAnte, run.roundFirstHand = nil, nil, nil, nil, nil
+  local loaded = ns.Save.load({ version = 6, run = run })
+  T.ok(loaded ~= nil, "v6 load returned nil")
+  T.eq({ loaded.tags, loaded.blindTags, loaded.skips, loaded.playedThisAnte }, { {}, {}, 0, {} })
+  T.eq(loaded.roundFirstHand, next(run.roundHandPlays))
+  T.eq(ns.Save.VERSION, 7)
+end)
+
+T.test("save_v6_relinks_old_forced_card", function()
+  local run = playing()
+  run.forcedCard = { id = run.hand[3].id, rank = run.hand[3].rank, suit = run.hand[3].suit }
+  local loaded = ns.Save.load({ version = 6, run = run })
+  T.ok(rawequal(loaded.forcedCard, loaded.hand[3]), "old forcedCard copy relinked to the hand card")
+end)
+
+T.test("save_roundtrip_keeps_boss_state", function()
+  local run = playing()
+  run.hand[1].faceDown = true
+  run.forcedCard = run.hand[2]
+  local trinket = ns.Trinkets.create(run, "BLOODLUST")
+  trinket.disabled, trinket.faceDown = true, true
+  run.trinkets = { trinket }
+  run.playedThisAnte = { [5] = true }
+  run.tags, run.blindTags, run.skips = { "RARE" }, { "FOIL", "UNCOMMON" }, 1
+  local db = {}
+  ns.Save.store(db, run)
+  T.eq(db.run.forcedCard, nil)
+  T.eq(db.run.forcedCardId, run.hand[2].id)
+  T.ok(rawequal(run.forcedCard, run.hand[2]), "store leaves the live run alone")
+  local loaded = ns.Save.load(db)
+  T.ok(loaded.hand[1].faceDown, "face-down card")
+  T.ok(rawequal(loaded.forcedCard, loaded.hand[2]), "forcedCard relinked")
+  T.eq(loaded.forcedCardId, nil)
+  T.eq({ loaded.trinkets[1].disabled, loaded.trinkets[1].faceDown }, { true, true })
+  T.eq(loaded.playedThisAnte, { [5] = true })
+  T.eq({ loaded.tags, loaded.blindTags, loaded.skips }, { { "RARE" }, { "FOIL", "UNCOMMON" }, 1 })
+  T.eq(loaded, run)
 end)

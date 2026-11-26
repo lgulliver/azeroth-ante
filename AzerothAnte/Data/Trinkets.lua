@@ -13,7 +13,7 @@ local _, ns = ...
 -- sellBonusAll (n), handsDelta (n), discardsSet (n), levelHand (handId), destroyCard (cardId), save.
 -- More update hooks: onSell(run, self, sold, isCopy) on every other trinket after a sale (sold = { kind =
 -- "trinket"|"consumable", item }), onSelfSold(run, self) -> effect (original only, before removal),
--- onShopReroll(run, self, isCopy), onPackSkipped(run, self, isCopy).
+-- onShopReroll(run, self, isCopy), onPackSkipped(run, self, isCopy), onSkip(run, self, isCopy) after a blind skip.
 -- Deck and consumable hooks (lifecycle effects): onConsumableUsed(run, self, item, isCopy) after run.usage counts
 -- it, onPackOpened(run, self, pack, isCopy), onFirstDraw(run, self, isCopy) after the blind's first draw,
 -- onCardsAdded / onCardsDestroyed(run, self, cards, isCopy) once per action (TrinketEngine.flushCards).

@@ -8,6 +8,7 @@ local BLIND_NAMES = { "Small Blind", "Big Blind" }
 local ICON_W, ICON_H = 40, math.floor(40 * 7 / 5 + 0.5) -- a card back, 5:7
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
 local VOUCHER_W, VOUCHER_H, VOUCHER_COLS, VOUCHER_BASE = 20, 28, 9, 44 -- owned-voucher icons, above the Deck button
+local TAG_SIZE, TAG_GAP = 20, 5 -- held-tag icons, a row above the vouchers
 
 local function fontString(parent, font, point, x, y, width)
   local fs = parent:CreateFontString(nil, "OVERLAY", font)
@@ -127,6 +128,7 @@ function Sidebar.Build(frame)
   ach:SetScript("OnClick", function() ns.UI.AchievementsView.Toggle() end)
   frame.achievementsButton = ach
   frame.voucherIcons = {}
+  frame.tagIcons = {}
 end
 
 local function initials(name)
@@ -180,6 +182,44 @@ local function updateVouchers(frame, run)
     frame.voucherIcons[i]:Hide()
   end
   frame.voucherCount = n
+end
+
+local function tagIcon(frame, i)
+  local icon = frame.tagIcons[i]
+  if icon then return icon end
+  icon = CreateFrame("Frame", nil, frame)
+  icon:SetSize(TAG_SIZE, TAG_SIZE)
+  icon:EnableMouse(true)
+  icon.art = icon:CreateTexture(nil, "ARTWORK")
+  icon.art:SetAllPoints()
+  icon:SetScript("OnEnter", function(self)
+    if self.id then ns.UI.Screens.ShowTagTip(self, self.id) end
+  end)
+  icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  frame.tagIcons[i] = icon
+  return icon
+end
+
+-- The tags the run holds, oldest first, in rows just above the voucher icons.
+local function updateTags(frame, run)
+  local tags = run and run.tags or {}
+  local voucherRows = math.ceil((frame.voucherCount or 0) / VOUCHER_COLS)
+  local base = VOUCHER_BASE + voucherRows * (VOUCHER_H + 3)
+  for i, id in ipairs(tags) do
+    local icon = tagIcon(frame, i)
+    local col, row = (i - 1) % VOUCHER_COLS, math.floor((i - 1) / VOUCHER_COLS)
+    icon:ClearAllPoints()
+    icon:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", Theme.margin + col * (TAG_SIZE + TAG_GAP),
+      base + row * (TAG_SIZE + TAG_GAP))
+    icon.id = id
+    icon.art:SetTexture(ns.Tags.def[id] and ns.Tags.def[id].icon)
+    icon:Show()
+  end
+  for i = #tags + 1, #frame.tagIcons do
+    frame.tagIcons[i].id = nil
+    frame.tagIcons[i]:Hide()
+  end
+  frame.tagCount = #tags
 end
 
 -- The round stats show during a run; the profile totals show on the deck-select screen.
@@ -270,6 +310,7 @@ function Sidebar.Update(run, chips, mult)
   local frame = ns.UI.Main and ns.UI.Main.sidebar
   if not frame or not frame.blindName then return end
   updateVouchers(frame, run)
+  updateTags(frame, run)
 
   if not run then
     frame.blindName:SetText("")
