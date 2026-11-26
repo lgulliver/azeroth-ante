@@ -8,8 +8,8 @@ local _, ns = ...
 -- whose playedThisAnte is a set of card ids): a debuffed card scores no chips and no trinket effects.
 -- handSize (number) is added to the hand size while the boss is active.
 -- canPlayHand(run, handId) -> ok, reason: false refuses the hand (Run.canPlay).
--- beforeScore(run, handId): after Run.canPlay, before scoring. afterPlay(run, played, handId): after the
--- score is added, before the refill. drawCount(run, why) -> n: how many cards a refill draws (nil: up to hand size).
+-- beforeScore(run, handId, played): after Run.canPlay, before scoring (Balatro's press_play and debuff_hand);
+-- the held cards are read after it. drawCount(run, why) -> n: how many cards a refill draws (nil: up to hand size).
 local Bosses = {}
 
 Bosses.pool = {
@@ -111,11 +111,21 @@ Bosses.def = {
   },
   GREENSKIN = {
     id = "GREENSKIN", name = "Captain Greenskin", targetMult = 2, minStage = 1, -- The Hook
-    desc = "After each hand, 2 random held cards are discarded.",
-    -- Thrown away, not a discard: no discard is spent, and discard trinkets and Purple seals stay quiet.
-    afterPlay = function(run)
-      for _ = 1, math.min(2, #run.hand) do
-        table.remove(run.hand, ns.RNG.int(run.rng, 1, #run.hand))
+    desc = "Each hand played discards 2 random held cards.",
+    -- Before scoring, so they are not held while the hand scores. Thrown away, not a discard: no discard
+    -- is spent, and discard trinkets and Purple seals stay quiet. The refill after the hand replaces them.
+    beforeScore = function(run, _, played)
+      local isPlayed, held = {}, {}
+      for _, card in ipairs(played) do isPlayed[card] = true end
+      for i, card in ipairs(run.hand) do
+        if not isPlayed[card] then held[#held + 1] = i end
+      end
+      local gone = {}
+      for _ = 1, math.min(2, #held) do
+        gone[table.remove(held, ns.RNG.int(run.rng, 1, #held))] = true
+      end
+      for i = #run.hand, 1, -1 do
+        if gone[i] then table.remove(run.hand, i) end
       end
     end,
   },
@@ -129,7 +139,7 @@ Bosses.def = {
   REVILGAZ = {
     id = "REVILGAZ", name = "Baron Revilgaz", targetMult = 2, minStage = 3, -- The Tooth
     desc = "Lose 1g per card played.",
-    afterPlay = function(run, played)
+    beforeScore = function(run, _, played)
       local floor = ns.Run.goldFloor(run)
       run.gold = math.min(run.gold, math.max(floor, run.gold - #played))
     end,
@@ -137,12 +147,14 @@ Bosses.def = {
   GRUUL = {
     id = "GRUUL", name = "Gruul the Dragonkiller", targetMult = 2, minStage = 6, -- The Ox
     desc = "Playing your most played hand sets gold to 0.",
-    -- run.handPlays already counts this hand, so its count before the play is one less. Ties count.
-    afterPlay = function(run, _, handId)
-      local before = (run.handPlays[handId] or 1) - 1
+    -- Before this play is counted. Ties count; with nothing played yet the most played is High Card.
+    beforeScore = function(run, handId)
+      local mine, any = run.handPlays[handId] or 0, false
       for id, n in pairs(run.handPlays) do
-        if id ~= handId and n > before then return end
+        if n > 0 then any = true end
+        if id ~= handId and n > mine then return end
       end
+      if not any and handId ~= "HIGH_CARD" then return end
       run.gold = math.min(run.gold, 0)
     end,
   },

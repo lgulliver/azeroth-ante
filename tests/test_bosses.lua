@@ -294,6 +294,18 @@ T.test("hook_discards_two_held", function()
   T.eq(kept, 5, "two of the seven held cards are gone")
 end)
 
+T.test("hook_discards_before_scoring", function()
+  local run = bossRun(5, "GREENSKIN")
+  run.target = 1e9
+  for _, c in ipairs(run.hand) do c.enh = "STEEL" end
+  local played = run.hand[1]
+  local result = ns.Run.play(run, { 1 })
+  local heldEvents = 0
+  for _, e in ipairs(result.events) do if e.kind == "held" then heldEvents = heldEvents + 1 end end
+  T.eq(heldEvents, 5, "the two thrown-away cards are not held while the hand scores")
+  for _, c in ipairs(run.hand) do T.ok(c ~= played) end
+end)
+
 T.test("arm_lowers_level_before_scoring", function()
   local run = bossRun(5, "FROSTWHISPER")
   T.eq(ns.Bosses.def.FROSTWHISPER.name, "Ras Frostwhisper")
@@ -320,6 +332,17 @@ T.test("tooth_charges_per_card", function()
   run.gold = 10
   ns.Run.play(run, { 1, 2, 3 })
   T.eq(run.gold, 7)
+end)
+
+T.test("tooth_charges_before_scoring", function()
+  local run = bossRun(5, "REVILGAZ")
+  run.target = 1e9
+  run.trinkets = { ns.Trinkets.create(run, "TAUREN_CHARGE") }
+  run.gold = 10
+  local result = ns.Run.play(run, { 1, 2, 3 })
+  local chips
+  for _, e in ipairs(result.events) do if e.kind == "trinket" then chips = e.chips end end
+  T.eq(chips, 14, "Tauren Charge reads the 7g left after the charge")
 end)
 
 T.test("tooth_respects_gold_floor", function()
@@ -352,6 +375,34 @@ T.test("ox_zeroes_gold_on_most_played", function()
   setHand(run, { { 9, "S" }, { 9, "H" }, { 4, "D" } })
   ns.Run.play(run, { 1, 2 })
   T.eq(run.gold, -5, "debt is left alone")
+end)
+
+T.test("ox_zeroes_gold_before_scoring", function()
+  local run = bossRun(5, "GRUUL")
+  run.target = 1e9
+  run.handPlays = { PAIR = 2 }
+  run.trinkets = { ns.Trinkets.create(run, "TAUREN_CHARGE") }
+  run.gold = 20
+  setHand(run, { { 9, "S" }, { 9, "H" }, { 4, "D" } })
+  local result = ns.Run.play(run, { 1, 2 })
+  local chips
+  for _, e in ipairs(result.events) do if e.kind == "trinket" then chips = e.chips end end
+  T.eq(chips, 0, "Tauren Charge sees 0g")
+  T.eq(run.gold, 0)
+end)
+
+T.test("ox_no_history_means_high_card", function()
+  local run = bossRun(5, "GRUUL")
+  run.target = 1e9
+  run.handPlays = {}
+  run.gold = 20
+  setHand(run, { { 9, "S" }, { 9, "H" }, { 4, "D" } })
+  ns.Run.play(run, { 1, 2 })
+  T.eq(run.gold, 20, "a Pair is not the most played with no history")
+  run.handPlays = {}
+  setHand(run, { { 9, "S" }, { 2, "C" }, { 4, "D" } })
+  ns.Run.play(run, { 1 })
+  T.eq(run.gold, 0, "High Card is")
 end)
 
 T.test("mouth_locks_first_hand_type", function()

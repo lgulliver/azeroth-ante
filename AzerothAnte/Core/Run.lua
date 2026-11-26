@@ -147,7 +147,7 @@ function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
   if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw
-    or boss.handSize or boss.canPlayHand or boss.beforeScore or boss.afterPlay or boss.drawCount) then
+    or boss.handSize or boss.canPlayHand or boss.beforeScore or boss.drawCount) then
     return false
   end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
@@ -388,15 +388,16 @@ function Run.play(run, idx)
   local cards, held, selected = {}, {}, {}
   for i, index in ipairs(idx) do
     cards[i] = run.hand[index]
-    selected[index] = true
-  end
-  for i, card in ipairs(run.hand) do
-    if not selected[i] then held[#held + 1] = card end
+    selected[cards[i]] = true
   end
   for _, card in ipairs(cards) do card.faceDown = nil end -- played cards turn up
+  -- Before the held cards are read: a boss may take some away (Hook) or change gold (Tooth, Ox).
   local boss = Run.activeBoss(run)
   if boss and boss.beforeScore then
-    boss.beforeScore(run, ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets)))
+    boss.beforeScore(run, ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets)), cards)
+  end
+  for _, card in ipairs(run.hand) do
+    if not selected[card] then held[#held + 1] = card end
   end
   local goldRef = { gold = run.gold }
   local ctx = Run.scoreCtx(run, cards, held, { goldRef = goldRef })
@@ -429,8 +430,6 @@ function Run.play(run, idx)
   run.handsLeft = run.handsLeft - 1
   for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
   ns.TrinketEngine.flushCards(run)
-  boss = Run.activeBoss(run)
-  if boss and boss.afterPlay then boss.afterPlay(run, cards, result.handId) end
   if run.score < run.target then refill(run, "play") end
   run.lastResult = result
   if run.score >= run.target then
