@@ -113,15 +113,37 @@ function Run.blindHands(run) return handsFor(run, Run.activeBoss(run)) end
 
 function Run.blindDiscards(run) return discardsFor(run, Run.activeBoss(run)) end
 
+-- Turns every face-down card up: in hand, and in the deck (cards persist between blinds).
+function Run.revealHand(run)
+  for _, card in ipairs(run.hand or {}) do card.faceDown = nil end
+  for _, card in ipairs(run.deck or {}) do card.faceDown = nil end
+end
+
+-- Draws n cards into the hand. why is "start", "play" or "discard"; the active boss's
+-- onDraw(run, card, why) says which of them arrive face down (House, Wheel, Fish, Mark).
+local function drawCards(run, n, why)
+  local first = #run.hand + 1
+  ns.Cards.draw(run.pile, run.hand, n)
+  local boss = Run.activeBoss(run)
+  if not (boss and boss.onDraw) then return end
+  for i = first, #run.hand do
+    local card = run.hand[i]
+    if boss.onDraw(run, card, why) then card.faceDown = true end
+  end
+end
+
 -- Switches the boss's rules off for the rest of the blind. A boss that overrode hands or discards
 -- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable
 -- (no boss, not in play, or a boss with no rules, like the final one).
 function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
-  if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase) then return false end
+  if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw) then
+    return false
+  end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
   run.bossDisabled = true
+  Run.revealHand(run)
   if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
   if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
   return true
@@ -156,7 +178,7 @@ function Run.startBlind(run)
   end
   -- Blind-select hooks fire before the draw (Balatro's set_blind): a trinket they destroy never adds cards.
   ns.TrinketEngine.fire(run, "onBlindSelect")
-  ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run) - #run.hand)
+  drawCards(run, ns.Deck.handSize(run) - #run.hand, "start")
   ns.Cards.sort(run.hand, run.sortMode or "rank")
   event("handSize", ns.Deck.handSize(run), run)
   editionTrinkets(run)
@@ -168,6 +190,7 @@ end
 -- Ends the run as lost, once, unless an onLose trinket (Mr. Bones) saves the blind.
 local function lose(run)
   if run.phase == "lost" then return end
+  Run.revealHand(run)
   ns.TrinketEngine.fire(run, "onLose")
   if run.savedBy then return Run.winBlind(run, { saved = true }) end
   run.phase = "lost"
@@ -241,8 +264,8 @@ local function applySideEffects(run, effects)
   end
 end
 
-local function refill(run)
-  ns.Cards.draw(run.pile, run.hand, ns.Deck.handSize(run) - #run.hand)
+local function refill(run, why)
+  drawCards(run, ns.Deck.handSize(run) - #run.hand, why)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
 end
 
@@ -337,6 +360,7 @@ function Run.play(run, idx)
   for i, card in ipairs(run.hand) do
     if not selected[i] then held[#held + 1] = card end
   end
+  for _, card in ipairs(cards) do card.faceDown = nil end -- played cards turn up
   local goldRef = { gold = run.gold }
   local ctx = Run.scoreCtx(run, cards, held, { goldRef = goldRef })
   run.handsPlayedTotal = run.handsPlayedTotal + 1
@@ -366,7 +390,7 @@ function Run.play(run, idx)
   run.handsLeft = run.handsLeft - 1
   for _, id in ipairs(result.destroyed) do ns.Deck.destroy(run, id) end
   ns.TrinketEngine.flushCards(run)
-  if run.score < run.target then refill(run) end
+  if run.score < run.target then refill(run, "play") end
   run.lastResult = result
   if run.score >= run.target then
     Run.winBlind(run)
@@ -407,7 +431,7 @@ function Run.discard(run, idx)
   for i = #run.hand, 1, -1 do
     if gone[run.hand[i]] then table.remove(run.hand, i) end
   end
-  refill(run)
+  refill(run, "discard")
   ns.TrinketEngine.flushCards(run)
   Run.checkHand(run)
   return outcome
@@ -415,6 +439,7 @@ end
 
 -- opts.saved: a loss prevented by an onLose trinket; the blind reward is replaced by the save.
 function Run.winBlind(run, opts)
+  Run.revealHand(run)
   if run.blind == 3 then run.shopVoucher = nil end
   ns.TrinketEngine.fire(run, "roundUpdate")
   if run.blind == 3 then ns.TrinketEngine.fire(run, "onBossDefeated") end

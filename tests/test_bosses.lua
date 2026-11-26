@@ -58,3 +58,91 @@ T.test("finisher_defs", function()
     T.ok(not ns.Bosses.isFinal(ns.Bosses.pool[1]))
   end
 end)
+
+-- Face-down bosses ---------------------------------------------------------
+
+local function bossRun(seed, bossId)
+  local run = ns.Run.new(seed, "ADVENTURER")
+  run.blind, run.bosses[run.stage] = 3, bossId
+  ns.Run.startBlind(run)
+  return run
+end
+
+local function faceDownCount(cards)
+  local n = 0
+  for _, c in ipairs(cards) do if c.faceDown then n = n + 1 end end
+  return n
+end
+
+T.test("moroes_first_hand_face_down", function()
+  local run = bossRun(5, "MOROES")
+  T.eq(faceDownCount(run.hand), #run.hand)
+  T.ok(#run.hand > 0)
+  run.target = 1e9
+  ns.Run.play(run, { 1 })
+  T.eq(run.handsPlayedRound, 1)
+  local newcomers = 0
+  for _, c in ipairs(run.hand) do
+    if not c.faceDown then newcomers = newcomers + 1 end
+  end
+  T.ok(newcomers >= 1, "the card drawn after the play is face up")
+end)
+
+T.test("thermaplugg_one_in_seven", function()
+  local drawn, down = 0, 0
+  for seed = 1, 400 do
+    local run = bossRun(seed, "THERMAPLUGG")
+    drawn, down = drawn + #run.hand, down + faceDownCount(run.hand)
+  end
+  T.ok(drawn >= 3000)
+  local share = down / drawn
+  T.ok(share > 0.10 and share < 0.19, "share " .. share)
+end)
+
+T.test("morogrim_face_down_after_play_only", function()
+  local run = bossRun(7, "MOROGRIM")
+  run.target = 1e9
+  T.eq(faceDownCount(run.hand), 0)
+  ns.Run.discard(run, { 1, 2 })
+  T.eq(faceDownCount(run.hand), 0, "refill after a discard is face up")
+  ns.Run.play(run, { 1, 2 })
+  T.eq(faceDownCount(run.hand), 2, "refill after a play is face down")
+end)
+
+T.test("skeram_face_cards_only", function()
+  local faces, rules = 0, ns.TrinketRules.set({})
+  for seed = 1, 20 do
+    local run = bossRun(seed, "SKERAM")
+    for _, c in ipairs(run.hand) do
+      local face = ns.Cards.isFace(c, rules)
+      T.eq(c.faceDown == true, face and true or false, "card " .. c.rank .. c.suit)
+      if face then faces = faces + 1 end
+    end
+  end
+  T.ok(faces > 0)
+end)
+
+T.test("played_cards_turn_up", function()
+  local run = bossRun(5, "MOROES")
+  run.target = 1e9
+  local played = run.hand[1]
+  T.ok(played.faceDown)
+  ns.Run.play(run, { 1 })
+  T.eq(played.faceDown, nil)
+  T.eq(ns.Deck.find(run, played.id).faceDown, nil)
+end)
+
+T.test("blind_end_turns_hand_up", function()
+  local run = bossRun(5, "MOROES")
+  T.ok(faceDownCount(run.deck) > 0)
+  ns.Run.winBlind(run)
+  T.eq(faceDownCount(run.deck), 0)
+  T.eq(faceDownCount(run.hand), 0)
+end)
+
+T.test("disabling_boss_turns_cards_up", function()
+  local run = bossRun(5, "SKERAM")
+  run.hand[1].faceDown = true
+  T.ok(ns.Run.disableBoss(run))
+  T.eq(faceDownCount(run.hand), 0)
+end)

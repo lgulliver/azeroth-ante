@@ -2,12 +2,14 @@ local _, ns = ...
 
 -- Stages 1-7 each draw a boss from pool (see Run.new); stage 8 draws one of FINALS. minStage is the
 -- earliest stage a boss can appear, from the Balatro boss it plays as (absent means any).
+-- onDraw(run, card, why) -> bool: true draws the card face down (why: "start", "play" or "discard").
 -- A trinket may disable the boss (run.bossDisabled): read its rules through Run.activeBoss, not Bosses.def[Run.bossId].
 -- debuff(card, rules) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count): a debuffed card scores no chips and no trinket effects.
 local Bosses = {}
 
 Bosses.pool = {
   "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ",
+  "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM",
 }
 
 Bosses.FINALS = { "RAGNAROS", "CTHUN", "YOGG", "XAVIUS", "KELTHUZAD" }
@@ -57,6 +59,28 @@ Bosses.def = {
     id = "ONYXIA", name = "Onyxia", targetMult = 1, minStage = 2, -- The Needle
     desc = "One hand only, and a lower target.",
     hands = 1,
+  },
+  MOROES = {
+    id = "MOROES", name = "Moroes", targetMult = 2, minStage = 2, -- The House
+    desc = "The first hand is drawn face down.",
+    onDraw = function(run, _, why) return why == "start" and run.handsPlayedRound == 0 end,
+  },
+  THERMAPLUGG = {
+    id = "THERMAPLUGG", name = "Mekgineer Thermaplugg", targetMult = 2, minStage = 2, -- The Wheel
+    desc = "1 in 7 cards is drawn face down.",
+    onDraw = function(run) return ns.RNG.next(run.rng) < 1 / 7 end,
+  },
+  MOROGRIM = {
+    id = "MOROGRIM", name = "Morogrim Tidewalker", targetMult = 2, minStage = 2, -- The Fish
+    desc = "Cards drawn after each hand are face down.",
+    onDraw = function(_, _, why) return why == "play" end,
+  },
+  SKERAM = {
+    id = "SKERAM", name = "The Prophet Skeram", targetMult = 2, minStage = 2, -- The Mark
+    desc = "Face cards are drawn face down.",
+    onDraw = function(run, card)
+      return ns.Cards.isFace(card, ns.TrinketRules.set(run.trinkets)) and true or false
+    end,
   },
   RAGNAROS = {
     id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 2,

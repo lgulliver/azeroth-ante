@@ -355,6 +355,24 @@ local function run(w)
   eq(Main.sidebar.chipsBox.text:GetText(), "0", "preview chips clear after the discard")
   step("2b sort and discard")
 
+  -- Face-down cards (the House, Wheel, Fish and Mark bosses) show their back and hide the hand preview.
+  do
+    local fdRun = Main.run
+    local fdw = handWidgets()[1]
+    local fdCard = fdw.card
+    fdCard.faceDown = true
+    HandView.Update(fdRun, false)
+    stub.advance(1)
+    check(fdw.back:IsShown(), "a face-down card shows its back")
+    selectCard(1)
+    eq(Main.sidebar.handName:GetText(), "?", "a face-down card in the selection hides the hand name")
+    click(fdw, "face-down card (deselect)")
+    fdCard.faceDown = nil
+    HandView.Update(fdRun, false)
+    stub.advance(1)
+    check(not fdw.back:IsShown(), "turned up, the card shows its face")
+  end
+
   -- 2c. Card type visuals, edition FX and the deck view.
   local FX, DeckView = ns.UI.EditionFX, ns.UI.DeckView
   local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
@@ -1557,7 +1575,7 @@ local function run(w)
     end
     local nTint = 0
     for _ in pairs(w2.ns.UI.BlindSelect.BOSS_TINT) do nTint = nTint + 1 end
-    eq(nTint, 13, "thirteen boss tints")
+    eq(nTint, 17, "one tint per boss")
     for i = 1, 3 do
       eq(tonumber(bs2.panels[i].reward:GetText():match("|cffffd100(%d+)g|r")), w2.ns.Run.BLIND_REWARDS[i], "reward g amount matches Run.BLIND_REWARDS")
     end

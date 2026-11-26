@@ -140,7 +140,7 @@ end
 
 local function moveTo(w, x, y, duration)
   w.lx, w.ly = x, y
-  w:SetFaceUp(true)
+  w:SetFaceUp(not (w.card and w.card.faceDown))
   Tween.To(w, { x = x, y = y, alpha = 1 }, duration) -- cancels a deal; its onCancel lands the card
 end
 
@@ -188,6 +188,12 @@ local function updatePreview()
   end
   local cards = {}
   for k, i in ipairs(sel) do cards[k] = run.hand[i] end
+  for _, card in ipairs(cards) do
+    if card.faceDown then -- a hidden card hides the hand
+      ns.UI.Sidebar.SetChipsMult(0, 0, "?")
+      return
+    end
+  end
   local handId = ns.HandEval.evaluate(cards, ns.TrinketRules.set(run.trinkets))
   local level = run.handLevels[handId] or 1
   local chips, mult = ns.Hands.base(handId, level)
@@ -296,7 +302,7 @@ function HandView.FlyIn(card, speed)
   w:EnableMouse(false) -- not clickable until it has landed
   local function landed()
     if w.locked then return end
-    w:SetFaceUp(true)
+    w:SetFaceUp(not card.faceDown)
     w:EnableMouse(true)
   end
   Tween.To(w, { x = x, y = BASE_Y, alpha = 1 }, DEAL_TIME / (speed or 1), landed, 0, landed)
@@ -367,6 +373,7 @@ function HandView.Update(run, animate)
       dealt = dealt + 1
     elseif isNew then
       place(w, x, BASE_Y)
+      w:SetFaceUp(not card.faceDown)
     else
       w:SetCard(card) -- a scroll or pack may have changed its type
       moveTo(w, x, BASE_Y, MOVE_TIME)
