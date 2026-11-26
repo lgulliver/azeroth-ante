@@ -37,6 +37,10 @@ for _chip in CHIPS:
 EXPECTED["UI_Gradient.tga"] = (16, 64)
 EXPECTED["UI_Shadow.tga"] = (64, 64)
 EXPECTED["Icon.tga"] = (64, 64)
+COURTS = ["%s%s" % (r, s) for r in "JQK" for s in "SHCD"]
+for _court in COURTS:
+    EXPECTED["Court_%s.tga" % _court] = (128, 256)
+COURT_W, COURT_H = 104, 250  # the court panel is the top-left 104x250 of its 128x256 canvas
 
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0
@@ -201,6 +205,8 @@ def check(name, size):
     alpha = pixels[3::4]
     if name.startswith("BackSq_"):
         return check_square(w, h, alpha)
+    if name.startswith("Court_"):
+        return check_court(w, h, alpha)
     if name.startswith(CARD_PREFIXES) or name in ("CardBack.tga", "Ed_Sheen.tga", "Ed_Holo.tga") or name.startswith("Back_"):
         return check_card(name, w, h, alpha)
     if 0 not in alpha or 255 not in alpha:
@@ -220,6 +226,32 @@ def check_square(w, h, alpha):
         return "card is not opaque across its middle"
     if alpha[16 * w + 48] != 0:
         return "card corner is not rounded"
+    return None
+
+
+def check_court(w, h, alpha):
+    """A double-ended panel in the top-left 104x250: clear outside it, opaque within."""
+    for y in range(h):
+        for x in range(w):
+            inside = x < COURT_W and y < COURT_H
+            if inside and alpha[y * w + x] != 255:
+                return "panel not opaque at (%d,%d)" % (x, y)
+            if not inside and alpha[y * w + x] != 0:
+                return "pixel outside the %dx%d panel at (%d,%d)" % (COURT_W, COURT_H, x, y)
+    return None
+
+
+def check_courts():
+    """Each of the twelve portraits is its own art."""
+    seen = {}
+    for court in COURTS:
+        path = os.path.join(MEDIA, "Court_%s.tga" % court)
+        if not os.path.exists(path):
+            return "missing Court_%s.tga" % court
+        px = _pixels("Court_%s.tga" % court)
+        if px in seen:
+            return "Court_%s is identical to Court_%s" % (court, seen[px])
+        seen[px] = court
     return None
 
 
@@ -282,6 +314,10 @@ def main():
     if err:
         failed += 1
         print("FAIL chips: " + err)
+    err = check_courts()
+    if err:
+        failed += 1
+        print("FAIL courts: " + err)
     err = check_ui_chrome()
     if err:
         failed += 1

@@ -39,6 +39,11 @@ local BORDER_SELECTED = { 1, 0.82, 0 }
 local PAPER = ns.UI.Theme.parchment
 local PAPER_GLASS = { 0.12, 0.18, 0.24 } -- opaque, so the see-through Glass face hides cards behind it
 local SEAL_SIZE = 20
+-- Jacks, Queens and Kings show a double-ended court panel (Court_<J|Q|K><suit>)
+-- in place of the centre suit, standing between the corner indexes. The art is
+-- the top-left 104x250 of its 128x256 canvas.
+local COURT_LETTER = { [11] = "J", [12] = "Q", [13] = "K" }
+local COURT_W, COURT_H, COURT_U, COURT_V = 40, 96, 104 / 128, 250 / 256
 local TIP_DELAY = 0.4
 local FLASH_TIME, FLASH_PEAK = 0.25, 0.7 -- a card change: tint up (the face swaps), tint down
 local V = ns.UI.Theme.cardV
@@ -165,6 +170,14 @@ function Methods.SetCard(w, card)
   w:ApplyInk()
   -- Stone keeps its rank and suit in the data but shows neither.
   for _, r in ipairs(w.indexRegions) do r:SetShown(not stone) end
+  local letter = not stone and COURT_LETTER[card.rank]
+  if letter then
+    w.court:SetTexture(MEDIA .. "Court_" .. letter .. card.suit)
+    w.court:Show()
+    w.suitBig:Hide()
+  else
+    w.court:Hide()
+  end
   if w.mini and not stone then w:LayoutMini() end
 
   if card.seal and ns.CardTypes.seal[card.seal] then
@@ -333,6 +346,11 @@ local function create(parent)
   w.suitBig = face:CreateTexture(nil, "ARTWORK")
   w.suitBig:SetSize(44, 44)
   w.suitBig:SetPoint("CENTER", face, "CENTER", 0, 0)
+  w.court = face:CreateTexture(nil, "ARTWORK")
+  w.court:SetSize(COURT_W, COURT_H)
+  w.court:SetPoint("CENTER", face, "CENTER", 0, 0)
+  w.court:SetTexCoord(0, COURT_U, 0, COURT_V)
+  w.court:Hide()
   w.suitSmall = face:CreateTexture(nil, "ARTWORK")
   w.suitSmall:SetSize(12, 12)
   w.suitSmall:SetPoint("TOPLEFT", face, "TOPLEFT", INDEX_INSET, -(INDEX_INSET + 19))

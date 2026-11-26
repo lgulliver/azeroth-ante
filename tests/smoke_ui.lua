@@ -377,7 +377,7 @@ local function run(w)
   -- Rank and suit print straight onto the face: no plates, no halo, a text colour per face.
   check(cw1.plateTL == nil and cw1.plateBR == nil and cw1.halo == nil, "no index plates or halo on a card")
   do
-    local known = { cw1.border, cw1.paper, cw1.art, cw1.suitBig, cw1.suitSmall, cw1.seal, cw1.shade, cw1.flash, cw1.back }
+    local known = { cw1.border, cw1.paper, cw1.art, cw1.suitBig, cw1.suitSmall, cw1.court, cw1.seal, cw1.shade, cw1.flash, cw1.back }
     local isKnown, extra = {}, 0
     for _, t in ipairs(known) do isKnown[t] = true end
     for _, ch in ipairs(cw1.face._children) do
@@ -409,6 +409,31 @@ local function run(w)
   check(not cw2.rankTL:IsShown() and not cw2.rankBR:IsShown(), "Stone hides its rank")
   check(not cw2.suitBig:IsShown() and not cw2.suitSmall:IsShown(), "Stone hides its suit")
   check(not cw2.seal:IsShown(), "unsealed card hides the seal")
+  -- Jacks, Queens and Kings show their faction portrait in place of the centre suit.
+  do
+    local savedRank, savedSuit = c1.rank, c1.suit
+    for rank, letter in pairs({ [11] = "J", [12] = "Q", [13] = "K" }) do
+      for _, suit in ipairs({ "S", "H", "C", "D" }) do
+        c1.rank, c1.suit = rank, suit
+        cw1:SetCard(c1)
+        local tag = letter .. suit
+        check(cw1.court:IsShown() and not cw1.suitBig:IsShown(), tag .. ": portrait replaces the centre suit")
+        eq(cw1.court:GetTexture(), MEDIA .. "Court_" .. tag, tag .. ": portrait texture")
+        check(cw1.rankTL:IsShown() and cw1.suitSmall:IsShown(), tag .. ": corner index stays")
+      end
+    end
+    c1.rank = 10
+    cw1:SetCard(c1)
+    check(not cw1.court:IsShown() and cw1.suitBig:IsShown(), "a pip card has no portrait")
+    c1.rank, c1.suit = savedRank, savedSuit
+    cw1:SetCard(c1)
+    local savedStone = c2.rank
+    c2.rank = 13
+    cw2:SetCard(c2)
+    check(not cw2.court:IsShown(), "a Stone King shows no portrait")
+    c2.rank = savedStone
+    cw2:SetCard(c2)
+  end
   check(FX.IsRunning(), "EditionFX driver runs while an edition card is visible")
 
   -- Tooltip after a short delay, and the lift is unaffected by it.
@@ -539,7 +564,7 @@ local function run(w)
   stub.advance(1)
   eq(cw1.art:GetTexture(), MEDIA .. "Face_Plain", "plain card face texture")
   check(not cw1.seal:IsShown(), "seal hides when removed")
-  check(cw2.rankTL:IsShown() and cw2.suitBig:IsShown(), "rank and suit return when no longer Stone")
+  check(cw2.rankTL:IsShown() and (cw2.suitBig:IsShown() or cw2.court:IsShown()), "rank and suit (or portrait) return when no longer Stone")
   check(not FX.IsRunning(), "EditionFX driver idles with no edition cards")
   step("2c card visuals, tooltip, deck view, edition FX, 12-card hand")
 

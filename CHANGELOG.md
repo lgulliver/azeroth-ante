@@ -4,6 +4,9 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Added
+- Jacks, Queens and Kings are double-ended court cards of Warcraft characters: Sir Finley, Azshara and King Mrgl-Mrgl on Spades; Arthas, Jaina and Varian on Hearts; Garrosh, Sylvanas and Durotan on Clubs; Gazlowe, Sassy Hardwrench and Gallywix on Diamonds. A Stone court card still shows no art.
+
 ## [0.7.0] - 2026-11-09
 
 ### Added
