@@ -80,18 +80,52 @@ T.test("skip_fires_on_skip_and_counts", function()
   T.eq(events, { { "blindSkipped", 1 } })
 end)
 
+-- Registers test-only tag defs for the duration of fn, removed even if an assert fails.
+local function withDefs(defs, fn)
+  for id, def in pairs(defs) do ns.Tags.def[id] = def end
+  local ok, err = pcall(fn)
+  for id in pairs(defs) do ns.Tags.def[id] = nil end
+  if not ok then error(err, 0) end
+end
+
 T.test("tags_add_and_fire_consume", function()
-  ns.Tags.def.TEST_TAKE = { id = "TEST_TAKE", onTake = function() return true end }
-  ns.Tags.def.TEST_HOOK = { id = "TEST_HOOK", onShopOpen = function(_, n) return n == 1 end }
+  withDefs({
+    TEST_TAKE = { id = "TEST_TAKE", onTake = function() return true end },
+    TEST_HOOK = { id = "TEST_HOOK", onShopOpen = function(_, n) return n == 1 end },
+  }, function()
+    local run = ns.Run.new(3, "ADVENTURER")
+    ns.Tags.add(run, "TEST_TAKE")
+    T.eq(run.tags, {})
+    ns.Tags.add(run, "TEST_HOOK")
+    ns.Tags.add(run, "RARE")
+    ns.Tags.add(run, "TEST_HOOK")
+    ns.Tags.fire(run, "onShopOpen", 2)
+    T.eq(run.tags, { "TEST_HOOK", "RARE", "TEST_HOOK" })
+    ns.Tags.fire(run, "onShopOpen", 1)
+    T.eq(run.tags, { "RARE" })
+  end)
+end)
+
+T.test("skip_counts_before_the_tag", function()
+  local seen
+  withDefs({ TEST_SPEED = { id = "TEST_SPEED", onTake = function(run) seen = run.skips end } }, function()
+    local run = ns.Run.new(3, "ADVENTURER")
+    run.blindTags[1] = "TEST_SPEED"
+    ns.Run.skipBlind(run)
+    T.eq(seen, 1, "onTake sees this skip counted")
+  end)
+end)
+
+T.test("skipped_blinds_tracked_per_ante", function()
   local run = ns.Run.new(3, "ADVENTURER")
-  ns.Tags.add(run, "TEST_TAKE")
-  T.eq(run.tags, {})
-  ns.Tags.add(run, "TEST_HOOK")
-  ns.Tags.add(run, "RARE")
-  ns.Tags.add(run, "TEST_HOOK")
-  ns.Tags.fire(run, "onShopOpen", 2)
-  T.eq(run.tags, { "TEST_HOOK", "RARE", "TEST_HOOK" })
-  ns.Tags.fire(run, "onShopOpen", 1)
-  T.eq(run.tags, { "RARE" })
-  ns.Tags.def.TEST_TAKE, ns.Tags.def.TEST_HOOK = nil, nil
+  T.eq(run.skippedBlinds, {})
+  ns.Run.skipBlind(run)
+  T.eq(run.skippedBlinds, { [1] = true })
+  ns.Run.startBlind(run)
+  ns.Run.winBlind(run)
+  ns.Run.nextBlind(run)
+  T.eq({ run.blind, run.skippedBlinds }, { 3, { [1] = true } })
+  run.phase = "shop"
+  ns.Run.nextBlind(run)
+  T.eq({ run.stage, run.skippedBlinds }, { 2, {} })
 end)

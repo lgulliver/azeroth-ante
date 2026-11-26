@@ -2,7 +2,7 @@ local _, ns = ...
 
 -- The blind-select screen: three tall panels (Small, Big, Boss), Balatro style.
 -- The current blind lifts, glows and carries the Play button; upcoming ones are
--- dimmed; beaten ones are dimmed under a gold DEFEATED stamp.
+-- dimmed; beaten ones are dimmed under a gold DEFEATED stamp (SKIPPED for a skipped one).
 --
 -- Frame structure per panel:
 --   slot   (tweened: position and fade for the entrance)
@@ -234,6 +234,7 @@ local function refreshOne(b, run, i, bossId)
   b.host.setReason(b.play, st == "UPCOMING" and "Beat the earlier blinds first" or nil)
 
   b.stamp:SetShown(st == "DEFEATED")
+  b.stamp.text:SetText((st == "DEFEATED" and run.skippedBlinds and run.skippedBlinds[i]) and "SKIPPED" or "DEFEATED")
 
   -- Skip and its tag: until the blind is passed; live only on the current one.
   if b.skip then

@@ -68,6 +68,7 @@ function Save.load(db)
     run.tags = run.tags or {}
     run.blindTags = run.blindTags or {}
     run.skips = run.skips or 0
+    run.skippedBlinds = run.skippedBlinds or {}
     run.playedThisAnte = run.playedThisAnte or {}
     -- Gluth locks the blind's first hand: a mid-blind save from before it was stored has played one.
     if run.roundFirstHand == nil then run.roundFirstHand = next(run.roundHandPlays or {}) end

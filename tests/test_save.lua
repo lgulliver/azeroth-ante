@@ -96,9 +96,10 @@ T.test("save_v6_loads_with_empty_tag_state", function()
   local run = playing()
   ns.Run.play(run, { 1 })
   run.tags, run.blindTags, run.skips, run.playedThisAnte, run.roundFirstHand = nil, nil, nil, nil, nil
+  run.skippedBlinds = nil
   local loaded = ns.Save.load({ version = 6, run = run })
   T.ok(loaded ~= nil, "v6 load returned nil")
-  T.eq({ loaded.tags, loaded.blindTags, loaded.skips, loaded.playedThisAnte }, { {}, {}, 0, {} })
+  T.eq({ loaded.tags, loaded.blindTags, loaded.skips, loaded.playedThisAnte, loaded.skippedBlinds }, { {}, {}, 0, {}, {} })
   T.eq(loaded.roundFirstHand, next(run.roundHandPlays))
   T.eq(ns.Save.VERSION, 7)
 end)
@@ -118,7 +119,7 @@ T.test("save_roundtrip_keeps_boss_state", function()
   trinket.disabled, trinket.faceDown = true, true
   run.trinkets = { trinket }
   run.playedThisAnte = { [5] = true }
-  run.tags, run.blindTags, run.skips = { "RARE" }, { "FOIL", "UNCOMMON" }, 1
+  run.tags, run.blindTags, run.skips, run.skippedBlinds = { "RARE" }, { "FOIL", "UNCOMMON" }, 1, { [1] = true }
   local db = {}
   ns.Save.store(db, run)
   T.eq(db.run.forcedCard, nil)
@@ -130,6 +131,7 @@ T.test("save_roundtrip_keeps_boss_state", function()
   T.eq(loaded.forcedCardId, nil)
   T.eq({ loaded.trinkets[1].disabled, loaded.trinkets[1].faceDown }, { true, true })
   T.eq(loaded.playedThisAnte, { [5] = true })
-  T.eq({ loaded.tags, loaded.blindTags, loaded.skips }, { { "RARE" }, { "FOIL", "UNCOMMON" }, 1 })
+  T.eq({ loaded.tags, loaded.blindTags, loaded.skips, loaded.skippedBlinds },
+    { { "RARE" }, { "FOIL", "UNCOMMON" }, 1, { [1] = true } })
   T.eq(loaded, run)
 end)

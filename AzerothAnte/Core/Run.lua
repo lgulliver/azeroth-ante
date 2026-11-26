@@ -39,7 +39,7 @@ function Run.new(seed, deckId)
     target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
     discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
     usage = { scroll = 0, tome = 0, relic = 0, tomeIds = {} }, cardLog = { added = {}, destroyed = {} },
-    bossDisabled = false, tags = {}, blindTags = {}, skips = 0, playedThisAnte = {},
+    bossDisabled = false, tags = {}, blindTags = {}, skips = 0, skippedBlinds = {}, playedThisAnte = {},
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
@@ -573,6 +573,7 @@ function Run.nextBlind(run)
     run.stage, run.blind = run.stage + 1, 1
     run.playedThisAnte = {}
     run.bossRerollsUsed = 0
+    run.skippedBlinds = {}
     ns.Tags.rollBlindTags(run)
   else
     run.blind = run.blind + 1
@@ -591,8 +592,9 @@ end
 function Run.skipBlind(run)
   if not Run.canSkip(run) then return nil end
   local tagId = run.blindTags[run.blind]
+  run.skips = run.skips + 1 -- before the tag, as Balatro: Speed counts this skip
+  run.skippedBlinds[run.blind] = true
   if tagId then ns.Tags.add(run, tagId) end
-  run.skips = run.skips + 1
   event("blindSkipped", 1, run)
   ns.TrinketEngine.fire(run, "onSkip")
   run.blind = run.blind + 1
