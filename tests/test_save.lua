@@ -99,7 +99,9 @@ T.test("save_v6_loads_with_empty_tag_state", function()
   run.skippedBlinds = nil
   local loaded = ns.Save.load({ version = 6, run = run })
   T.ok(loaded ~= nil, "v6 load returned nil")
-  T.eq({ loaded.tags, loaded.blindTags, loaded.skips, loaded.playedThisAnte, loaded.skippedBlinds }, { {}, {}, 0, {}, {} })
+  T.eq({ loaded.tags, loaded.skips, loaded.playedThisAnte, loaded.skippedBlinds }, { {}, 0, {}, {} })
+  T.eq(#loaded.blindTags, 2, "the two skip tags are rolled")
+  for _, id in ipairs(loaded.blindTags) do T.ok(ns.Tags.def[id], id) end
   T.eq(loaded.roundFirstHand, next(run.roundHandPlays))
   T.eq(ns.Save.VERSION, 7)
 end)

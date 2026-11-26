@@ -66,7 +66,8 @@ function Save.load(db)
   end
   if db.version < 7 then
     run.tags = run.tags or {}
-    run.blindTags = run.blindTags or {}
+    -- Older saves have no skip tags: roll this stage's pair, or Skip would give nothing.
+    if not (run.blindTags and run.blindTags[1]) then ns.Tags.rollBlindTags(run) end
     run.skips = run.skips or 0
     run.skippedBlinds = run.skippedBlinds or {}
     run.playedThisAnte = run.playedThisAnte or {}
