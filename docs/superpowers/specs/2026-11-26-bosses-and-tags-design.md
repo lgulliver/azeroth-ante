@@ -28,9 +28,9 @@ Existing bosses keep their ids and gain the Balatro boss they already play as. T
 | The Wheel | THERMAPLUGG | Mekgineer Thermaplugg | 2 | ×2 | 1 in 7 cards is drawn face down |
 | The Arm | FROSTWHISPER | Ras Frostwhisper | 2 | ×2 | The played hand loses a level (not below 1) |
 | The Fish | MOROGRIM | Morogrim Tidewalker | 2 | ×2 | Cards drawn after each hand are face down |
-| The Mouth | GLUTH | Gluth | 2 | ×2 | Only the first hand type played this round can be played |
+| The Mouth | GLUTH | Gluth | 2 | ×2 | Only the first hand type played this round can be played; any other plays but scores nothing ("Not allowed!") |
 | The Mark | SKERAM | The Prophet Skeram | 2 | ×2 | Face cards are drawn face down |
-| The Eye | ARAN | Shade of Aran | 3 | ×2 | No hand type can be repeated this round |
+| The Eye | ARAN | Shade of Aran | 3 | ×2 | No hand type can be repeated this round; a repeat plays but scores nothing ("Not allowed!") |
 | The Tooth | REVILGAZ | Baron Revilgaz | 3 | ×2 | Lose 1g per card played |
 | The Serpent | HAKKAR | Hakkar the Soulflayer | 5 | ×2 | After a play or discard, always draw exactly 3 |
 | The Ox | GRUUL | Gruul the Dragonkiller | 6 | ×2 | Playing your most-played hand sets gold to 0 |
@@ -57,7 +57,7 @@ Finisher bosses (ante 8 only, reward 8g):
 - **Boss hooks.** Boss defs gain optional hooks, called from `Run` and `Scoring`:
   - `onDraw(run, card)` → face down or not (House, Wheel, Fish, Mark).
   - `canPlayHand(run, handId)` → false plus a reason (Mouth, Eye).
-  - `afterPlay(run, played, handId)` (Hook, Arm, Tooth, Ox).
+  - `afterPlay(run, played, handId)` (Hook, Arm, Tooth, Ox). As built these act before scoring, as in Balatro (the Arm levels the hand down first, the Tooth takes its gold first).
   - `drawCount(run)` (Serpent).
   - `handSize` (Manacle), and `debuff(card, rules, run)` gains `run` (Pillar).
   - Finishers: `beforeHand(run)` (Crimson Heart), `onStart(run)` (Amber Acorn, Cerulean Bell), `onSell(run)` (Verdant Leaf).
@@ -120,3 +120,17 @@ Pack tags open the pack immediately, free, as Balatro does. Shop tags wait for t
 2. Finishers and the ante-8 draw.
 3. Skip flow and tag state (save/load, UI).
 4. The 24 tags.
+
+## Outcome
+
+`luajit tools/sim/sim.lua 100` (seed 1, greedy bot). The bot skips a small or big blind for Economy, Scribe's Gift, Archivist's Gift, Uncommon, Rare, Negative or Polychrome tags (and Speed once it has 2 skips), and resolves free packs with its normal pack logic. It leaves Darkmoon Card, Lockbox Key and Ethereal gift packs alone because its pack logic only picks Tomes and Scrolls.
+
+| Deck | Wins / 100 | Mean skips per run |
+|---|---|---|
+| Rogue | 0 | 2.23 |
+| Warrior | 2 | 2.60 |
+| Goblin | 1 | 2.23 |
+| Monk | 0 | 2.23 |
+| Warlock | 1 | 1.68 |
+
+A few percent at most, as expected: the bot is a floor, not a target.
