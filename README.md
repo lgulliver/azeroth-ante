@@ -170,6 +170,7 @@ Run these checks in Retail and Forever:
 - [ ] A face-down card shows its back and flips when played.
 - [ ] Buying in the shop works.
 - [ ] The small and big blinds show a tag and a Skip button; skipping gives the tag and goes to the next blind with no shop.
+- [ ] The sidebar's tag row doesn't overlap the round info with several vouchers owned.
 - [ ] A tag that gives a free pack opens it on the blind screen, and the blind cannot start until it is picked from or skipped.
 - [ ] `/reload` mid-round resumes on the same hand.
 - [ ] Joining a queue opens the window.
