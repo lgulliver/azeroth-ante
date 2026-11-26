@@ -231,3 +231,25 @@ T.test("disabling_targorr_refills_hand", function()
   T.ok(ns.Run.disableBoss(run))
   T.eq(#run.hand, 8)
 end)
+
+T.test("archaedas_discard_trinkets_skip_played_cards", function()
+  local run = bossRun(5, "ARCHAEDAS")
+  run.trinkets = { { uid = 1, id = "FACELESS_ONE" } }
+  run.gold = 0
+  local faces = {}
+  for _, c in ipairs(run.deck) do
+    if c.rank >= 11 and c.rank <= 13 and #faces < 3 then faces[#faces + 1] = c end
+  end
+  for i = 1, 3 do run.hand[i] = faces[i] end
+  run.playedThisAnte = { [faces[1].id] = true }
+  ns.Run.discard(run, { 1, 2, 3 })
+  T.eq(run.gold, 0)
+end)
+
+T.test("targorr_hand_size_back_in_shop", function()
+  local run = bossRun(5, "TARGORR")
+  T.eq(ns.Deck.handSize(run), 7)
+  ns.Run.winBlind(run)
+  T.eq(run.phase, "shop")
+  T.eq(ns.Deck.handSize(run), 8)
+end)

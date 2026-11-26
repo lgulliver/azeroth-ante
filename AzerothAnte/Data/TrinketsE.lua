@@ -90,7 +90,7 @@ ns.Trinkets.add {
 -- True when the current boss debuffs the card: debuffed discards trigger nothing (like the Purple seal).
 local function debuffed(run, card, rules)
   local boss = ns.Run.activeBoss(run)
-  return boss and boss.debuff and boss.debuff(card, rules) and true or false
+  return boss and boss.debuff and boss.debuff(card, rules, run) and true or false
 end
 
 -- 57: Faceless One.

@@ -2,7 +2,7 @@ local _, ns = ...
 
 local function debuffed(ctx, card)
   local boss = ctx.bossId and ns.Bosses.def[ctx.bossId]
-  return boss and boss.debuff and boss.debuff(card, ctx.rules)
+  return boss and boss.debuff and boss.debuff(card, ctx.rules, ctx)
 end
 
 local function steelMult(cards)
