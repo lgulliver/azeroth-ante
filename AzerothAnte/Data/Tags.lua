@@ -25,12 +25,13 @@ local function topUp(run)
 end
 
 -- Shop tags act as the shop opens, on its priced stock (Shop.open); an offer a tag frees keeps
--- cost 0 through Shop.reprice (tagFree), and a bought one still sells at half its listed price.
+-- cost 0 through Shop.reprice (tagFree), so a bought one sells for 1g (Balatro prices the sale after it).
 local function free(item)
   item.cost, item.tagFree = 0, true
 end
 
--- Uncommon/Rare: the first card slot no such tag has filled becomes a free trinket of that rarity.
+-- Uncommon/Rare: the first card slot no rarity or edition tag has taken becomes a free trinket of that
+-- rarity (so an edition tag's trinket is never thrown away).
 -- With none of the rarity left to offer, the tag waits for a later shop.
 local function rarityTag(rarity)
   return function(run)
@@ -39,7 +40,7 @@ local function rarityTag(rarity)
       if item and item.type == "trinket" then taken[item.id] = true end
     end
     for i, old in ipairs(cards) do
-      if not (old and old.tagRolled) then
+      if not (old and (old.tagRolled or old.tagEdition)) then
         local item = ns.Shop.rollTrinket(run, taken, rarity)
         if not item then return end
         item.baseCost, item.tagRolled = item.cost, true
@@ -57,7 +58,7 @@ local function editionTag(ed)
   return function(run)
     for _, item in ipairs(run.shop.cards) do
       if item and item.type == "trinket" and not item.ed then
-        item.ed = ed
+        item.ed, item.tagEdition = ed, true
         item.baseCost = ns.Trinkets.def[item.id].cost + ns.CardTypes.ED_COST[ed]
         free(item)
         return true
@@ -207,7 +208,7 @@ Tags.def = {
     desc = "Rerolls in the next shop start at 0g",
     icon = "Interface\\Icons\\INV_Misc_Dice_02",
     onShopOpen = function(run)
-      run.shop.rerollCost = 0
+      run.shop.rerollCost, run.shop.d6 = 0, true
       return true
     end,
   },

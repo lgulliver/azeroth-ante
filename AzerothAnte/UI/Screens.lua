@@ -1069,7 +1069,7 @@ local function refreshShop(p, run)
   -- Lucky Coin and Gambler's Charm make rerolls cheaper (Shop.reroll's formula).
   -- A Chaos Theory reroll is free and does not raise the price (Shop.reroll).
   local free = (shop.freeRerolls or 0) > 0
-  local rerollCost = free and 0 or math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
+  local rerollCost = free and 0 or math.max(0, shop.rerollCost - (shop.d6 and 0 or ns.Vouchers.rerollDelta(run)))
   p.reroll:SetText(free and "Reroll (free)" or ("Reroll (" .. rerollCost .. "g)"))
   local canReroll = ns.Run.canAfford(run, rerollCost) and not blockedByPack
   if canReroll then p.reroll:Enable() else p.reroll:Disable() end

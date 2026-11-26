@@ -73,7 +73,7 @@ function Shop.priceOf(run, item)
 end
 
 -- Re-prices every open offer; called after anything that can change prices mid-shop. A tag-freed
--- offer (tagFree) stays free.
+-- offer (tagFree) stays free, and so sells for 1g, as Balatro's set_cost prices the sale after the coupon.
 function Shop.reprice(run)
   local shop = run.shop
   if not shop then return end
@@ -152,18 +152,16 @@ local function buyItem(run, i)
   local item = shop and shop.cards[i]
   if not item then return false, "gone" end
   if not ns.Run.canAfford(run, item.cost) then return false, "gold" end
-  -- A tag-freed offer sells as if bought at its listed price (Balatro prices the sale before the coupon).
-  local listed = item.tagFree and Shop.priceOf(run, item) or item.cost
   if item.type == "trinket" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
-    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, listed)
+    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, item.cost)
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
   elseif item.type == "card" then
     ns.Deck.add(run, { rank = item.rank, suit = item.suit, enh = item.enh,
-      ed = item.ed, seal = item.seal, paid = listed })
+      ed = item.ed, seal = item.seal, paid = item.cost })
   else
-    if not ns.Consumables.add(run, { kind = item.type, id = item.id, paid = listed }) then
+    if not ns.Consumables.add(run, { kind = item.type, id = item.id, paid = item.cost }) then
       return false, "slots"
     end
   end
@@ -225,11 +223,18 @@ function Shop.sellTrinket(run, slot)
   return ns.Run.sellTrinket(run, slot) or 0
 end
 
+-- The next paid reroll's price: Reroll Surplus/Glut take their discount off it, except in a shop
+-- whose rerolls Heirloom Dice started at 0g (shop.d6; Balatro's D6 replaces the discounted base).
+function Shop.rerollPrice(run)
+  local shop = run.shop
+  return math.max(0, shop.rerollCost - (shop.d6 and 0 or ns.Vouchers.rerollDelta(run)))
+end
+
 function Shop.reroll(run)
   local shop = run.shop
   if ns.Packs.current(run) then return false, "pack" end
   local free = (shop.freeRerolls or 0) > 0
-  local cost = free and 0 or math.max(0, shop.rerollCost - ns.Vouchers.rerollDelta(run))
+  local cost = free and 0 or Shop.rerollPrice(run)
   if not ns.Run.canAfford(run, cost) then return false, "gold" end
   run.gold = run.gold - cost
   if free then shop.freeRerolls = shop.freeRerolls - 1 else shop.rerollCost = shop.rerollCost + 1 end

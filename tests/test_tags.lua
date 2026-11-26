@@ -296,9 +296,7 @@ T.test("uncommon_tag_free_uncommon", function()
       T.eq(item.cost, 0, "reprice keeps it free")
       T.ok(ns.Shop.buy(run, 1))
       T.eq(run.gold, 100, "free")
-      T.eq(ns.Shop.sellValue(run.trinkets[1]),
-        math.max(1, math.floor((ns.Trinkets.def[item.id].cost + (ns.CardTypes.ED_COST[item.ed] or 0)) / 2)),
-        "sells at half its listed price")
+      T.eq(ns.Shop.sellValue(run.trinkets[1]), 1, "sells for 1g, priced after the tag")
     end
   end
   local roll = ns.Shop.rollTrinket
@@ -361,6 +359,14 @@ T.test("d6_rerolls_start_free", function()
   T.eq({ run.gold, run.shop.rerollCost }, { 99, 2 })
   run = shopWith(4, {})
   T.eq(run.shop.rerollCost, 5, "only with the tag")
+  run = shopWith(4, { "D6" }, function(r) r.vouchers.REROLL_SURPLUS = true end)
+  for i = 0, 2 do
+    T.ok(ns.Shop.reroll(run))
+    T.eq(run.gold, 100 - i * (i + 1) / 2, "D6 with Reroll Surplus: reroll " .. (i + 1) .. " costs " .. i)
+  end
+  run = shopWith(4, {}, function(r) r.vouchers.REROLL_SURPLUS = true end)
+  T.ok(ns.Shop.reroll(run))
+  T.eq(run.gold, 97, "Reroll Surplus alone still discounts")
 end)
 
 T.test("voucher_tag_adds_offer", function()
@@ -436,4 +442,18 @@ T.test("double_never_copies_double", function()
   ns.Tags.add(run, "DOUBLE")
   ns.Tags.add(run, "DOUBLE")
   T.eq(run.tags, { "DOUBLE", "DOUBLE" })
+end)
+
+T.test("rarity_tag_keeps_edition_tag_trinket", function()
+  local run = ns.Run.new(3, "ADVENTURER")
+  run.shop = { cards = {
+    { type = "trinket", id = "BLOODLUST", cost = 6, baseCost = 6 },
+    { type = "scroll", id = "FORTUNE", cost = 3, baseCost = 3 },
+  }, packs = {}, rerollCost = 5 }
+  run.tags = { "POLY", "UNCOMMON" }
+  ns.Tags.fire(run, "onShopOpen")
+  local cards = run.shop.cards
+  T.eq({ cards[1].id, cards[1].ed, cards[1].cost }, { "BLOODLUST", "POLY", 0 }, "the Poly trinket stays")
+  T.eq({ cards[2].type, ns.Trinkets.def[cards[2].id].rarity, cards[2].cost }, { "trinket", "uncommon", 0 })
+  T.eq(run.tags, {})
 end)
