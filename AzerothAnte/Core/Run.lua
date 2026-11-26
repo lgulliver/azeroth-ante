@@ -186,6 +186,7 @@ function Run.startBlind(run)
   run.bossDisabled = false
   run.pile = ns.Deck.shuffledPile(run)
   run.hand = {}
+  clearFinisher(run) -- before hands and discards: a stale disabled trinket must not start the blind short
   run.handsLeft = Run.blindHands(run)
   run.discardsLeft = Run.blindDiscards(run)
   run.score = 0
@@ -195,7 +196,6 @@ function Run.startBlind(run)
   run.discardsUsedRound = 0
   run.savedBy, run.savedById = nil, nil
   run.flags.soldThisBlind = nil
-  clearFinisher(run)
   run.target = Run.target(run.stage, run.blind, bossId)
   if bossId then
     run.bossesFought[bossId] = true
@@ -220,9 +220,10 @@ end
 local function lose(run)
   if run.phase == "lost" then return end
   Run.revealHand(run)
-  clearFinisher(run)
+  -- A saver Ragnaros disabled stays disabled for onLose; a save clears the rest in winBlind.
   ns.TrinketEngine.fire(run, "onLose")
   if run.savedBy then return Run.winBlind(run, { saved = true }) end
+  clearFinisher(run)
   run.phase = "lost"
   event("runEnded", 0, run)
 end

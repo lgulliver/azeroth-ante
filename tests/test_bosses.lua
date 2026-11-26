@@ -594,10 +594,15 @@ T.test("kelthuzad_forces_a_card", function()
   ns.Run.discard(run, { other, fi })
   T.ok(run.forcedCard and run.forcedCard ~= forced, "a new card is forced after it leaves")
   forced = run.forcedCard
-  T.eq(forced, run.forcedCard)
   for i, c in ipairs(run.hand) do if c == forced then fi = i end end
   ns.Run.play(run, { fi })
   T.ok(run.forcedCard and run.forcedCard ~= forced, "replaced after it is played")
+  local inHand = false
+  for _, c in ipairs(run.hand) do
+    if c == run.forcedCard then inHand = true end
+    T.ok(c ~= forced, "the played card left the hand")
+  end
+  T.ok(inHand, "the new forced card is in the hand")
   local still = run.forcedCard
   for i, c in ipairs(run.hand) do if c ~= still then fi = i break end end
   for i, c in ipairs(run.hand) do if c == still then other = i end end
@@ -668,11 +673,32 @@ T.test("ragnaros_disabled_trinket_loses_its_passive", function()
   T.eq(#fresh.hand, 9, "re-enabled, the hand draws up")
   -- Interest counts a trinket that was disabled when the blind ends.
   ns.Trinkets.def.TEST_INTEREST = { id = "TEST_INTEREST", interestBonus = 1 }
-  local paid = finisherRun(5, "RAGNAROS", { { uid = 50, id = "TEST_INTEREST" } })
-  T.ok(paid.trinkets[1].disabled)
-  T.eq(ns.Trinkets.interestBonus(paid), 0, "a disabled interest trinket adds nothing")
-  paid.gold = 25
-  ns.Run.winBlind(paid)
-  ns.Trinkets.def.TEST_INTEREST = nil
+  local paid, disabled, bonus
+  local ok, err = pcall(function()
+    paid = finisherRun(5, "RAGNAROS", { { uid = 50, id = "TEST_INTEREST" } })
+    disabled, bonus = paid.trinkets[1].disabled, ns.Trinkets.interestBonus(paid)
+    paid.gold = 25
+    ns.Run.winBlind(paid)
+  end)
+  ns.Trinkets.def.TEST_INTEREST = nil -- removed before any assert can fail
+  T.ok(ok, err)
+  T.ok(disabled)
+  T.eq(bonus, 0, "a disabled interest trinket adds nothing")
   T.eq(paid.lastPayout.interest, 10, "cleared before the payout: 5 units x 2")
+end)
+
+T.test("ragnaros_disabled_saver_does_not_save", function()
+  local run = finisherRun(5, "RAGNAROS", {})
+  run.trinkets = { ns.Trinkets.create(run, "SOULSTONE") }
+  run.trinkets[1].disabled = true
+  run.target, run.score, run.handsLeft = 1e9, 5e8, 1
+  ns.Run.play(run, { 1 })
+  T.eq(run.phase, "lost", "a disabled Soulstone does not save the run")
+  T.eq(#run.trinkets, 1, "and is not used up")
+  T.ok(not run.trinkets[1].disabled, "cleared once the run is lost")
+  local saved = finisherRun(5, "RAGNAROS", {})
+  saved.trinkets = { ns.Trinkets.create(saved, "SOULSTONE") }
+  saved.target, saved.score, saved.handsLeft = 1e9, 5e8, 1
+  ns.Run.play(saved, { 1 })
+  T.ok(saved.phase ~= "lost", "an enabled Soulstone still saves")
 end)

@@ -221,8 +221,7 @@ Bosses.def = {
   KELTHUZAD = {
     id = "KELTHUZAD", name = "Kel'Thuzad", targetMult = 2, -- Cerulean Bell
     desc = "One card is always forced into your selection.",
-    onStart = forceCard,
-    afterDraw = forceCard,
+    afterDraw = forceCard, -- the start draw included
   },
 }
 
