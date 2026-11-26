@@ -132,13 +132,19 @@ local function drawCards(run, n, why)
   end
 end
 
+local function refill(run, why)
+  drawCards(run, ns.Deck.handSize(run) - #run.hand, why)
+  ns.Cards.sort(run.hand, run.sortMode or "rank")
+end
+
 -- Switches the boss's rules off for the rest of the blind. A boss that overrode hands or discards
 -- hands back the difference to the normal count; the target stays. Returns false if there was nothing to disable
 -- (no boss, not in play, or a boss with no rules, like the final one).
 function Run.disableBoss(run)
   local boss = Run.activeBoss(run)
   if not boss or run.phase ~= "play" then return false end
-  if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw) then
+  if not (boss.debuff or boss.hands or boss.discards or boss.mustPlay or boss.halveBase or boss.onDraw
+    or boss.handSize) then
     return false
   end
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
@@ -146,6 +152,7 @@ function Run.disableBoss(run)
   Run.revealHand(run)
   if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
   if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
+  if boss.handSize then refill(run) end
   return true
 end
 
@@ -264,11 +271,6 @@ local function applySideEffects(run, effects)
   end
 end
 
-local function refill(run, why)
-  drawCards(run, ns.Deck.handSize(run) - #run.hand, why)
-  ns.Cards.sort(run.hand, run.sortMode or "rank")
-end
-
 -- Call after any trinket acquire, sell or destroy with `before = Trinkets.mods(run)` taken first.
 -- In a live blind the change moves hands and discards left; a bigger hand draws up to the new size,
 -- a smaller one never discards. A blind already won is being tallied, so it is left alone.
@@ -344,6 +346,7 @@ function Run.scoreCtx(run, cards, held, overrides)
     deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
     firstHandOfRound = (run.handsPlayedRound or 0) == 0,
     consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
+    playedThisAnte = run.playedThisAnte,
   }
   for k, v in pairs(overrides or {}) do ctx[k] = v end
   return ctx
@@ -367,6 +370,8 @@ function Run.play(run, idx)
   run.handsPlayedRound = run.handsPlayedRound + 1
   local result = ns.Scoring.score(ctx)
   removePlayed(run, cards)
+  run.playedThisAnte = run.playedThisAnte or {}
+  for _, card in ipairs(cards) do run.playedThisAnte[card.id] = true end
   -- Scoring worked on scratch copies of the instances and cards; this is the commit. A trinket
   -- destroyed while scoring changes hands, discards and hand size, so the swap settles them.
   Run.withMods(run, function()
@@ -418,7 +423,7 @@ function Run.discard(run, idx)
     local boss = Run.activeBoss(run)
     local rules = ns.TrinketRules.set(run.trinkets)
     for _, card in ipairs(cards) do
-      local debuffed = boss and boss.debuff and boss.debuff(card, rules)
+      local debuffed = boss and boss.debuff and boss.debuff(card, rules, run)
       if card.seal == "PURPLE" and not debuffed and #run.consumables < ns.Consumables.slots(run) then
         local item = ns.Consumables.random(run, "scroll")
         ns.Consumables.add(run, item)
@@ -470,7 +475,7 @@ function Run.winBlind(run, opts)
   local boss = Run.activeBoss(run)
   local rules = ns.TrinketRules.set(run.trinkets)
   for _, card in ipairs(run.hand) do
-    if not (boss and boss.debuff and boss.debuff(card, rules)) then
+    if not (boss and boss.debuff and boss.debuff(card, rules, run)) then
       -- Mirror Image (and copies of it) retrigger end-of-round held abilities too.
       local repeats = 1
       ns.TrinketEngine.each(run.trinkets, function(_, instance, def, isCopy)
@@ -504,6 +509,7 @@ function Run.nextBlind(run)
   if run.phase ~= "shop" then return end
   if run.blind == 3 then
     run.stage, run.blind = run.stage + 1, 1
+    run.playedThisAnte = {}
     run.bossRerollsUsed = 0
   else
     run.blind = run.blind + 1

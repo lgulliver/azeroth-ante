@@ -1591,7 +1591,7 @@ local function run(w)
     end
     local nTint = 0
     for _ in pairs(w2.ns.UI.BlindSelect.BOSS_TINT) do nTint = nTint + 1 end
-    eq(nTint, 17, "one tint per boss")
+    eq(nTint, 21, "one tint per boss")
     for i = 1, 3 do
       eq(tonumber(bs2.panels[i].reward:GetText():match("|cffffd100(%d+)g|r")), w2.ns.Run.BLIND_REWARDS[i], "reward g amount matches Run.BLIND_REWARDS")
     end

@@ -359,7 +359,7 @@ function HandView.Update(run, animate)
       widgetOf[card] = w
     end
     list[i] = w
-    w:SetDebuffed(debuff and debuff(card, rules))
+    w:SetDebuffed(debuff and debuff(card, rules, run))
     w:SetBaseLevel(area:GetFrameLevel() + 2 + i * 4)
     local x = rowX(i, n, areaW)
     if isNew and animate then

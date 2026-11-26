@@ -4,12 +4,14 @@ local _, ns = ...
 -- earliest stage a boss can appear, from the Balatro boss it plays as (absent means any).
 -- onDraw(run, card, why) -> bool: true draws the card face down (why: "start", "play" or "discard").
 -- A trinket may disable the boss (run.bossDisabled): read its rules through Run.activeBoss, not Bosses.def[Run.bossId].
--- debuff(card, rules) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count): a debuffed card scores no chips and no trinket effects.
+-- debuff(card, rules, info) -> bool (rules: TrinketRules.set, so Smeared/Pareidolia count; info: the run or scoring ctx,
+-- whose playedThisAnte is a set of card ids): a debuffed card scores no chips and no trinket effects.
+-- handSize (number) is added to the hand size while the boss is active.
 local Bosses = {}
 
 Bosses.pool = {
   "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ",
-  "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM",
+  "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM", "THREDD", "TARGORR", "PATCHWERK", "ARCHAEDAS",
 }
 
 Bosses.FINALS = { "RAGNAROS", "CTHUN", "YOGG", "XAVIUS", "KELTHUZAD" }
@@ -80,6 +82,27 @@ Bosses.def = {
     desc = "Face cards are drawn face down.",
     onDraw = function(run, card)
       return ns.Cards.isFace(card, ns.TrinketRules.set(run.trinkets)) and true or false
+    end,
+  },
+  THREDD = {
+    id = "THREDD", name = "Bazil Thredd", targetMult = 2, minStage = 1, -- The Club
+    desc = "Clubs are debuffed.",
+    debuff = function(card, rules) return ns.Cards.hasSuit(card, "C", rules) end,
+  },
+  TARGORR = {
+    id = "TARGORR", name = "Targorr the Dread", targetMult = 2, minStage = 1, -- The Manacle
+    desc = "-1 hand size.",
+    handSize = -1,
+  },
+  PATCHWERK = {
+    id = "PATCHWERK", name = "Patchwerk", targetMult = 4, minStage = 2, -- The Wall
+    desc = "A very high target.",
+  },
+  ARCHAEDAS = {
+    id = "ARCHAEDAS", name = "Archaedas", targetMult = 2, minStage = 1, -- The Pillar
+    desc = "Cards played earlier this ante are debuffed.",
+    debuff = function(card, _, info)
+      return info and info.playedThisAnte and info.playedThisAnte[card.id] and true or false
     end,
   },
   RAGNAROS = {

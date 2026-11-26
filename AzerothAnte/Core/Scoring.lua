@@ -217,7 +217,7 @@ function Scoring.score(ctx)
   local destroyCandidates = {}
   for _, i in ipairs(scoringIdx) do
     local card = cards[i]
-    if boss and boss.debuff and boss.debuff(card, ctx.rules) then
+    if boss and boss.debuff and boss.debuff(card, ctx.rules, ctx) then
       emit({ kind = "debuff", index = i })
       bossTriggered = true
     else
@@ -232,7 +232,7 @@ function Scoring.score(ctx)
   end
 
   for h, card in ipairs(held) do
-    if boss and boss.debuff and boss.debuff(card, ctx.rules) then
+    if boss and boss.debuff and boss.debuff(card, ctx.rules, ctx) then
       if card.enh == "STEEL" then emit({ kind = "debuff", heldIndex = h }) end
     else
       -- A held card only repeats when its first evaluation did something.

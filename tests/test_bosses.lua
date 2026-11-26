@@ -161,3 +161,73 @@ T.test("disabling_boss_turns_cards_up", function()
   T.ok(ns.Run.disableBoss(run))
   T.eq(faceDownCount(run.hand), 0)
 end)
+
+-- Rule bosses --------------------------------------------------------------
+
+local function debuffEvents(result)
+  local n = 0
+  for _, e in ipairs(result.events) do if e.kind == "debuff" then n = n + 1 end end
+  return n
+end
+
+T.test("thredd_debuffs_clubs", function()
+  local def = ns.Bosses.def.THREDD
+  T.eq(def.name, "Bazil Thredd")
+  T.eq(def.minStage, 1)
+  T.eq(def.debuff({ rank = 9, suit = "C" }), true)
+  T.eq(def.debuff({ rank = 9, suit = "H" }), false)
+end)
+
+T.test("targorr_hand_size_minus_one", function()
+  local run = bossRun(5, "TARGORR")
+  T.eq(ns.Bosses.def.TARGORR.minStage, 1)
+  T.eq(#run.hand, 7)
+  run.target = 1e9
+  local fresh = ns.Run.new(5, "ADVENTURER")
+  T.eq(ns.Deck.handSize(fresh), 8)
+  fresh.blind = 1
+  ns.Run.startBlind(fresh)
+  T.eq(#fresh.hand, 8)
+end)
+
+T.test("patchwerk_target_4x", function()
+  T.eq(ns.Run.target(2, 3, "PATCHWERK"), 3200)
+  T.eq(ns.Bosses.def.PATCHWERK.minStage, 2)
+end)
+
+T.test("archaedas_debuffs_cards_played_this_ante", function()
+  local run = ns.Run.new(5, "ADVENTURER")
+  run.bosses[run.stage] = "ARCHAEDAS"
+  ns.Run.startBlind(run)
+  run.target = 1e9
+  local card = run.hand[1]
+  ns.Run.play(run, { 1 })
+  T.ok(run.playedThisAnte[card.id])
+  -- The card is met again in the boss blind.
+  run.blind = 3
+  ns.Run.startBlind(run)
+  run.target = 1e9
+  run.hand[1] = card
+  local result = ns.Run.play(run, { 1 })
+  T.eq(debuffEvents(result), 1)
+  -- Next ante it scores.
+  run.stage = run.stage + 1
+  run.playedThisAnte = {}
+  T.eq(ns.Bosses.def.ARCHAEDAS.debuff(card, nil, { playedThisAnte = run.playedThisAnte }), false)
+end)
+
+T.test("archaedas_clears_when_stage_advances", function()
+  local run = ns.Run.new(5, "ADVENTURER")
+  run.playedThisAnte = { [7] = true }
+  run.phase, run.blind = "shop", 3
+  run.shop = nil
+  ns.Run.nextBlind(run)
+  T.eq(next(run.playedThisAnte), nil)
+end)
+
+T.test("disabling_targorr_refills_hand", function()
+  local run = bossRun(5, "TARGORR")
+  T.eq(#run.hand, 7)
+  T.ok(ns.Run.disableBoss(run))
+  T.eq(#run.hand, 8)
+end)

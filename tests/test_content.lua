@@ -182,8 +182,8 @@ T.test("trinket_hunters_mark", function()
 end)
 
 T.test("bosses_complete", function()
-  T.eq(#ns.Bosses.pool, 12)
-  local expected = { "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ", "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM" }
+  T.eq(#ns.Bosses.pool, 16)
+  local expected = { "HOGGER", "VANCLEEF", "ARUGAL", "MUTANUS", "HEROD", "RIVENDARE", "ONYXIA", "VAELASTRASZ", "MOROES", "THERMAPLUGG", "MOROGRIM", "SKERAM", "THREDD", "TARGORR", "PATCHWERK", "ARCHAEDAS" }
   for i, id in ipairs(expected) do T.eq(ns.Bosses.pool[i], id) end
   for _, id in ipairs(ns.Bosses.pool) do
     local def = ns.Bosses.def[id]

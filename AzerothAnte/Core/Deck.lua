@@ -77,6 +77,8 @@ end
 function Deck.handSize(run)
   local size = run.baseHandSize + run.handSizeMod + ns.Vouchers.extraHandSize(run)
   if run.trinkets then size = size + ns.Trinkets.mods(run).handSize end
+  local boss = ns.Run.activeBoss(run)
+  if boss and boss.handSize then size = size + boss.handSize end
   for _, card in ipairs(run.deck) do
     if card.ed == "NEGATIVE" then size = size + 1 end
   end
