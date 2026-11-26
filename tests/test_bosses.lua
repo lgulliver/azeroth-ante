@@ -644,3 +644,35 @@ T.test("ragnaros_disabled_trinket_sells_without_its_effect", function()
   T.ok(ns.Run.sellTrinket(run, 1))
   T.eq(run.bossDisabled, false, "a disabled Gladiator's Medallion does not disable the boss")
 end)
+
+T.test("ragnaros_disabled_trinket_loses_its_passive", function()
+  local run = finisherRun(5, "RAGNAROS", {})
+  run.target = 1e9
+  run.trinkets = { ns.Trinkets.create(run, "REAGENT_BAG") }
+  local on = ns.Deck.handSize(run)
+  run.trinkets[1].disabled = true
+  T.eq(ns.Deck.handSize(run), on - 1, "a disabled hand-size trinket gives no hand size")
+  T.eq(ns.Trinkets.mods(run).handSize, 0)
+  run.trinkets[1].disabled = nil
+  T.eq(ns.Deck.handSize(run), on, "restored when re-enabled")
+  -- The re-pick settles through withMods: a shrink never discards, a growth draws up.
+  local fresh = finisherRun(5, "RAGNAROS", { ns.Trinkets.create(ns.Run.new(5, "ADVENTURER"), "REAGENT_BAG") })
+  fresh.target = 1e9
+  T.ok(fresh.trinkets[1].disabled)
+  T.eq(ns.Deck.handSize(fresh), 8, "the only trinket is disabled for the first hand")
+  T.eq(#fresh.hand, 9, "drawn before the pick, and a shrink never discards")
+  ns.Run.play(fresh, { 1, 2 })
+  T.ok(fresh.trinkets[1].disabled)
+  T.eq(#fresh.hand, 8, "refilled to the smaller size")
+  ns.Run.disableBoss(fresh)
+  T.eq(#fresh.hand, 9, "re-enabled, the hand draws up")
+  -- Interest counts a trinket that was disabled when the blind ends.
+  ns.Trinkets.def.TEST_INTEREST = { id = "TEST_INTEREST", interestBonus = 1 }
+  local paid = finisherRun(5, "RAGNAROS", { { uid = 50, id = "TEST_INTEREST" } })
+  T.ok(paid.trinkets[1].disabled)
+  T.eq(ns.Trinkets.interestBonus(paid), 0, "a disabled interest trinket adds nothing")
+  paid.gold = 25
+  ns.Run.winBlind(paid)
+  ns.Trinkets.def.TEST_INTEREST = nil
+  T.eq(paid.lastPayout.interest, 10, "cleared before the payout: 5 units x 2")
+end)

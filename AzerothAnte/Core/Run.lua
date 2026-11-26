@@ -164,7 +164,7 @@ function Run.disableBoss(run)
   local hands, discards = handsFor(run, boss), discardsFor(run, boss)
   run.bossDisabled = true
   Run.revealHand(run)
-  clearFinisher(run)
+  Run.withMods(run, function() clearFinisher(run) end) -- re-enabled trinkets bring their passives back
   if boss.hands then run.handsLeft = run.handsLeft + math.max(0, handsFor(run) - hands) end
   if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
   if boss.handSize then refill(run) end
@@ -207,7 +207,8 @@ function Run.startBlind(run)
   ns.Cards.sort(run.hand, run.sortMode or "rank")
   local boss = Run.activeBoss(run)
   if boss and boss.onStart then boss.onStart(run) end
-  if boss and boss.beforeHand then boss.beforeHand(run) end
+  -- A trinket Ragnaros disables loses its passives: withMods settles hands, discards and hand size.
+  if boss and boss.beforeHand then Run.withMods(run, function() boss.beforeHand(run) end) end
   event("handSize", ns.Deck.handSize(run), run)
   editionTrinkets(run)
   ns.TrinketEngine.fire(run, "onFirstDraw")
@@ -452,7 +453,7 @@ function Run.play(run, idx)
   if run.score < run.target then refill(run, "play") end
   if run.score < run.target and run.handsLeft > 0 then
     local after = Run.activeBoss(run)
-    if after and after.beforeHand then after.beforeHand(run) end
+    if after and after.beforeHand then Run.withMods(run, function() after.beforeHand(run) end) end
   end
   run.lastResult = result
   if run.score >= run.target then

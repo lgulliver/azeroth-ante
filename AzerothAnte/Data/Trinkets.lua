@@ -95,7 +95,7 @@ function Trinkets.mods(run)
   local mods = { handSize = 0, hands = 0, discards = 0 }
   for _, instance in ipairs(run.trinkets or {}) do
     local def = Trinkets.def[instance.id]
-    if def then
+    if def and not instance.disabled then -- a trinket Ragnaros disabled loses its passives
       mods.handSize = mods.handSize + modValue(def.handSize, instance, run)
       mods.hands = mods.hands + modValue(def.hands, instance, run)
       mods.discards = mods.discards + modValue(def.discards, instance, run)
@@ -109,7 +109,7 @@ function Trinkets.interestBonus(run)
   local sum = 0
   for _, instance in ipairs(run.trinkets or {}) do
     local def = Trinkets.def[instance.id]
-    if def and def.interestBonus then sum = sum + def.interestBonus end
+    if def and def.interestBonus and not instance.disabled then sum = sum + def.interestBonus end
   end
   return sum
 end
