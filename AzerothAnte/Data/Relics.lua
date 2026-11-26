@@ -303,6 +303,14 @@ Relics.order = {
   "FLAME", "REBIRTH", "RECURRENCE", "HEXES", "INSIGHT", "SPIRITS", "MIRRORS", "LEGENDS", "COSMOS",
 }
 
+-- The Soul and Black Hole are hidden, as in Balatro: never rolled at random (Relic
+-- packs, Omen Globe, trinkets), only swapped into pack cards (see Packs.open).
+Relics.HIDDEN = { LEGENDS = true, COSMOS = true }
+Relics.pool = {}
+for _, id in ipairs(Relics.order) do
+  if not Relics.HIDDEN[id] then Relics.pool[#Relics.pool + 1] = id end
+end
+
 local AFFECTS = {
   COURT = "Destroys 1 random card in hand; adds 3 enhanced face cards",
   ACES = "Destroys 1 random card in hand; adds 2 enhanced Aces",

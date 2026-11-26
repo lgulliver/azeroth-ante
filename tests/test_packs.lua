@@ -216,7 +216,7 @@ T.test("standard_rolls_types_without_negative_and_keeps_stone_rank", function()
   end
   T.ok(enh > 1800 and enh < 2200, "enhancement frequency")
   T.ok(seals > 850 and seals < 1150, "seal frequency")
-  T.ok(editions > 120 and editions < 250, "edition frequency")
+  T.ok(editions > 320 and editions < 480, "edition frequency") -- 8%: Balatro's doubled pack odds
   T.ok(stones > 0)
   T.eq(#run.deck, 52)
 end)

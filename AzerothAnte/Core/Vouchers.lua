@@ -25,7 +25,7 @@ function Vouchers.discount(run)
 end
 
 function Vouchers.price(run, cost)
-  return math.max(1, math.floor(cost * (1 - Vouchers.discount(run)) + 0.5))
+  return math.max(1, math.floor((cost + 0.5) * (1 - Vouchers.discount(run)))) -- rounds half down, as Balatro
 end
 
 function Vouchers.rerollDelta(run)

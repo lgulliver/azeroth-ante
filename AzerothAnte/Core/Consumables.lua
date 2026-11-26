@@ -25,17 +25,25 @@ function Consumables.add(run, item)
   return true
 end
 
--- Hidden secret-hand Tomes are never rolled. Returns nil if the kind has no pool.
-function Consumables.random(run, kind)
+-- Hidden secret-hand Tomes and hidden Relics are never rolled. `blocked` (optional, id -> true)
+-- is skipped unless that would leave nothing. Returns nil if the kind has no pool.
+function Consumables.random(run, kind, blocked)
   local pool
   if kind == "tome" then
     pool = ns.Hands.visible(run)
   elseif kind == "scroll" then
     pool = ns.Scrolls.order
   elseif kind == "relic" and ns.Relics then
-    pool = ns.Relics.order
+    pool = ns.Relics.pool
   end
   if not pool or #pool == 0 then return nil end
+  if blocked then
+    local open = {}
+    for _, id in ipairs(pool) do
+      if not blocked[id] then open[#open + 1] = id end
+    end
+    if #open > 0 then pool = open end
+  end
   return { kind = kind, id = ns.RNG.pick(run.rng, pool) }
 end
 

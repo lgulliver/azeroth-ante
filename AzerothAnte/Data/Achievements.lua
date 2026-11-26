@@ -36,7 +36,7 @@ add("PETROGLYPH", "Win a run with Chronomancer's Hourglass owned.", nil, nil,
   function(profile, event, amount, run)
     return event == "runEnded" and amount == 1 and run and run.vouchers and run.vouchers.HIEROGLYPH
   end)
-add("RETCON", "Fight all 9 bosses across all runs, including Ragnaros.", nil, nil,
+add("RETCON", "Fight every boss across all runs, including Ragnaros.", nil, nil,
   function(profile, event)
     return event == "bossFought" and Achievements.bossCount(profile) == #ns.Bosses.pool + 1
   end)

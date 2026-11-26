@@ -3414,8 +3414,8 @@ local function run(w)
     offer, def = run.shopVoucher, ns2.Vouchers.def.OVERSTOCK
     m.Render(run, true)
     local discount = ns2.Vouchers.price(run, def.cost)
-    eq(discount, 8, "25% off 10")
-    eq(v.price:GetText(), "8g", "discounted price")
+    eq(discount, 7, "25% off 10")
+    eq(v.price:GetText(), "7g", "discounted price")
     eq(v.orig:GetText(), "10g", "original price")
     check(v.orig:IsShown() and v.strike:IsShown(), "original is struck through")
     local priced = 0

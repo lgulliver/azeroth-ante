@@ -203,11 +203,11 @@ T.test("boss_reroll_skips_fought", function()
   local run = atBoss()
   run.vouchers.DIRECTORS_CUT, run.vouchers.RETCON = true, true
   run.gold = 1000
-  local keep = ns.Bosses.pool[1]
+  local keep = "ARUGAL" -- any stage-1 boss
   for _, id in ipairs(ns.Bosses.pool) do
     if id ~= keep then run.bossesFought[id] = true end
   end
-  run.bosses[1] = ns.Bosses.pool[2]
+  run.bosses[1] = "VANCLEEF"
   local _, id = ns.Run.rerollBoss(run)
   T.eq(id, keep)
 end)
@@ -322,7 +322,7 @@ T.test("blind_hands_discards_hieroglyph_and_boss", function()
   run.bosses[run.stage] = "MUTANUS" -- no discards: still at least 0
   T.eq(ns.Run.blindDiscards(run), 0)
   run.vouchers = { WASTEFUL = true }
-  T.eq(ns.Run.blindDiscards(run), 1)
+  T.eq(ns.Run.blindDiscards(run), 0) -- exactly none, as Balatro's Water
 end)
 
 T.test("hieroglyph_replay_rerolls_fought_boss", function()

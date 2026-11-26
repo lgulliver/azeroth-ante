@@ -208,8 +208,8 @@ function Scoring.score(ctx)
     + (levelUps[handId] or 0))
   if boss and boss.halveBase then
     bossTriggered = true
-    chips = math.floor(chips / 2)
-    mult = math.max(1, math.floor(mult / 2))
+    chips = math.floor(chips * 0.5 + 0.5) -- Balatro's Flint rounds halves up
+    mult = math.max(1, math.floor(mult * 0.5 + 0.5))
   end
   emit({ kind = "base", handId = handId, chips = chips, mult = mult })
   for _, p in ipairs(pending) do apply(p.effect, p.slot, nil, true) end

@@ -91,6 +91,15 @@ test("halve_base", function()
   T.eq(r.total, (5 + 20) * 1)
 end)
 
+test("halve_base_rounds_up", function()
+  -- Balatro's Flint rounds halves up: High Card 5 x 1 becomes 3 x 1, Three of a Kind 30 x 3 becomes 15 x 2.
+  stubBoss("STUB_HALVE", { halveBase = true })
+  local r = ns.Scoring.score(ctx({ card(13, "S") }, { bossId = "STUB_HALVE" }))
+  T.eq({ r.events[1].chips, r.events[1].mult }, { 3, 1 })
+  r = ns.Scoring.score(ctx({ card(13, "S"), card(13, "H"), card(13, "D") }, { bossId = "STUB_HALVE" }))
+  T.eq({ r.events[1].chips, r.events[1].mult }, { 15, 2 })
+end)
+
 test("trinket_order", function()
   stubTrinket("STUB_A", { onHand = function() return { mult = 4 } end })
   stubTrinket("STUB_B", { onHand = function() return { xmult = 2 } end })

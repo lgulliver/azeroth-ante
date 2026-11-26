@@ -24,6 +24,11 @@ for id in pairs(ns.CardTypes.seal) do SEALS[#SEALS + 1] = id end
 table.sort(ENHANCEMENTS)
 table.sort(SEALS)
 
+function Packs.make(run, kind, size)
+  return { type = kind, size = size, baseCost = Packs.SIZES[size].cost,
+    cost = ns.Vouchers.price(run, Packs.SIZES[size].cost) }
+end
+
 function Packs.random(run)
   local total = 0
   for _, kind in ipairs(TYPES) do
@@ -33,20 +38,31 @@ function Packs.random(run)
   for _, kind in ipairs(TYPES) do
     for _, size in ipairs(SIZES) do
       edge = edge + Packs.WEIGHTS[kind][size]
-      if roll < edge then
-        return { type = kind, size = size, baseCost = Packs.SIZES[size].cost,
-          cost = ns.Vouchers.price(run, Packs.SIZES[size].cost) }
-      end
+      if roll < edge then return Packs.make(run, kind, size) end
     end
   end
 end
 
-function Packs.rollCard(run, enhanced)
-  local card = { rank = ns.RNG.int(run.rng, 2, 14), suit = ns.RNG.pick(run.rng, ns.Cards.SUITS) }
-  if enhanced == false then return card end
+local function plainCard(run)
+  return { rank = ns.RNG.int(run.rng, 2, 14), suit = ns.RNG.pick(run.rng, ns.Cards.SUITS) }
+end
+
+-- A Standard pack card: 40% enhanced, 20% sealed, edition at double odds (no Negative).
+function Packs.rollCard(run)
+  local card = plainCard(run)
   if ns.RNG.next(run.rng) < 0.4 then card.enh = ns.RNG.pick(run.rng, ENHANCEMENTS) end
   if ns.RNG.next(run.rng) < 0.2 then card.seal = ns.RNG.pick(run.rng, SEALS) end
-  card.ed = ns.Shop.rollEdition(run, false)
+  card.ed = ns.Shop.rollEdition(run, false, 2)
+  return card
+end
+
+-- A shop playing card (Magic Trick): plain, or with Illusion 40% enhanced and 20% with an
+-- edition (Foil, Holo, Poly at 50/35/15). Shop cards never carry a seal.
+function Packs.rollShopCard(run, illusion)
+  local card = plainCard(run)
+  if not illusion then return card end
+  if ns.RNG.next(run.rng) < 0.4 then card.enh = ns.RNG.pick(run.rng, ENHANCEMENTS) end
+  if ns.RNG.next(run.rng) < 0.2 then card.ed = ns.CardTypes.rollAura(run.rng) end
   return card
 end
 
@@ -71,13 +87,16 @@ function Packs.open(run, i)
   local pool = {}
   if kind then
     local ids = kind == "tome" and ns.Hands.visible(run)
-      or (kind == "scroll" and ns.Scrolls.order or ns.Relics.order)
+      or (kind == "scroll" and ns.Scrolls.order or ns.Relics.pool)
     for c, id in ipairs(ids) do pool[c] = id end
   end
   local relicPool = {}
   if offer.type == "ARCANA" and ns.Vouchers.omenGlobe(run) then
-    for k, id in ipairs(ns.Relics.order) do relicPool[k] = id end
+    for k, id in ipairs(ns.Relics.pool) do relicPool[k] = id end
   end
+  local blackHoleHere = offer.type == "CELESTIAL" or offer.type == "SPECTRAL"
+    or (offer.type == "ARCANA" and ns.Vouchers.omenGlobe(run))
+  local hidden = {}
   local telescope
   if offer.type == "CELESTIAL" and ns.Vouchers.telescope(run) then
     local most = 0
@@ -106,6 +125,14 @@ function Packs.open(run, i)
       item = ns.Shop.rollTrinket(run, taken)
     else
       item = Packs.rollCard(run)
+    end
+    -- Hidden Relics: each card has a 0.3% chance to become The Soul (Arcana, Spectral) or
+    -- Black Hole (Celestial, Spectral, and Arcana with Omen Globe), at most once a pack.
+    if item and (offer.type == "ARCANA" or offer.type == "SPECTRAL") and not hidden.LEGENDS
+      and ns.RNG.next(run.rng) < 0.003 then
+      item, hidden.LEGENDS = { kind = "relic", id = "LEGENDS" }, true
+    elseif item and blackHoleHere and not hidden.COSMOS and ns.RNG.next(run.rng) < 0.003 then
+      item, hidden.COSMOS = { kind = "relic", id = "COSMOS" }, true
     end
     if item then pack.choices[#pack.choices + 1] = item end
   end

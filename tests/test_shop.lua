@@ -48,10 +48,10 @@ end)
 
 T.test("edition_cost_added", function()
   local run = opened()
-  local original = ns.CardTypes.rollEdition
-  ns.CardTypes.rollEdition = function() return "FOIL" end
+  local original = ns.CardTypes.pollEdition
+  ns.CardTypes.pollEdition = function() return "FOIL" end
   ns.Shop.open(run)
-  ns.CardTypes.rollEdition = original
+  ns.CardTypes.pollEdition = original
   local found = false
   for _, item in ipairs(run.shop.cards) do
     if item.type == "trinket" then
@@ -374,7 +374,7 @@ T.test("discount_purchase_reprices_current_stock", function()
   T.eq(run.gold, 90)
   run.shopVoucher = { id = "LIQUIDATION", cost = 8 }
   T.eq(ns.Shop.buyVoucher(run), true)
-  T.eq(run.gold, 82)
+  T.eq(run.gold, 83) -- 10g at 25% off is 7g (Balatro rounds half down)
   for i, item in ipairs(run.shop.cards) do T.eq(item.cost, ns.Vouchers.price(run, prices[i])) end
   for i, item in ipairs(run.shop.packs) do T.eq(item.cost, ns.Vouchers.price(run, packPrices[i])) end
 end)

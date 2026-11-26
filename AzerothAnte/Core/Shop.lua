@@ -21,16 +21,9 @@ function Shop.rollVoucher(run)
   return { id = id, cost = ns.Vouchers.price(run, ns.Vouchers.def[id].cost) }
 end
 
-function Shop.rollEdition(run, allowNegative)
-  local mult = ns.Vouchers.editionMult(run)
-  if mult == 1 then return ns.CardTypes.rollEdition(run.rng, allowNegative) end
-  local roll, edge = ns.RNG.next(run.rng), 0
-  for _, id in ipairs({ "NEGATIVE", "POLY", "HOLO", "FOIL" }) do
-    if id ~= "NEGATIVE" or allowNegative then
-      edge = edge + ns.CardTypes.ED_ODDS[id] * (id == "NEGATIVE" and 1 or mult)
-      if roll < edge then return id end
-    end
-  end
+-- An edition at the run's rate (Hone, Glow Up); `mod` 2 for Standard pack cards.
+function Shop.rollEdition(run, allowNegative, mod)
+  return ns.CardTypes.pollEdition(run.rng, mod or 1, ns.Vouchers.editionMult(run), allowNegative)
 end
 
 local function owns(run, id)
@@ -96,6 +89,14 @@ local function generateCards(run, cards)
   for _, item in ipairs(cards) do
     if item and item.type == "trinket" then taken[item.id] = true end
   end
+  -- As in Balatro, a consumable you hold (unless Showman) or that another slot shows isn't offered.
+  local blocked = {}
+  for _, item in ipairs(cards) do
+    if item and (item.type == "scroll" or item.type == "tome") then blocked[item.id] = true end
+  end
+  if not ns.TrinketRules.has(run.trinkets, "SHOWMAN") then
+    for _, item in ipairs(run.consumables) do blocked[item.id] = true end
+  end
   local scroll, tome = ns.Vouchers.scrollWeight(run), ns.Vouchers.tomeWeight(run)
   local playing = ns.Vouchers.playingCardsInShop(run) and 4 or 0
   for i = #cards + 1, ns.Vouchers.shopCardSlots(run) do
@@ -106,14 +107,14 @@ local function generateCards(run, cards)
     end
     if not cards[i] then
       if roll >= 20 + scroll + tome then
-        local card = ns.Packs.rollCard(run, ns.Vouchers.illusion(run))
+        local card = ns.Packs.rollShopCard(run, ns.Vouchers.illusion(run))
         card.type = "card"
-        card.cost = 1 + (card.enh and 1 or 0) + (card.seal and 1 or 0)
-          + (ns.CardTypes.ED_COST[card.ed] or 0)
+        card.cost = 1 + (ns.CardTypes.ED_COST[card.ed] or 0) -- enhancements are free, as in Balatro
         cards[i] = card
       else
         local kind = roll < 20 + scroll and "scroll" or "tome"
-        local item = ns.Consumables.random(run, kind)
+        local item = ns.Consumables.random(run, kind, blocked)
+        blocked[item.id] = true
         cards[i] = { type = kind, id = item.id, cost = ns.Consumables.COST[kind] }
       end
     end
@@ -127,10 +128,12 @@ function Shop.open(run)
   if run.shopVoucher == nil then run.shopVoucher = Shop.rollVoucher(run) end
   run.shop = {
     cards = generateCards(run),
-    packs = { ns.Packs.random(run), ns.Packs.random(run) },
+    packs = { run.firstShopDone and ns.Packs.random(run) or ns.Packs.make(run, "BUFFOON", "normal"),
+      ns.Packs.random(run) },
     rerollCost = 5, freeRerolls = ns.TrinketRules.count(run.trinkets, "CHAOS"),
   }
   run.shop.chaosSeen = run.shop.freeRerolls
+  run.firstShopDone = true -- Balatro's first shop of a run always has a Buffoon pack
   Shop.reprice(run)
 end
 

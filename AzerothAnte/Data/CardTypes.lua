@@ -31,23 +31,26 @@ CardTypes.seal = {
 }
 
 CardTypes.ED_COST = { FOIL = 2, HOLO = 3, POLY = 5, NEGATIVE = 5 }
-CardTypes.ED_ODDS = { FOIL = 0.02, HOLO = 0.014, POLY = 0.003, NEGATIVE = 0.003 }
 CardTypes.AURA_WEIGHTS = { FOIL = 50, HOLO = 35, POLY = 15 }
 
-local ROLL_ORDER = { "NEGATIVE", "POLY", "HOLO", "FOIL" }
 local AURA_ORDER = { "FOIL", "HOLO", "POLY" }
 
--- One roll; rarest bands first. Returns an edition id or nil.
-function CardTypes.rollEdition(r, allowNegative)
+-- Balatro's poll_edition: one roll against cumulative bands, rarest first. Negative's
+-- band is 0.3% x mod; Polychrome, Holographic and Foil end at 0.6%, 2% and 4% x mod x
+-- rate (Hone 2, Glow Up 4). Without Negative, Polychrome keeps its whole 0.6% band.
+-- Standard pack cards use mod 2. Returns an edition id or nil.
+function CardTypes.pollEdition(r, mod, rate, allowNegative)
   local x = ns.RNG.next(r)
-  local edge = 0
-  for _, id in ipairs(ROLL_ORDER) do
-    if id ~= "NEGATIVE" or allowNegative then
-      edge = edge + CardTypes.ED_ODDS[id]
-      if x < edge then return id end
-    end
-  end
+  if allowNegative and x < 0.003 * mod then return "NEGATIVE" end
+  if x < 0.006 * mod * rate then return "POLY" end
+  if x < 0.02 * mod * rate then return "HOLO" end
+  if x < 0.04 * mod * rate then return "FOIL" end
   return nil
+end
+
+-- A base-odds roll (trinkets and anything created outside the shop).
+function CardTypes.rollEdition(r, allowNegative)
+  return CardTypes.pollEdition(r, 1, 1, allowNegative)
 end
 
 -- Weighted pick among Foil, Holographic and Polychrome.

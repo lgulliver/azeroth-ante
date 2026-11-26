@@ -36,10 +36,21 @@ function Run.new(seed, deckId)
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
-  local pool = {}
-  for i, id in ipairs(ns.Bosses.pool) do pool[i] = id end
-  ns.RNG.shuffle(run.rng, pool)
-  for i = 1, 7 do run.bosses[i] = pool[i] end
+  -- As in Balatro: each stage draws among the bosses it allows (minStage) that have
+  -- appeared the fewest times so far.
+  local used = {}
+  for stage = 1, 7 do
+    local fewest, picks = math.huge, {}
+    for _, id in ipairs(ns.Bosses.pool) do
+      if (ns.Bosses.def[id].minStage or 1) <= stage then
+        local n = used[id] or 0
+        if n < fewest then fewest, picks = n, {} end
+        if n == fewest then picks[#picks + 1] = id end
+      end
+    end
+    run.bosses[stage] = ns.RNG.pick(run.rng, picks)
+    used[run.bosses[stage]] = (used[run.bosses[stage]] or 0) + 1
+  end
   run.bosses[8] = ns.Bosses.FINAL
   run.startDeckSize = #run.deck
   return run
@@ -77,15 +88,17 @@ function Run.activeBoss(run)
   if bossId and not run.bossDisabled then return ns.Bosses.def[bossId] end
 end
 
--- Hands and discards the current blind starts with: the deck's (or the boss's)
--- base plus voucher changes. Shared by startBlind and the blind-screen sidebar.
+-- Hands and discards the current blind starts with: the deck's base plus voucher and
+-- trinket changes, or exactly the boss's count when it sets one (as Balatro's Needle and
+-- Water do). Shared by startBlind and the blind-screen sidebar.
 local function handsFor(run, boss)
-  return math.max(1, (boss and boss.hands or ns.Decks.def[run.deckId].hands) + ns.Vouchers.extraHands(run)
-    + ns.Trinkets.mods(run).hands)
+  if boss and boss.hands then return boss.hands end
+  return math.max(1, ns.Decks.def[run.deckId].hands + ns.Vouchers.extraHands(run) + ns.Trinkets.mods(run).hands)
 end
 
 local function discardsFor(run, boss)
-  return math.max(0, (boss and boss.discards or ns.Decks.def[run.deckId].discards) + ns.Vouchers.extraDiscards(run)
+  if boss and boss.discards then return boss.discards end
+  return math.max(0, ns.Decks.def[run.deckId].discards + ns.Vouchers.extraDiscards(run)
     + ns.Trinkets.mods(run).discards)
 end
 
@@ -426,13 +439,19 @@ function Run.winBlind(run, opts)
   local rules = ns.TrinketRules.set(run.trinkets)
   for _, card in ipairs(run.hand) do
     if not (boss and boss.debuff and boss.debuff(card, rules)) then
+      -- Mirror Image (and copies of it) retrigger end-of-round held abilities too.
+      local repeats = 1
+      ns.TrinketEngine.each(run.trinkets, function(_, instance, def, isCopy)
+        repeats = repeats + (def.heldRetrigger and def.heldRetrigger(nil, instance, card, nil, isCopy) or 0)
+      end)
       if card.enh == "GOLD" then
-        payout.held = payout.held + ((card.seal == "RED") and 6 or 3)
+        payout.held = payout.held + 3 * (repeats + ((card.seal == "RED") and 1 or 0))
       end
-      if card.seal == "BLUE" and run.lastHandId and ns.Consumables
-        and #run.consumables < ns.Consumables.slots(run) then
-        ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
-        payout.created = (payout.created or 0) + 1
+      for _ = 1, card.seal == "BLUE" and repeats or 0 do
+        if run.lastHandId and ns.Consumables and #run.consumables < ns.Consumables.slots(run) then
+          ns.Consumables.add(run, { kind = "tome", id = run.lastHandId })
+          payout.created = (payout.created or 0) + 1
+        end
       end
     end
   end
@@ -468,12 +487,12 @@ function Run.canRerollBoss(run)
   return true
 end
 
--- Picks a boss other than `current` from the pool, preferring ones not yet
--- fought (the final boss is never in the pool).
-local function pickBoss(run, current)
+-- Picks a boss other than `current` that `stage` allows, preferring ones not
+-- yet fought (the final boss is never in the pool).
+local function pickBoss(run, current, stage)
   local fresh, any = {}, {}
   for _, id in ipairs(ns.Bosses.pool) do
-    if id ~= current then
+    if id ~= current and (ns.Bosses.def[id].minStage or 1) <= stage then
       any[#any + 1] = id
       if not run.bossesFought[id] then fresh[#fresh + 1] = id end
     end
@@ -486,13 +505,13 @@ end
 function Run.refreshReplayedBoss(run, stage)
   local current = run.bosses and run.bosses[stage]
   if stage >= 8 or not current or not run.bossesFought[current] then return end
-  run.bosses[stage] = pickBoss(run, current)
+  run.bosses[stage] = pickBoss(run, current, stage)
 end
 
 function Run.rerollBoss(run)
   local ok, reason = Run.canRerollBoss(run)
   if not ok then return false, reason end
-  local bossId = pickBoss(run, run.bosses[run.stage])
+  local bossId = pickBoss(run, run.bosses[run.stage], run.stage)
   run.gold = run.gold - Run.BOSS_REROLL_COST
   run.bossRerollsUsed = run.bossRerollsUsed + 1
   run.bosses[run.stage] = bossId

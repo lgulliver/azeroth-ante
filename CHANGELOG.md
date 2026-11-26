@@ -6,6 +6,16 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ### Changed
 - Blind targets now follow Balatro's curve (300, 800, 2000, 5000, 11000, 20000, 35000, 50000), up from a flatter curve that topped out at 16000. Later antes need a built deck, so trinkets and new cards matter.
+- Black Hole (Relic of the Cosmos) and The Soul (Relic of Legends) are hidden again, as in Balatro: never rolled at random, only a 0.3% chance per card in Celestial/Arcana/Spectral packs (Black Hole also in Arcana packs with Omen Globe). They were turning up about 18 times too often.
+- Bosses respect Balatro's minimum antes (Hogger from ante 4; Mutanus, Rivendare and Onyxia from ante 2), and each ante draws among the least-seen bosses.
+- Onyxia always leaves exactly one hand and Mutanus exactly no discards; extra-hand and extra-discard vouchers and trinkets no longer undo them.
+- The first shop of a run always has a Buffoon pack.
+- The shop no longer offers a Scroll or Tome you hold (unless you have Showman) or one another slot already shows.
+- Shop playing cards cost 1g plus their edition; enhancements are free and shop cards never carry a seal. With Illusion, 40% are enhanced and 20% get an edition.
+- Edition odds follow Balatro: Standard pack cards roll at double odds (about 8% instead of 4%), and Hone and Glow Up raise Polychrome correctly.
+- Discounts round half down (10g at 25% off is 7g).
+- Baron Rivendare rounds halved chips and mult up, like The Flint.
+- Mirror Image also retriggers end-of-round held effects: Gold cards pay again and Blue seals make another Tome.
 
 ### Added
 - Jacks, Queens and Kings are double-ended court cards of Warcraft characters: Sir Finley, Azshara and King Mrgl-Mrgl on Spades; Arthas, Jaina and Varian on Hearts; Garrosh, Sylvanas and Durotan on Clubs; Gazlowe, Sassy Hardwrench and Gallywix on Diamonds. A Stone court card still shows no art.

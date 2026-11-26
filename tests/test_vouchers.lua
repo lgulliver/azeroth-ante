@@ -101,10 +101,10 @@ end
 T.test("price_rounding", function()
   T.eq(ns.Vouchers.price(owned({}), 10), 10)
   local sale = owned({ "CLEARANCE_SALE" })
-  T.eq(ns.Vouchers.price(sale, 10), 8)
-  T.eq(ns.Vouchers.price(sale, 6), 5)
+  T.eq(ns.Vouchers.price(sale, 10), 7) -- 7.5 rounds half down, as in Balatro
+  T.eq(ns.Vouchers.price(sale, 6), 4)
   local liquidation = owned({ "CLEARANCE_SALE", "LIQUIDATION" })
-  T.eq(ns.Vouchers.price(liquidation, 3), 2)
+  T.eq(ns.Vouchers.price(liquidation, 3), 1)
   T.eq(ns.Vouchers.price(liquidation, 1), 1)
   T.eq(ns.Vouchers.price(liquidation, 0), 1)
 end)
