@@ -18,24 +18,24 @@ Mouse controls only; no key bindings.
 
 ## Screenshots
 
-Playing a hand: select up to five cards and the sidebar previews the hand and
-its chips × mult.
+Choosing a deck: fifteen decks, each with its own painted back and rule, and the stake to
+play it at.
 
-![Playing a hand](docs/screenshots/play.png)
+![Choosing a deck](docs/screenshots/deck-select.png)
 
-Choosing a blind: each stage is a Small Blind, a Big Blind and a boss with its
-own rule.
+Choosing a blind: each stage is a Small Blind, a Big Blind and a boss with its own rule.
+Skip the small or big blind for the tag shown beside Skip.
 
 ![Blind select](docs/screenshots/blind-select.png)
 
-The shop after a cleared blind: payout, trinkets, packs and a voucher.
+Playing a hand: Jacks, Queens and Kings are double-ended court cards of Warcraft
+characters, and the sidebar shows the hand's chips × mult as it scores.
+
+![Playing a hand](docs/screenshots/play.png)
+
+The shop after a cleared blind: payout, cards, packs and a voucher.
 
 ![Shop](docs/screenshots/shop.png)
-
-Opening a pack: here a Large Darkmoon Card Bundle with an enhanced card and an
-edition.
-
-![Opening a pack](docs/screenshots/pack.png)
 
 ## Install
 
