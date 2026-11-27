@@ -195,14 +195,39 @@ function Scoring.score(ctx)
     return extra
   end
 
-  -- A hand type the boss does not allow (Mouth, Eye) plays but scores nothing: no base, no card or trinket effects.
+  -- After hooks decay or destroy; only the trinket itself (not a copy) can be destroyed. Returns the
+  -- destroyed trinkets' uids and the trinkets left.
+  local function afterHooks()
+    engine.each(trinkets, function(slot, inst, def, isCopy)
+      local effect = def.after and def.after(ctx, inst, isCopy)
+      if not effect then return end
+      apply({ gold = effect.gold, msg = effect.msg, levelHand = effect.levelHand, changeCard = effect.changeCard,
+        createCard = effect.createCard, createConsumable = effect.createConsumable,
+        destroyCard = effect.destroyCard }, slot)
+      if effect.destroySelf and not isCopy then destroyedUids[inst] = true end
+    end)
+    local destroyedTrinkets, trinketsAfter = {}, {}
+    for _, trinket in ipairs(trinkets) do
+      if destroyedUids[trinket] then
+        destroyedTrinkets[#destroyedTrinkets + 1] = trinket.uid
+        emit({ kind = "trinketDestroyed", uid = trinket.uid })
+      else
+        trinketsAfter[#trinketsAfter + 1] = trinket
+      end
+    end
+    return destroyedTrinkets, trinketsAfter
+  end
+
+  -- A hand type the boss does not allow (Mouth, Eye) plays but scores nothing: no base, no card or trinket
+  -- effects. After hooks still run, as Balatro's context.after does (Tigule's Ice Cream still melts).
   if ctx.handNotAllowed then
     emit({ kind = "notAllowed", handId = handId })
     emit({ kind = "total", total = 0 })
     ctx.bossTriggered = true
-    return { handId = handId, chips = 0, mult = 0, total = 0, events = events, gold = 0, destroyed = {},
-      trinketsAfter = trinkets, levelUps = {}, destroyedTrinkets = {}, cardsAfter = {}, sideEffects = {},
-      bossTriggered = true, luckyTriggers = 0, notAllowed = true }
+    local destroyedTrinkets, trinketsAfter = afterHooks()
+    return { handId = handId, chips = 0, mult = 0, total = 0, events = events, gold = goldRef.gold - goldStart,
+      destroyed = {}, trinketsAfter = trinketsAfter, levelUps = levelUps, destroyedTrinkets = destroyedTrinkets,
+      cardsAfter = {}, sideEffects = sideEffects, bossTriggered = true, luckyTriggers = 0, notAllowed = true }
   end
 
   -- Before hooks run left to right once the hand is known; levelHand counts toward this base.
@@ -307,25 +332,8 @@ function Scoring.score(ctx)
   local total = math.floor(chips * mult)
   emit({ kind = "total", total = total })
 
-  -- After hooks decay or destroy; only the trinket itself (not a copy) can be destroyed.
   ctx.bossTriggered = bossTriggered
-  engine.each(trinkets, function(slot, inst, def, isCopy)
-    local effect = def.after and def.after(ctx, inst, isCopy)
-    if not effect then return end
-    apply({ gold = effect.gold, msg = effect.msg, levelHand = effect.levelHand, changeCard = effect.changeCard,
-      createCard = effect.createCard, createConsumable = effect.createConsumable,
-      destroyCard = effect.destroyCard }, slot)
-    if effect.destroySelf and not isCopy then destroyedUids[inst] = true end
-  end)
-  local destroyedTrinkets, trinketsAfter = {}, {}
-  for _, trinket in ipairs(trinkets) do
-    if destroyedUids[trinket] then
-      destroyedTrinkets[#destroyedTrinkets + 1] = trinket.uid
-      emit({ kind = "trinketDestroyed", uid = trinket.uid })
-    else
-      trinketsAfter[#trinketsAfter + 1] = trinket
-    end
-  end
+  local destroyedTrinkets, trinketsAfter = afterHooks()
 
   local destroyed = {}
   for _, i in ipairs(destroyCandidates) do

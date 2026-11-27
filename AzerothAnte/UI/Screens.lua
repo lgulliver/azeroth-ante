@@ -330,12 +330,14 @@ function Screens.ShowVoucherTip(owner, id, anchor)
   GameTooltip:Show()
 end
 
-function Screens.ShowTagTip(owner, id, anchor)
+-- handId names the hand an Algalon's Insight on the blind screen will level.
+function Screens.ShowTagTip(owner, id, anchor, handId)
   local def = ns.Tags.def[id]
   if not def then return end
   GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
   GameTooltip:AddLine(def.name, Theme.gold[1], Theme.gold[2], Theme.gold[3])
-  GameTooltip:AddLine(def.desc, 1, 1, 1, true)
+  local hand = handId and ns.Hands.def[handId]
+  GameTooltip:AddLine(hand and ("Levels up " .. hand.name .. " three times") or def.desc, 1, 1, 1, true)
   GameTooltip:Show()
 end
 

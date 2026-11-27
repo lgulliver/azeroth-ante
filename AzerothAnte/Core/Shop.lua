@@ -206,7 +206,17 @@ function Shop.buyVoucher(run, which)
   run.gold = run.gold - paid
   run.vouchers[offer.id] = true
   ns.Vouchers.onBuy(run, offer.id)
-  if extra then run.shop.extraVoucher = false else run.shopVoucher = false end
+  if extra then
+    run.shop.extraVoucher = false
+    -- A further Vendor Restock from this shop's opening fills the tile again.
+    if (run.shop.queuedVouchers or 0) > 0 then
+      run.shop.queuedVouchers = run.shop.queuedVouchers - 1
+      local main = run.shopVoucher
+      run.shop.extraVoucher = Shop.rollVoucher(run, main and main.id) or false
+    end
+  else
+    run.shopVoucher = false
+  end
   if run.shop and (offer.id == "OVERSTOCK" or offer.id == "OVERSTOCK_PLUS") then
     generateCards(run, run.shop.cards)
   end

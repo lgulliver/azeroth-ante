@@ -123,10 +123,14 @@ Tags.def = {
     id = "VOUCHER", name = "Vendor Restock", minStage = 1, -- Voucher
     desc = "Adds a voucher to the next shop",
     icon = "Interface\\Icons\\INV_Misc_Note_02",
-    -- A second offer beside the shop's voucher (one per shop; false once bought). With no voucher
-    -- left to offer the tag is still spent.
+    -- A second offer beside the shop's voucher (false once bought). Each further Vendor Restock in the
+    -- same shop queues another offer for that tile once it is bought (Shop.buyVoucher), so every one
+    -- is spent in this shop, as Balatro's. With no voucher left to offer the tag is still spent.
     onShopOpen = function(run)
-      if run.shop.extraVoucher ~= nil then return end
+      if run.shop.extraVoucher ~= nil then
+        run.shop.queuedVouchers = (run.shop.queuedVouchers or 0) + 1
+        return true
+      end
       local main = run.shopVoucher
       run.shop.extraVoucher = ns.Shop.rollVoucher(run, main and main.id) or nil
       return true
@@ -228,8 +232,9 @@ Tags.def = {
     id = "ORBITAL", name = "Algalon's Insight", minStage = 2, -- Orbital
     desc = "Levels up a random hand three times",
     icon = "Interface\\Icons\\Spell_Arcane_StarFire",
+    -- The hand picked when the tag was rolled (Tags.rollBlindTags); a Bonus Roll copy levels it too.
     onTake = function(run)
-      local handId = ns.RNG.pick(run.rng, ns.Hands.visible(run))
+      local handId = run.orbitalHand or ns.RNG.pick(run.rng, ns.Hands.visible(run))
       run.handLevels[handId] = run.handLevels[handId] + 3
       return true
     end,

@@ -193,11 +193,15 @@ Bosses.def = {
   RAGNAROS = {
     id = "RAGNAROS", name = "Ragnaros the Firelord", targetMult = 2, -- Crimson Heart
     desc = "One random trinket is disabled each hand.",
-    -- The trinket disabled last hand sits this pick out, unless it is the only one.
+    -- The trinket disabled last hand sits this pick out, unless it is the only one. A perished
+    -- trinket (Orange Stake) is out of the draw and stays disabled.
     beforeHand = function(run)
-      local picks = {}
+      local live, picks = {}, {}
       for _, t in ipairs(run.trinkets) do
-        if not t.disabled or #run.trinkets < 2 then picks[#picks + 1] = t end
+        if not t.perished then live[#live + 1] = t end
+      end
+      for _, t in ipairs(live) do
+        if not t.disabled or #live < 2 then picks[#picks + 1] = t end
         t.disabled = nil
       end
       if #picks > 0 then ns.RNG.pick(run.rng, picks).disabled = true end

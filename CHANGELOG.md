@@ -30,6 +30,14 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Stakes: Balatro's eight difficulty levels, chosen under the deck on the deck screen. Each adds to those below it: Red (no small blind reward), Green (faster-scaling targets), Black (Eternal trinkets that can't be sold or destroyed), Blue (-1 discard), Purple (faster still, 200,000 at ante 8), Orange (Perishable trinkets, debuffed after 5 rounds) and Gold (Rental trinkets: 1g to buy, -3g each round). Every deck starts on White; winning at a stake unlocks the next one for that deck.
 - Ten more decks, completing Balatro's fifteen, each with its own painted back: Mage (Dalaran Crystal Ball and 2 Scrolls of Echoes), Draenei (Titan Orrery, one consumable slot fewer), Death Knight (Relics in the shop, start with a Relic of Hexes), Forsaken (no face cards), Alliance (26 Spades and 26 Hearts), Trade Prince (three shop vouchers), Hunter (+2 hand size, one trinket slot fewer), Evoker (a Bonus Roll after each boss), Balance Druid (Chips and Mult are balanced; targets doubled) and Gnome (random ranks and suits). They unlock in turn as you discover more items.
 
+### Fixed
+- A trinket Ragnaros disabled for the last hand no longer pays out or updates at the end of the round; it is back on for interest and the shop.
+- Ragnaros never picks a Perishable trinket that has already perished, and no longer brings one back.
+- Algalon's Insight picks its hand when it is rolled, and the blind screen's tooltip names it.
+- Two Vendor Restocks in one shop give two extra vouchers: the second fills the extra tile once the first is bought.
+- A hand Gluth or Shade of Aran does not allow still counts down trinkets such as Tigule's Ice Cream and Morning Glory Dew.
+- Ashbringer disables a boss already in play however it arrives, not only from the Heart of Azeroth.
+
 ## [0.7.0] - 2026-11-09
 
 ### Added

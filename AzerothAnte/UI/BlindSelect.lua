@@ -166,7 +166,7 @@ local function makeBlind(p, i, host)
     icon.art = icon:CreateTexture(nil, "ARTWORK")
     icon.art:SetAllPoints()
     icon:SetScript("OnEnter", function(self)
-      if self.id then ns.UI.Screens.ShowTagTip(self, self.id, "ANCHOR_TOP") end
+      if self.id then ns.UI.Screens.ShowTagTip(self, self.id, "ANCHOR_TOP", self.hand) end
     end)
     icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
     slot.tagIcon = icon
@@ -249,6 +249,7 @@ local function refreshOne(b, run, i, bossId)
     if ok then b.skip:Enable() else b.skip:Disable() end
     b.host.setReason(b.skip, (not ok) and reason or nil)
     b.tagIcon.id = tagId
+    b.tagIcon.hand = run.orbitalHands and run.orbitalHands[i]
     b.tagIcon:SetShown(open and tagId ~= nil)
     if tagId then b.tagIcon.art:SetTexture(ns.Tags.def[tagId].icon) end
   end

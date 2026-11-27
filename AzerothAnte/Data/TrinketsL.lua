@@ -88,7 +88,7 @@ ns.Trinkets.add {
   end,
 }
 
--- Chicot. Also disables a boss already in play when Heart of Azeroth creates it (see Relics LEGENDS).
+-- Chicot. Also disables a boss already in play when it arrives mid-blind (see Run.withMods).
 ns.Trinkets.add {
   id = "ASHBRINGER", name = "Ashbringer", rarity = "legendary", cost = 20,
   desc = "Disables every boss blind",

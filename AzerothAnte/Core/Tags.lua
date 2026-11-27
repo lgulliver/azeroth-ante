@@ -13,8 +13,14 @@ function Tags.roll(run)
 end
 
 -- Rolls the tags the small and big blind give when skipped (at run start and each new stage).
+-- An Algalon's Insight (Orbital) picks its hand as it is rolled, as Balatro's does, so the blind screen
+-- can name it (run.orbitalHands[blind]).
 function Tags.rollBlindTags(run)
   run.blindTags = { Tags.roll(run), Tags.roll(run) }
+  run.orbitalHands = {}
+  for i, id in ipairs(run.blindTags) do
+    if id == "ORBITAL" then run.orbitalHands[i] = ns.RNG.pick(run.rng, ns.Hands.visible(run)) end
+  end
 end
 
 local function addOne(run, id)

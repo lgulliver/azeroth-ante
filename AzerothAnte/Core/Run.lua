@@ -372,6 +372,15 @@ function Run.withMods(run, fn)
   modsDepth = 0
   if not out[1] then error(out[2], 0) end
   Run.applyMods(run, before)
+  -- Ashbringer (Chicot) arriving mid-boss by any route (a Relic, a duplicate) disables the boss at once.
+  if run.phase == "play" and Run.activeBoss(run) then
+    for _, t in ipairs(run.trinkets) do
+      if t.id == "ASHBRINGER" and not t.disabled then
+        Run.disableBoss(run)
+        break
+      end
+    end
+  end
   return unpack(out, 2, table.maxn(out))
 end
 
@@ -544,11 +553,22 @@ end
 -- opts.saved: a loss prevented by an onLose trinket; the blind reward is replaced by the save.
 function Run.winBlind(run, opts)
   Run.revealHand(run)
+  -- A trinket Ragnaros disabled for the last hand sits out the end of the round too (no round update,
+  -- boss-defeated or payout effects), but is back for interest and the shop.
+  local benched = {}
+  for _, t in ipairs(run.trinkets) do
+    if t.disabled and not t.perished then benched[#benched + 1] = t end
+  end
+  local function bench(on)
+    for _, t in ipairs(benched) do t.disabled = on or nil end
+  end
   clearFinisher(run)
   run.blindHandSizeBonus = nil
   if run.blind == 3 then run.shopVoucher = nil end
+  bench(true)
   ns.TrinketEngine.fire(run, "roundUpdate")
   if run.blind == 3 then ns.TrinketEngine.fire(run, "onBossDefeated") end
+  bench(false)
   local deck = ns.Decks.def[run.deckId]
   local payout = {
     reward = Run.blindReward(run), hands = run.handsLeft * (deck.goldPerHand or 1),
@@ -569,6 +589,7 @@ function Run.winBlind(run, opts)
     event("maxInterestStreak", streak, run)
   end
   payout.trinketLines = {}
+  bench(true)
   ns.TrinketEngine.each(run.trinkets, function(slot, instance, def, isCopy)
     local gold = def.onRoundEnd and def.onRoundEnd(run, instance, isCopy)
     if gold and gold > 0 then
@@ -597,6 +618,7 @@ function Run.winBlind(run, opts)
       end
     end
   end
+  bench(false)
   if run.blind == 3 then ns.Tags.fire(run, "onBossDefeated", payout) end -- Goblin Investment: payout.investment
   if run.blind == 3 and deck.bossTag then ns.Tags.add(run, deck.bossTag) end -- Evoker: a Bonus Roll per boss
   payout.total = payout.reward + payout.hands + payout.discards + payout.interest + payout.trinkets + payout.held
@@ -652,7 +674,9 @@ function Run.skipBlind(run)
   local tagId = run.blindTags[run.blind]
   run.skips = run.skips + 1 -- before the tag, as Balatro: Speed counts this skip
   run.skippedBlinds[run.blind] = true
+  run.orbitalHand = run.orbitalHands and run.orbitalHands[run.blind] -- Algalon's Insight
   if tagId then ns.Tags.add(run, tagId) end
+  run.orbitalHand = nil
   event("blindSkipped", 1, run)
   ns.TrinketEngine.fire(run, "onSkip")
   run.blind = run.blind + 1

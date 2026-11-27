@@ -299,10 +299,7 @@ local def = {
     use = function(run, _, api)
       local pool = legendaryPool(run, api.trinkets())
       if #pool == 0 then pool = rarestOf(unownedTrinkets(run, api.trinkets())) end -- all owned: rarest left
-      local id = ns.RNG.pick(api.rng, pool)
-      addTrinket(run, api, id)
-      -- Ashbringer arriving mid-boss disables it at once, as Chicot does.
-      if id == "ASHBRINGER" and run.phase == "play" then ns.Run.disableBoss(run) end
+      addTrinket(run, api, ns.RNG.pick(api.rng, pool)) -- an Ashbringer disables a boss in play (Run.withMods)
     end,
   },
   COSMOS = {
