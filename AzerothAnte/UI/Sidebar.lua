@@ -347,7 +347,9 @@ function Sidebar.Update(run, chips, mult)
     frame.hands:SetText("Hands: " .. ns.Run.blindHands(run))
     frame.discards:SetText("Discards: " .. ns.Run.blindDiscards(run))
     setGold(frame, run.gold)
-    frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8")
+    local stake = ns.Stakes.def[ns.Stakes.order[ns.Stakes.of(run)]]
+    local stakeText = ns.Stakes.of(run) > 1 and (" " .. Theme.Hex(stake.color) .. stake.name .. "|r") or ""
+    frame.stage:SetText("Stage " .. tostring(run.stage or 1) .. " / 8" .. stakeText)
     frame.deckButton:SetText("Deck (" .. #(run.deck or {}) .. ")")
     ns.UI.DeckView.Refresh(run)
     return
@@ -362,7 +364,7 @@ function Sidebar.Update(run, chips, mult)
   -- the just-finished blind's values, labelled as such.
   local target, score = run.target, run.score
   if run.phase == "blind" then
-    target, score = ns.Run.target(run.stage, run.blind, bossId), 0
+    target, score = ns.Run.target(run, run.stage, run.blind, bossId), 0
   end
   frame.targetLabel:SetText(run.phase == "shop" and "Cleared blind, target was" or "Score at least")
   frame.target:SetText(tostring(target or 0))

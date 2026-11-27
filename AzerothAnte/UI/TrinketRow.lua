@@ -51,8 +51,11 @@ local function showTooltip(slot)
   GameTooltip:AddLine(def.name, r[1], r[2], r[3])
   GameTooltip:AddLine(def.rarity and (def.rarity:sub(1, 1):upper() .. def.rarity:sub(2)) or "", r[1], r[2], r[3])
   GameTooltip:AddLine(ns.Trinkets.describe(def, run), 1, 1, 1, true)
-  if slot.trinket and slot.trinket.disabled then
+  if slot.trinket and slot.trinket.disabled and not slot.trinket.perished then
     GameTooltip:AddLine("Disabled this hand", 1, 0.3, 0.3)
+  end
+  for _, line in ipairs(slot.trinket and ns.Stakes.lines(slot.trinket) or {}) do
+    GameTooltip:AddLine(line, 0.8, 0.6, 1, true)
   end
   local ed = slot.trinket and ns.CardTypes.ed[slot.trinket.ed]
   if ed then
@@ -82,15 +85,26 @@ local function refreshSell()
   for i = 1, #frame.slots do
     local slot = frame.slots[i]
     if sellMode and slot.def and slot:IsShown() and not (press and press.active) then
+      local eternal = slot.trinket.eternal
       slot.sell.price = ns.Shop.sellValue(slot.trinket)
-      slot.sell:SetText(slot.sell.price .. "g")
+      slot.sell.eternal = eternal
+      slot.sell:SetText(eternal and "-" or (slot.sell.price .. "g"))
       slot.sell.trinketId = slot.def.id -- identity captured at render time
-      if lastLocked then slot.sell:Disable() else slot.sell:Enable() end
+      if lastLocked or eternal then slot.sell:Disable() else slot.sell:Enable() end
       slot.sell:Show()
     else
       slot.sell:Hide()
     end
   end
+end
+
+-- The slot's sticker badge: "E", "P3" (rounds left; "P0" once perished), "R", combined.
+function TrinketRow.StickerText(t)
+  local parts = {}
+  if t.eternal then parts[#parts + 1] = "|cffcc99ffE|r" end
+  if t.perishTally then parts[#parts + 1] = "|cff66aaffP" .. math.max(0, t.perishTally) .. "|r" end
+  if t.rental then parts[#parts + 1] = "|cffffd100R|r" end
+  return table.concat(parts, " ")
 end
 
 -- onSellFn(slotIndex, trinketId) is called when a sell button is clicked.
@@ -242,14 +256,18 @@ local function makeSlot(frame, i)
   slot.icon = slot.holder:CreateTexture(nil, "ARTWORK")
   slot.icon:SetAllPoints()
   slot.icon:Hide()
+  -- Stake stickers: E (Eternal), P<rounds> (Perishable), R (Rental), bottom-left of the icon.
+  slot.sticker = slot.holder:CreateFontString(nil, "OVERLAY", Theme.fonts.small)
+  slot.sticker:SetPoint("BOTTOMLEFT", slot.holder, "BOTTOMLEFT", 2, 2)
   local sell = Theme.NewButton(slot, nil, SELL_W, SELL_H)
   sell:SetPoint("TOP", slot, "BOTTOM", 0, -1)
   sell:SetScript("OnClick", function()
     if onSell then onSell(i, sell.trinketId) end
   end)
+  sell:SetMotionScriptsWhileDisabled(true) -- an Eternal trinket's button says why
   sell:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-    GameTooltip:SetText("Sell for " .. (self.price or 0) .. "g", 1, 1, 1)
+    GameTooltip:SetText(self.eternal and "Eternal: can't be sold" or ("Sell for " .. (self.price or 0) .. "g"), 1, 1, 1)
     GameTooltip:Show()
   end)
   sell:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -332,6 +350,7 @@ function TrinketRow.Update(run)
     slot.icon:SetVertexColor(shade, shade, shade)
     if slot.icon.SetDesaturated then slot.icon:SetDesaturated(shade < 1) end
     ns.UI.EditionFX.Attach(slot.holder, (def and not faceDown) and entry.ed or nil)
+    slot.sticker:SetText(def and TrinketRow.StickerText(entry) or "")
   end
   settle = nil
   lastX = shown

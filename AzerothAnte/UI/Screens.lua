@@ -158,10 +158,10 @@ local function newSeed()
   return time() + math.floor(GetTime() * 1000) % 100000
 end
 
-local function startRun(deckId)
+local function startRun(deckId, stake)
   if blocked() then return end
   if AzerothAnteDB then ns.Profile.get(AzerothAnteDB).lastDeck = deckId end
-  local run = ns.Run.new(newSeed(), deckId)
+  local run = ns.Run.new(newSeed(), deckId, stake)
   main().SetRun(run) -- renders the blind screen and clears the old hand
   persist()
 end
@@ -264,6 +264,8 @@ function Screens.ItemInfo(item)
     local rarity = def.rarity or "common"
     local owner = main() and main().run
     info.name, info.desc, info.icon = def.name, ns.Trinkets.describe(def, owner), def.icon
+    local stickers = ns.Stakes.lines(item) -- Black Stake and up
+    if #stickers > 0 then info.desc = info.desc .. "\n" .. table.concat(stickers, "\n") end
     info.color = Theme.rarity[rarity] or Theme.rarity.common
     info.sub = rarity:sub(1, 1):upper() .. rarity:sub(2) .. " Trinket"
     local ed = ns.CardTypes.ed[item.ed]
@@ -969,6 +971,11 @@ local function refreshShop(p, run)
     lines.investment = { ns.Tags.def.INVESTMENT.name, pay.investment }
     keys[#keys + 1] = "investment"
   end
+  if (pay.rental or 0) < 0 then -- Gold Stake: Rental trinkets, taken before interest
+    if not p.payout.rental then addPayoutRow(p, "rental") end
+    lines.rental = { "Rental trinkets", pay.rental }
+    keys[#keys + 1] = "rental"
+  end
   keys[#keys + 1] = "held"
   keys[#keys + 1] = "total"
   local listed = {}
@@ -987,7 +994,8 @@ local function refreshShop(p, run)
     row.value:SetShown(show)
     if show then
       row.label:SetText(lines[key][1])
-      row.value:SetText("+" .. (lines[key][2] or 0) .. "g")
+      local amount = lines[key][2] or 0
+      row.value:SetText((amount < 0 and "" or "+") .. amount .. "g")
       -- A saved blind pays no reward: its line names the trinket instead, with no amount.
       local saved = key == "reward" and pay.saved
       row.value:SetShown(not saved)

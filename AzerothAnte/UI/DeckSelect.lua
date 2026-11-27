@@ -37,6 +37,7 @@ local slide, fade                                -- running tweens
 local flourish, queue, held = nil, {}, {}
 local opened = false
 local cards = {}
+local chosenStake = {}                           -- deck id -> stake picked this session
 local driver
 local fallbackDb = {}
 
@@ -175,6 +176,53 @@ local function layout()
 end
 
 ---------------------------------------------------------------------------
+-- Stake picker (per deck; Balatro's ladder: a win unlocks the next stake)
+
+local function stakeUnlocked(id) return ns.Profile.stakeUnlocked(db(), id) end
+
+-- The stake Play would start: the one picked this session, else the highest unlocked.
+function DeckSelect.Stake(id)
+  id = id or DeckSelect.Selected()
+  return clamp(chosenStake[id] or stakeUnlocked(id), 1, stakeUnlocked(id))
+end
+
+function DeckSelect.StepStake(dir)
+  local id = DeckSelect.Selected()
+  chosenStake[id] = clamp(DeckSelect.Stake(id) + dir, 1, stakeUnlocked(id))
+  DeckSelect.Refresh()
+end
+
+-- Every rule the stake adds, from Red up.
+local function stakeTip(self)
+  local n = DeckSelect.Stake()
+  local def = ns.Stakes.def[ns.Stakes.order[n]]
+  GameTooltip:SetOwner(self, "ANCHOR_TOP")
+  GameTooltip:AddLine(def.name, def.color[1], def.color[2], def.color[3])
+  for i = n > 1 and 2 or 1, n do
+    GameTooltip:AddLine(ns.Stakes.def[ns.Stakes.order[i]].desc, 1, 1, 1, true)
+  end
+  local won = ns.Profile.stakeWon(db(), DeckSelect.Selected())
+  if n == stakeUnlocked(DeckSelect.Selected()) and n < #ns.Stakes.order then
+    GameTooltip:AddLine("Win at this stake to unlock the next.", 0.6, 0.9, 0.6, true)
+  elseif won >= n then
+    GameTooltip:AddLine("Won with this deck.", Theme.gold[1], Theme.gold[2], Theme.gold[3])
+  end
+  GameTooltip:Show()
+end
+
+local function refreshStake(id)
+  local open = isUnlocked(id)
+  panel.stakeRow:SetShown(open)
+  if not open then return end
+  local n = DeckSelect.Stake(id)
+  local def = ns.Stakes.def[ns.Stakes.order[n]]
+  panel.stakeName:SetText(def.name)
+  Theme.setColor(panel.stakeName, def.color)
+  if n > 1 then panel.stakePrev:Enable() else panel.stakePrev:Disable() end
+  if n < stakeUnlocked(id) then panel.stakeNext:Enable() else panel.stakeNext:Disable() end
+end
+
+---------------------------------------------------------------------------
 -- Info under the card
 
 local function refreshInfo()
@@ -186,6 +234,7 @@ local function refreshInfo()
   panel.flavour:SetText("\"" .. (def.flavour or "") .. "\"")
   panel.stats:SetText(("%d hands %s %d discards %s %dg"):format(def.hands, DOT, def.discards, DOT, def.gold))
   panel.best:SetText(("Best: Stage %d %s Wins: %d"):format(stats.bestStage or 0, DOT, stats.wins or 0))
+  refreshStake(id)
   if isUnlocked(id) then
     panel.desc:SetText(def.desc)
     Theme.setColor(panel.desc, Theme.parchment)
@@ -462,9 +511,26 @@ function DeckSelect.Build(host)
   p.best = text(p.info, Theme.fonts.small, -392, 440)
   Theme.setColor(p.best, Theme.gold)
 
+  -- The stake row sits between the tile and Play: "<  Red Stake  >", its rules on hover.
+  p.stakeRow = CreateFrame("Frame", nil, p)
+  p.stakeRow:SetSize(260, 22)
+  p.stakeRow:SetPoint("TOP", p, "TOP", 0, -410)
+  p.stakePrev = host.button(p.stakeRow, "<", 24, 20, function() DeckSelect.StepStake(-1) end)
+  p.stakePrev:SetPoint("LEFT", p.stakeRow, "LEFT", 0, 0)
+  p.stakeNext = host.button(p.stakeRow, ">", 24, 20, function() DeckSelect.StepStake(1) end)
+  p.stakeNext:SetPoint("RIGHT", p.stakeRow, "RIGHT", 0, 0)
+  p.stakeLabel = CreateFrame("Button", nil, p.stakeRow)
+  p.stakeLabel:SetPoint("TOPLEFT", p.stakePrev, "TOPRIGHT", 4, 0)
+  p.stakeLabel:SetPoint("BOTTOMRIGHT", p.stakeNext, "BOTTOMLEFT", -4, 0)
+  p.stakeName = p.stakeLabel:CreateFontString(nil, "OVERLAY", Theme.fonts.text)
+  p.stakeName:SetAllPoints()
+  p.stakeName:SetJustifyH("CENTER")
+  p.stakeLabel:SetScript("OnEnter", stakeTip)
+  p.stakeLabel:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
   p.play = host.button(p, "Play", 170, 32, function()
     local id = DeckSelect.Selected()
-    if isUnlocked(id) then host.start(id) end
+    if isUnlocked(id) then host.start(id, DeckSelect.Stake(id)) end
   end, "primary")
   p.play:SetPoint("BOTTOM", p, "BOTTOM", 0, 24)
   host.reasonTip(p.play)

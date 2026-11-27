@@ -246,7 +246,7 @@ local def = {
       local chosen = ns.RNG.pick(api.rng, trinkets)
       local copy = ns.Trinkets.duplicate(run, chosen, chosen.ed ~= "NEGATIVE" and chosen.ed or nil)
       for i = #trinkets, 1, -1 do
-        if trinkets[i] ~= chosen then table.remove(trinkets, i) end
+        if trinkets[i] ~= chosen and not trinkets[i].eternal then table.remove(trinkets, i) end
       end
       trinkets[#trinkets + 1] = copy
       api.touch(copy)
@@ -267,7 +267,7 @@ local def = {
       chosen.ed = "POLY"
       api.touch(chosen)
       for i = #trinkets, 1, -1 do
-        if trinkets[i] ~= chosen then table.remove(trinkets, i) end
+        if trinkets[i] ~= chosen and not trinkets[i].eternal then table.remove(trinkets, i) end
       end
     end,
   },

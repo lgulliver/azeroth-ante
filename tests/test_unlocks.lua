@@ -44,7 +44,7 @@ T.test("profile_creation_migration_preserves_progress_and_save", function()
   local db = { run = { seed = 7 }, version = 2 }
   local p = ns.Profile.get(db)
   T.eq(p, { version = 1, discovered = {}, stats = {}, seenUnlocks = {},
-    counters = {}, achievements = {}, bossesSeen = {}, unlockedDecks = {}, seenAchievements = {}, unlockMigration = 2 })
+    counters = {}, achievements = {}, bossesSeen = {}, unlockedDecks = {}, seenAchievements = {}, stakeWon = {}, unlockMigration = 2 })
   T.ok(p == ns.Profile.get(db))
   db.profile = { version = 0, discovered = { ["scroll:FURY"] = true }, stats = { ROGUE = { wins = 2 } } }
   p = ns.Profile.get(db)

@@ -54,6 +54,12 @@ local Theme = {
   media = { shadow = MEDIA .. "UI_Shadow", gradient = MEDIA .. "UI_Gradient", flat = FLAT },
 }
 
+-- The "|cffRRGGBB" escape that colours text by an {r, g, b} colour (close it with "|r").
+function Theme.Hex(c)
+  return ("|cff%02x%02x%02x"):format(math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5),
+    math.floor(c[3] * 255 + 0.5))
+end
+
 -- Applies an {r, g, b[, a]} colour to a texture or font string.
 function Theme.setColor(region, c, isTexture)
   if isTexture then

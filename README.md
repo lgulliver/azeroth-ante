@@ -111,7 +111,15 @@ apply to rerolls or the boss reroll.
 
 **Boss reroll**: the Bounty Board voucher lets you reroll the upcoming boss once per
 stage for 10g; its upgrade, Infinite Bounty, removes the limit. It is only offered on the
-blind screen, and never at the final stage.
+blind screen; at the final stage it rerolls into another finisher.
+
+**Stakes** raise the difficulty, as in Balatro. Pick one under the deck on the deck screen;
+each adds to every stake below it: Red (no small blind reward), Green (faster-scaling
+targets), Black (Eternal trinkets, which can't be sold or destroyed), Blue (one discard fewer),
+Purple (targets scale faster still), Orange (Perishable trinkets, debuffed after 5 rounds) and
+Gold (Rental trinkets: 1g to buy, 3g each round). Every deck starts on White Stake; winning
+with a deck unlocks its next stake. Trinket stickers show as small badges on the icon
+(E, P with rounds left, R) and in the tooltip.
 
 **Achievements** are addon-internal. They are tracked and stored in the addon's own
 SavedVariables (`AzerothAnteDB`) and are never WoW achievements: they do not touch
@@ -179,6 +187,8 @@ Run these checks in Retail and Forever:
 - [ ] Entering combat hides the window.
 - [ ] No trinket icon is blank or a question mark (check Avenging Wrath, Multi-Shot, Whetstone and Hunter's Mark especially, and the legendaries: Frostmourne, Shalamayne, Shadowmourne, Ashbringer, Dragonwrath).
 - [ ] With Dragonwrath and a consumable held, Next Blind adds a Negative copy with the Negative tint in an extra slot.
+- [ ] The deck screen's stake row (< White Stake >) fits between the deck tile and Play, and its tooltip lists the stake's rules.
+- [ ] On Black Stake and up, sticker badges (E, P5, R) sit on trinket icons without hiding them, and an Eternal trinket's sell button reads "-".
 - [ ] `/reload` in the shop resumes on the shop screen.
 - [ ] `/reload` on the blind screen resumes on the blind screen.
 - [ ] A queue pop during combat plays the sound only; the window opens after combat.

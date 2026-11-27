@@ -1,6 +1,6 @@
 # Bosses and skip tags
 
-Status: approved [Liam, 2026-11-26]. Brings the boss roster and blind skipping up to vanilla Balatro (1.0.1), checked against balatrowiki.org.
+Status: approved 2026-11-26. Brings the boss roster and blind skipping up to vanilla Balatro (1.0.1), checked against balatrowiki.org.
 
 ## Goals
 

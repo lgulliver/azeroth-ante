@@ -19,7 +19,7 @@ ns.Trinkets.add {
     for slot, instance in ipairs(run.trinkets) do
       if instance.uid == self.uid then
         local victim = run.trinkets[slot + 1]
-        if not victim or ns.TrinketEngine.isMarked(run, victim.uid) then return end
+        if not victim or victim.eternal or ns.TrinketEngine.isMarked(run, victim.uid) then return end
         local gain = 2 * ns.Shop.sellValue(victim)
         self.state.mult = (self.state.mult or 0) + gain
         return { destroyTrinket = victim.uid, msg = "+" .. gain .. " Mult" }
@@ -196,7 +196,7 @@ ns.Trinkets.add {
     self.state.x = (self.state.x or 1) + 0.5
     local pool = {}
     for _, instance in ipairs(run.trinkets) do
-      if instance.uid ~= self.uid and not ns.TrinketEngine.isMarked(run, instance.uid) then
+      if instance.uid ~= self.uid and not instance.eternal and not ns.TrinketEngine.isMarked(run, instance.uid) then
         pool[#pool + 1] = instance.uid
       end
     end

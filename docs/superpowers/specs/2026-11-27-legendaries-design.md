@@ -1,6 +1,6 @@
 # Legendary trinkets, Diet Cola and Throwback
 
-Status: approved [Liam, 2026-11-27: "names are good, go ahead"]. Completes the Balatro (1.0.1) joker set: the last two non-legendary jokers, which needed skip tags, and the five legendaries with The Soul.
+Status: approved 2026-11-27. Completes the Balatro (1.0.1) joker set: the last two non-legendary jokers, which needed skip tags, and the five legendaries with The Soul.
 
 ## Trinkets
 

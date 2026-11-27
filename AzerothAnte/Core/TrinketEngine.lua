@@ -44,7 +44,7 @@ end
 
 local function destroyUid(run, uid, emit)
   local i = indexOfUid(run, uid)
-  if not i then return end -- Already gone.
+  if not i or run.trinkets[i].eternal then return end -- Already gone, or Eternal (Black Stake).
   local id = run.trinkets[i].id
   table.remove(run.trinkets, i)
   emit({ kind = "trinketDestroyed", uid = uid, slot = i, id = id })

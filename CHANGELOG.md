@@ -27,6 +27,7 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Jacks, Queens and Kings are double-ended court cards of Warcraft characters: Sir Finley, Azshara and King Mrgl-Mrgl on Spades; Arthas, Jaina and Varian on Hearts; Garrosh, Sylvanas and Durotan on Clubs; Gazlowe, Sassy Hardwrench and Gallywix on Diamonds. A Stone court card still shows no art.
 - Five legendary trinkets, as Balatro's legendary jokers: Frostmourne (gains ×1 Mult per face card destroyed), Shalamayne (played Kings and Queens give ×2 Mult), Shadowmourne (gains ×1 Mult every 23 cards discarded), Ashbringer (disables every boss) and Dragonwrath (leaving the shop makes a Negative copy of a held consumable; a Negative consumable brings its own slot). They never appear in the shop or packs: the Heart of Azeroth now creates one.
 - Darkmoon Fizz (sell for a free Bonus Roll) and Timewalking Badge (×0.25 Mult per blind skipped), completing the Balatro joker set at 150 trinkets.
+- Stakes: Balatro's eight difficulty levels, chosen under the deck on the deck screen. Each adds to those below it: Red (no small blind reward), Green (faster-scaling targets), Black (Eternal trinkets that can't be sold or destroyed), Blue (-1 discard), Purple (faster still, 200,000 at ante 8), Orange (Perishable trinkets, debuffed after 5 rounds) and Gold (Rental trinkets: 1g to buy, -3g each round). Every deck starts on White; winning at a stake unlocks the next one for that deck.
 
 ## [0.7.0] - 2026-11-09
 

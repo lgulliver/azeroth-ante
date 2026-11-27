@@ -61,7 +61,10 @@ end
 
 function Trinkets.duplicate(run, instance, ed)
   local copy = { id = instance.id, ed = ed, paid = nil, sellBonus = instance.sellBonus or 0,
-    state = deepCopy(instance.state or {}), uid = run.nextTrinketUid }
+    state = deepCopy(instance.state or {}), uid = run.nextTrinketUid,
+    -- Stake stickers carry over, as Balatro's copy_card.
+    eternal = instance.eternal, perishTally = instance.perishTally, perished = instance.perished,
+    disabled = instance.perished, rental = instance.rental }
   run.nextTrinketUid = run.nextTrinketUid + 1
   return copy
 end

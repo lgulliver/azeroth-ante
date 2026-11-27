@@ -60,8 +60,10 @@ function Shop.rollTrinket(run, taken, rarity)
   local id = ns.RNG.pick(run.rng, pool)
   taken[id] = true
   local ed = Shop.rollEdition(run, true)
-  return { type = "trinket", id = id, ed = ed,
+  local offer = { type = "trinket", id = id, ed = ed,
     cost = ns.Trinkets.def[id].cost + (ns.CardTypes.ED_COST[ed] or 0) }
+  ns.Stakes.rollStickers(run, offer) -- Black Stake and up (Recruit-a-Friend ignores them)
+  return offer
 end
 
 -- Voucher-discounted price of an offer; Astronomer makes Tomes and Celestial packs free.
@@ -69,6 +71,7 @@ function Shop.priceOf(run, item)
   local free = ns.TrinketRules.has(run.trinkets, "ASTRONOMER")
     and (item.type == "tome" or item.type == "CELESTIAL")
   if free then return 0 end
+  if item.rental then return ns.Stakes.RENTAL_COST end -- Gold Stake: a Rental costs 1g, as Balatro
   return ns.Vouchers.price(run, item.baseCost or item.cost)
 end
 
@@ -155,7 +158,7 @@ local function buyItem(run, i)
   if item.type == "trinket" then
     local slots = ns.Run.trinketSlots(run) + (item.ed == "NEGATIVE" and 1 or 0)
     if #run.trinkets >= slots then return false, "slots" end
-    run.trinkets[#run.trinkets + 1] = ns.Trinkets.create(run, item.id, item.ed, item.cost)
+    run.trinkets[#run.trinkets + 1] = ns.Stakes.stick(ns.Trinkets.create(run, item.id, item.ed, item.cost), item)
     if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain("trinket", item.id) end
   elseif item.type == "card" then
     ns.Deck.add(run, { rank = item.rank, suit = item.suit, enh = item.enh,

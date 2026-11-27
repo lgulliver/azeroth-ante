@@ -22,7 +22,7 @@ function Profile.get(db)
   local migrateUnlocks = existing and type(profile.unlockedDecks) ~= "table"
   profile.version = 1
   for _, key in ipairs({ "discovered", "stats", "seenUnlocks", "counters", "achievements",
-    "bossesSeen", "unlockedDecks", "seenAchievements" }) do
+    "bossesSeen", "unlockedDecks", "seenAchievements", "stakeWon" }) do
     if type(profile[key]) ~= "table" then profile[key] = {} end
   end
   if migrateUnlocks then
@@ -106,6 +106,20 @@ function Profile.recordRun(db, run)
   deck.runs = deck.runs + 1
   if run.phase == "won" then deck.wins = deck.wins + 1 end
   deck.bestStage = math.max(deck.bestStage, run.stage)
+  if run.phase == "won" then
+    local won = Profile.get(db).stakeWon
+    won[run.deckId] = math.max(won[run.deckId] or 0, run.stake or 1)
+  end
+end
+
+-- The highest stake a deck has been won at (0 for none), and the highest it may be played at:
+-- each win unlocks the next stake for that deck, as Balatro's ladder.
+function Profile.stakeWon(db, deckId)
+  return Profile.get(db).stakeWon[deckId] or 0
+end
+
+function Profile.stakeUnlocked(db, deckId)
+  return math.min(#ns.Stakes.order, Profile.stakeWon(db, deckId) + 1)
 end
 
 function Profile.event(db, name, amount, run)

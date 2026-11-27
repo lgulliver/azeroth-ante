@@ -47,7 +47,7 @@ T.test("regular_blinds_pay_3_4_5", function()
 end)
 
 T.test("cthun_target_is_6x", function()
-  T.eq(ns.Run.target(8, 3, "CTHUN"), 300000)
+  T.eq(ns.Run.target({}, 8, 3, "CTHUN"), 300000)
 end)
 
 T.test("finisher_defs", function()
@@ -212,7 +212,7 @@ T.test("targorr_hand_size_minus_one", function()
 end)
 
 T.test("patchwerk_target_4x", function()
-  T.eq(ns.Run.target(2, 3, "PATCHWERK"), 3200)
+  T.eq(ns.Run.target({}, 2, 3, "PATCHWERK"), 3200)
   T.eq(ns.Bosses.def.PATCHWERK.minStage, 2)
 end)
 
@@ -695,7 +695,7 @@ T.test("medallion_brings_wall_and_vessel_to_2x", function()
       return run
     end
     local run = start()
-    T.eq(run.target, ns.Run.target(stage, 3, id))
+    T.eq(run.target, ns.Run.target(run, stage, 3, id))
     T.ok(ns.Run.sellTrinket(run, 1))
     T.eq(run.bossDisabled, true, id)
     T.eq(run.target, ns.Run.BASE_TARGETS[stage] * 2, id .. " target is base x2")

@@ -2,32 +2,37 @@ local _, ns = ...
 
 local Run = {}
 
--- Balatro's ante base scores; the big blind is x1.5 and a boss usually x2.
+-- Balatro's ante base scores (White to Black Stake; Green and Purple scale faster, see Stakes);
+-- the big blind is x1.5 and a boss usually x2.
 Run.BASE_TARGETS = { 300, 800, 2000, 5000, 11000, 20000, 35000, 50000 }
 
 -- Gold paid for beating the small, big and boss blind.
 Run.BLIND_REWARDS = { 3, 4, 5 }
 Run.FINISHER_REWARD = 8
 
--- Gold for beating the current blind: a finisher boss pays more than a regular one.
+-- Gold for beating the current blind: a finisher boss pays more than a regular one, and from
+-- Red Stake the small blind pays nothing.
 function Run.blindReward(run)
+  if run.blind == 1 and ns.Stakes.has(run, "RED") then return 0 end
   if run.blind == 3 and ns.Bosses.isFinal(run.bosses[run.stage]) then return Run.FINISHER_REWARD end
   return Run.BLIND_REWARDS[run.blind]
 end
 
 Run.BOSS_REROLL_COST = 10
 
-function Run.target(stage, blind, bossId)
+-- `run` gives the stake's target scaling.
+function Run.target(run, stage, blind, bossId)
   local mult = 1
   if blind == 2 then mult = 1.5 end
   if blind == 3 then mult = ns.Bosses.def[bossId].targetMult end
-  return math.floor(Run.BASE_TARGETS[stage] * mult)
+  return math.floor(ns.Stakes.baseTarget(run, stage) * mult)
 end
 
-function Run.new(seed, deckId)
+-- `stake` is the stake number (1 White to 8 Gold; default White).
+function Run.new(seed, deckId, stake)
   local deck = ns.Decks.def[deckId]
   local run = {
-    seed = seed, rng = ns.RNG.new(seed), deckId = deckId,
+    seed = seed, rng = ns.RNG.new(seed), deckId = deckId, stake = stake or 1,
     stage = 1, blind = 1, phase = "blind", gold = deck.gold,
     deck = ns.Deck.new(), nextCardId = 53, baseHandSize = 8, handSizeMod = 0,
     maxTrinkets = 5, trinkets = {}, nextTrinketUid = 1, roundHandPlays = {}, handLevels = {}, voidPenalty = 1,
@@ -36,12 +41,13 @@ function Run.new(seed, deckId)
     vouchers = {}, shopVoucher = nil, handPlays = {}, bossRerollsUsed = 0,
     bossesFought = {}, streak = { maxInterest = 0 },
     handsPlayedTotal = 0, handsPlayedRound = 0, bosses = {}, score = 0,
-    target = Run.target(1, 1), handsLeft = deck.hands, discardsLeft = deck.discards,
+    target = 0, handsLeft = deck.hands, discardsLeft = deck.discards,
     discardsUsedRound = 0, flags = {}, lifecycleEvents = {},
     usage = { scroll = 0, tome = 0, relic = 0, tomeIds = {} }, cardLog = { added = {}, destroyed = {} },
     bossDisabled = false, tags = {}, blindTags = {}, skips = 0, skippedBlinds = {}, playedThisAnte = {}, discardsUnusedTotal = 0,
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
+  run.target = Run.target(run, 1, 1)
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
   -- As in Balatro: each stage draws among the bosses it allows (minStage) that have
   -- appeared the fewest times so far.
@@ -106,8 +112,9 @@ end
 
 local function discardsFor(run, boss)
   if boss and boss.discards then return boss.discards end
+  local stake = ns.Stakes.has(run, "BLUE") and -1 or 0
   return math.max(0, ns.Decks.def[run.deckId].discards + ns.Vouchers.extraDiscards(run)
-    + ns.Trinkets.mods(run).discards)
+    + ns.Trinkets.mods(run).discards + stake)
 end
 
 function Run.blindHands(run) return handsFor(run, Run.activeBoss(run)) end
@@ -125,7 +132,8 @@ local selling = 0
 
 -- Ends a finisher's hold: trinkets enabled and face up (Ragnaros, Yogg-Saron), nothing forced (Kel'Thuzad).
 local function clearFinisher(run)
-  for _, t in ipairs(run.trinkets or {}) do t.disabled, t.faceDown = nil, nil end
+  -- A perished trinket (Orange Stake) stays disabled for good.
+  for _, t in ipairs(run.trinkets or {}) do t.disabled, t.faceDown = t.perished or nil, nil end
   run.forcedCard = nil
 end
 
@@ -176,7 +184,7 @@ function Run.disableBoss(run)
   if boss.discards then run.discardsLeft = run.discardsLeft + math.max(0, discardsFor(run) - discards) end
   if boss.handSize then refill(run) end
   if bigTarget then
-    run.target = math.floor(Run.BASE_TARGETS[run.stage] * 2)
+    run.target = math.floor(ns.Stakes.baseTarget(run, run.stage) * 2)
     if selling == 0 and run.score >= run.target then Run.winBlind(run) end
   end
   return true
@@ -208,7 +216,7 @@ function Run.startBlind(run)
   run.discardsUsedRound = 0
   run.savedBy, run.savedById = nil, nil
   run.flags.soldThisBlind = nil
-  run.target = Run.target(run.stage, run.blind, bossId)
+  run.target = Run.target(run, run.stage, run.blind, bossId)
   if bossId then
     run.bossesFought[bossId] = true
     event("bossFought", bossId, run)
@@ -365,6 +373,7 @@ end
 function Run.sellTrinket(run, slot)
   if run.phase ~= "shop" and run.phase ~= "play" then return nil, "phase" end
   if not run.trinkets[slot] then return nil, "gone" end
+  if run.trinkets[slot].eternal then return nil, "eternal" end
   selling = selling + 1
   local ok, gained = pcall(Run.withMods, run, function()
     local trinket = run.trinkets[slot]
@@ -538,8 +547,12 @@ function Run.winBlind(run, opts)
     interest = 0, trinkets = 0, held = 0,
   }
   if opts and opts.saved then payout.reward, payout.saved, payout.savedId = 0, run.savedBy, run.savedById end
+  -- Stake stickers settle first, as Balatro's end_round: Perishables tick down, Rentals cost 3g each,
+  -- before interest is counted.
+  local rent = ns.Stakes.endRound(run)
+  if rent > 0 then payout.rental = -rent end
   local cap = ns.Vouchers.interestCap(run)
-  local units = deck.noInterest and 0 or math.min(cap, math.floor(math.max(0, run.gold) / 5))
+  local units = deck.noInterest and 0 or math.min(cap, math.floor(math.max(0, run.gold - rent) / 5))
   payout.interest = units * (1 + ns.Trinkets.interestBonus(run))
   local streak = (units == cap and units > 0) and run.streak.maxInterest + 1 or 0
   if streak ~= run.streak.maxInterest then
@@ -577,7 +590,7 @@ function Run.winBlind(run, opts)
   end
   if run.blind == 3 then ns.Tags.fire(run, "onBossDefeated", payout) end -- Goblin Investment: payout.investment
   payout.total = payout.reward + payout.hands + payout.discards + payout.interest + payout.trinkets + payout.held
-    + (payout.investment or 0)
+    + (payout.investment or 0) + (payout.rental or 0)
   run.lastPayout = payout
   run.gold = run.gold + payout.total
   run.discardsUnusedTotal = run.discardsUnusedTotal + run.discardsLeft -- Scrapper's Pay
