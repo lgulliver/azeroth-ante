@@ -6,7 +6,7 @@ local _, ns = ...
 local Relics = {}
 
 local ICON = "Interface\\Icons\\INV_Misc_Rune_0"
-local RARITY_RANK = { common = 1, uncommon = 2, rare = 3 }
+local RARITY_RANK = { common = 1, uncommon = 2, rare = 3, legendary = 4 }
 local ENHANCEMENTS = {}
 
 for id in pairs(ns.CardTypes.enh) do
@@ -118,10 +118,23 @@ local function createRareCheck(run)
   return true
 end
 
-local function createRarestCheck(run)
+-- Legendaries not yet owned (all of them with Showman); never in the random pools.
+local function legendaryPool(run, trinkets)
+  local owned, pool = {}, {}
+  local dupes = ns.TrinketRules.has(trinkets, "SHOWMAN")
+  for _, trinket in ipairs(trinkets) do owned[trinket.id] = true end
+  for _, id in ipairs(ns.Trinkets.order) do
+    if ns.Trinkets.def[id].rarity == "legendary" and (dupes or not owned[id]) then pool[#pool + 1] = id end
+  end
+  return pool
+end
+
+local function createLegendaryCheck(run)
   local ok, reason = trinketRoom(run)
   if not ok then return ok, reason end
-  if #unownedTrinkets(run, run.trinkets) == 0 then return false, "No eligible trinket" end
+  if #legendaryPool(run, run.trinkets) == 0 and #unownedTrinkets(run, run.trinkets) == 0 then
+    return false, "No eligible trinket"
+  end
   return true
 end
 
@@ -281,11 +294,15 @@ local def = {
   },
   LEGENDS = {
     name = "Heart of Azeroth",
-    desc = "Create the rarest trinket available (no legendaries in v2).",
-    untargeted = true, check = createRarestCheck,
+    desc = "Create a legendary trinket (needs a free slot).",
+    untargeted = true, check = createLegendaryCheck,
     use = function(run, _, api)
-      local pool = rarestOf(unownedTrinkets(run, api.trinkets()))
-      addTrinket(run, api, ns.RNG.pick(api.rng, pool))
+      local pool = legendaryPool(run, api.trinkets())
+      if #pool == 0 then pool = rarestOf(unownedTrinkets(run, api.trinkets())) end -- all owned: rarest left
+      local id = ns.RNG.pick(api.rng, pool)
+      addTrinket(run, api, id)
+      -- Ashbringer arriving mid-boss disables it at once, as Chicot does.
+      if id == "ASHBRINGER" and run.phase == "play" then ns.Run.disableBoss(run) end
     end,
   },
   COSMOS = {
@@ -328,7 +345,7 @@ local AFFECTS = {
   INSIGHT = "1 selected card gains a Blue seal",
   SPIRITS = "1 selected card gains a Purple seal",
   MIRRORS = "Adds 2 copies of 1 selected card to the deck",
-  LEGENDS = "Creates the rarest trinket available",
+  LEGENDS = "Creates a legendary trinket",
   COSMOS = "Levels up every hand type",
 }
 

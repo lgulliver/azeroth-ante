@@ -17,6 +17,7 @@ Data\Trinkets.lua
 Data\TrinketsS.lua
 Data\TrinketsE.lua
 Data\TrinketsD.lua
+Data\TrinketsL.lua
 Data\Bosses.lua
 Data\Tags.lua
 Data\Decks.lua

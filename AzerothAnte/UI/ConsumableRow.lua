@@ -96,6 +96,7 @@ local function showTooltip(slot)
   if item.kind == "tome" then
     GameTooltip:AddLine(ns.Consumables.affects(run, item), Theme.gold[1], Theme.gold[2], Theme.gold[3])
   end
+  if item.ed == "NEGATIVE" then GameTooltip:AddLine("Negative: +1 consumable slot", 0.8, 0.6, 1) end
   GameTooltip:AddLine("Click to use or sell (" .. sellValue(item) .. "g)", 0.6, 0.9, 0.6)
   GameTooltip:Show()
 end
@@ -150,6 +151,7 @@ local function skin(slot, item)
     slot.plate:Hide()
     slot.name:SetText("")
     slot:EnableMouse(false)
+    ns.UI.EditionFX.Detach(slot.holder)
     return
   end
   slot.empty:Hide()
@@ -160,6 +162,7 @@ local function skin(slot, item)
   slot.plate:Show()
   slot.name:SetText(shortName(def))
   slot:EnableMouse(true)
+  ns.UI.EditionFX.Attach(slot.holder, item.ed) -- Negative copies from Dragonwrath
 end
 
 -- The pop animation target for a freshly created consumable item.

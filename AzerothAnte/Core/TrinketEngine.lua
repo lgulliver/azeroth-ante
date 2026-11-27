@@ -104,8 +104,8 @@ local HANDLERS = {
     emit({ kind = "cardCreated", uid = ctx.uid, slot = ctx.slot, cardId = card.id, toHand = toHand })
   end,
   createConsumable = function(run, ctx, spec, _, emit)
-    if ns.Consumables.slots(run) - #run.consumables < 1 then return end
-    local item = spec.id and { kind = spec.kind, id = spec.id } or ns.Consumables.random(run, spec.kind)
+    if spec.ed ~= "NEGATIVE" and ns.Consumables.slots(run) - #run.consumables < 1 then return end
+    local item = spec.id and { kind = spec.kind, id = spec.id, ed = spec.ed } or ns.Consumables.random(run, spec.kind)
     if item and ns.Consumables.add(run, item) then
       emit({ kind = "consumableCreated", uid = ctx.uid, slot = ctx.slot, item = item })
     end

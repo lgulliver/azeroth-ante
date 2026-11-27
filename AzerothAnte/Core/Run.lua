@@ -412,7 +412,7 @@ function Run.scoreCtx(run, cards, held, overrides)
     deckCards = run.deck, startDeckSize = run.startDeckSize or 52,
     firstHandOfRound = (run.handsPlayedRound or 0) == 0,
     consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
-    playedThisAnte = run.playedThisAnte, flags = run.flags,
+    playedThisAnte = run.playedThisAnte, flags = run.flags, skips = run.skips or 0,
   }
   -- Mouth and Eye: a debuffed hand type still plays, but scores nothing.
   if boss and boss.handNotAllowed then
@@ -593,6 +593,7 @@ end
 function Run.nextBlind(run)
   if ns.Packs.current(run) then return false, "pack" end
   if run.phase ~= "shop" then return end
+  ns.TrinketEngine.fire(run, "onShopExit") -- Dragonwrath
   if run.blind == 3 then
     run.stage, run.blind = run.stage + 1, 1
     run.playedThisAnte = {}

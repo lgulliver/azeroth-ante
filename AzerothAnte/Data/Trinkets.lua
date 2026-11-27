@@ -13,12 +13,14 @@ local _, ns = ...
 -- sellBonusAll (n), handsDelta (n), discardsSet (n), levelHand (handId), destroyCard (cardId), save.
 -- More update hooks: onSell(run, self, sold, isCopy) on every other trinket after a sale (sold = { kind =
 -- "trinket"|"consumable", item }), onSelfSold(run, self) -> effect (original only, before removal),
--- onShopReroll(run, self, isCopy), onPackSkipped(run, self, isCopy), onSkip(run, self, isCopy) after a blind skip.
+-- onShopReroll(run, self, isCopy), onPackSkipped(run, self, isCopy), onSkip(run, self, isCopy) after a blind skip,
+-- onShopExit(run, self, isCopy) as Next Blind leaves the shop.
 -- Deck and consumable hooks (lifecycle effects): onConsumableUsed(run, self, item, isCopy) after run.usage counts
 -- it, onPackOpened(run, self, pack, isCopy), onFirstDraw(run, self, isCopy) after the blind's first draw,
 -- onCardsAdded / onCardsDestroyed(run, self, cards, isCopy) once per action (TrinketEngine.flushCards).
 -- More lifecycle effect fields: createCard { card, toHand } (toHand only in a blind; otherwise the card
--- goes into the deck and the pile), createConsumable { kind, id? } (room permitting), disableBoss.
+-- goes into the deck and the pile), createConsumable { kind, id?, ed? } (room permitting; a Negative
+-- one always fits), disableBoss.
 -- Scoring hooks (before, onCard, onHand, after) also take these effect fields: createCard { card, toHand },
 -- createConsumable { kind, id? }, destroyCard (cardId), changeCard { id, enh?, bonusChips?, seal?, ed? }
 -- (false clears enh/seal/ed). Hooks see scratch copies of ctx.cards/ctx.held and may set enh, bonusChips,
@@ -114,8 +116,10 @@ function Trinkets.interestBonus(run)
   return sum
 end
 
+-- Legendaries never roll at random (shop, packs, Scrolls, tags); only Heart of Azeroth makes them.
 function Trinkets.inPool(run, id)
   local def = Trinkets.def[id]
+  if def and def.rarity == "legendary" then return false end
   if def and def.inPool then return def.inPool(run) and true or false end
   return true
 end

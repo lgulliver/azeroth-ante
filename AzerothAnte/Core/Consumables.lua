@@ -1,6 +1,7 @@
 local _, ns = ...
 
--- Consumable instance: { kind = "tome"|"scroll"|"relic", id }. Slots hold instances.
+-- Consumable instance: { kind = "tome"|"scroll"|"relic", id, ed? }. Slots hold instances; a Negative
+-- one (ed = "NEGATIVE", from Dragonwrath) brings its own slot.
 local Consumables = {}
 
 Consumables.COST = { tome = 3, scroll = 3, relic = 4 }
@@ -15,11 +16,15 @@ function Consumables.def(item)
 end
 
 function Consumables.slots(run)
-  return run.maxConsumables + ns.Vouchers.extraConsumables(run)
+  local negative = 0
+  for _, item in ipairs(run.consumables or {}) do
+    if item.ed == "NEGATIVE" then negative = negative + 1 end
+  end
+  return run.maxConsumables + ns.Vouchers.extraConsumables(run) + negative
 end
 
 function Consumables.add(run, item)
-  if #run.consumables >= Consumables.slots(run) then return false end
+  if item.ed ~= "NEGATIVE" and #run.consumables >= Consumables.slots(run) then return false end
   run.consumables[#run.consumables + 1] = item
   if ns.Profile and ns.Profile.onObtain then ns.Profile.onObtain(item.kind, item.id) end
   return true

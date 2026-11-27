@@ -1033,8 +1033,13 @@ local function run(w)
   eq(#runC.consumables, 2, "Stars created two Tomes")
   check(crow.slots[1].holder:GetAlpha() == 1 and crow.slots[2].holder:GetAlpha() == 1, "created consumables end fully visible")
   eq(crow.slots[2].art:GetTexture(), MEDIA .. "Consumable_Tome", "tome slot frame texture")
+  -- A Negative consumable (Dragonwrath) brings its own slot and its tint.
+  runC.consumables[3] = { kind = "scroll", id = ns.Scrolls.order[2], ed = "NEGATIVE" }
+  Main.Render(runC)
+  check(crow.slots[3]:IsShown() and crow.slots[3].holder.fx.active, "a Negative consumable shows in its own slot")
   runC.consumables = {}
   Main.Render(runC)
+  check(not crow.slots[1].holder.fx or not crow.slots[1].holder.fx.active, "an emptied slot drops its edition")
   -- Eight trinkets and five consumables never overlap.
   runC.maxTrinkets, runC.maxConsumables = 8, 5
   runC.trinkets = {}

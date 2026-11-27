@@ -256,7 +256,7 @@ In the table, ★ means a remap of one of the existing 20 (keep its id). Cost is
 | 91 | Lucky Cat | U | 6 | Gains ×0.25 Mult per Lucky card trigger | D | Fortune Cat (FORTUNE_CAT) |
 | 92 | Baseball Card | R | 8 | Uncommon trinkets each ×1.5 Mult | S | Guild Charter (GUILD_CHARTER) |
 | 93 | Bull | U | 6 | +2 Chips per 1g held | S | Tauren Charge (TAUREN_CHARGE) |
-| 94 | Diet Cola | U | 6 | Sell to create a Double Tag | X | (skip tags) |
+| 94 | Diet Cola | U | 6 | Sell to create a Double Tag | X | Darkmoon Fizz (DARKMOON_FIZZ) |
 | 95 | Trading Card | U | 6 | First discard of round is 1 card: destroy it, 3g | E | Trading Post (TRADING_POST) |
 | 96 | Flash Card | U | 5 | Gains +2 Mult per shop reroll | E | Flash Heal (FLASH_HEAL) |
 | 97 | Popcorn | C | 5 | +20 Mult; -4 per round; eaten at 0 | E | Darkmoon Popcorn (POPCORN) |
@@ -276,7 +276,7 @@ In the table, ★ means a remap of one of the existing 20 (keep its id). Cost is
 | 111 | Troubadour | U | 6 | +2 hand size, -1 hand each round | E | Wandering Minstrel (MINSTREL) |
 | 112 | Certificate | U | 6 | Round start: add a random card with a random seal to hand (permanent) | D | Letter of Commendation (COMMENDATION) |
 | 113 | Smeared Joker | U | 7 | Hearts=Diamonds, Spades=Clubs | S | Murky Ink (MURKY_INK) |
-| 114 | Throwback | U | 6 | ×0.25 Mult per blind skipped | X | (skip tags) |
+| 114 | Throwback | U | 6 | ×0.25 Mult per blind skipped | X | Timewalking Badge (TIMEWALKING_BADGE) |
 | 115 | Hanging Chad | C | 4 | Retrigger first scoring card 2 more times | S | Echo of Doom (ECHO_DOOM) |
 | 116 | Rough Gem | U | 7 | Played Diamonds give 1g | S | Uncut Gem (UNCUT_GEM) |
 | 117 | Bloodstone | U | 7 | Played Hearts 1 in 2 for ×1.5 Mult | S | Bloodstone (BLOODSTONE) |

@@ -72,7 +72,7 @@ on the character-select AddOns screen until you set the right number.
 5. Beat three blinds per stage across eight stages. You lose when you run out of
    hands, or when your hand and deck are both empty with the blind still unbeaten.
 
-**Trinkets** come in 143 kinds (common, uncommon and rare): every non-legendary Balatro joker except the two that need skip tags.
+**Trinkets** come in 150 kinds: every Balatro joker. The five legendaries (Frostmourne, Shalamayne, Shadowmourne, Ashbringer and Dragonwrath) never appear in the shop or packs; only the Heart of Azeroth creates one.
 They score left to right, so order matters: drag a trinket left or right in the trinket row to reorder it. Engineering Schematic copies the
 trinket to its right and Mind Control copies the leftmost one; rule trinkets can't be copied.
 Hover a trinket for its live values and sell price. You can sell trinkets during a blind as well as
@@ -177,7 +177,8 @@ Run these checks in Retail and Forever:
 - [ ] A queue pop shows the overlay and plays the sound.
 - [ ] Accepting hides the window.
 - [ ] Entering combat hides the window.
-- [ ] No trinket icon is blank or a question mark (check Avenging Wrath, Multi-Shot, Whetstone and Hunter's Mark especially).
+- [ ] No trinket icon is blank or a question mark (check Avenging Wrath, Multi-Shot, Whetstone and Hunter's Mark especially, and the legendaries: Frostmourne, Shalamayne, Shadowmourne, Ashbringer, Dragonwrath).
+- [ ] With Dragonwrath and a consumable held, Next Blind adds a Negative copy with the Negative tint in an extra slot.
 - [ ] `/reload` in the shop resumes on the shop screen.
 - [ ] `/reload` on the blind screen resumes on the blind screen.
 - [ ] A queue pop during combat plays the sound only; the window opens after combat.

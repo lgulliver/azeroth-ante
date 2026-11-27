@@ -268,16 +268,16 @@ T.test("mirrors_two_copies", function()
   end
 end)
 
-H.test("legends_rarest_available", function()
-  -- Spec remaps remove legacy rares; keep rare relic coverage with a scoped fixture.
-  H.stub { id = "RELIC_RARE", name = "Rare", rarity = "rare", cost = 8 }
+H.test("legends_creates_legendary_then_rarest", function()
   local run = newRun("shop")
   apply(run, "LEGENDS")
-  T.eq(ns.Trinkets.def[run.trinkets[1].id].rarity, "rare")
+  T.eq(ns.Trinkets.def[run.trinkets[1].id].rarity, "legendary")
 
+  -- Every legendary and rare owned: the rarest left is uncommon.
   run = newRun("shop")
   for _, id in ipairs(ns.Trinkets.order) do
-    if ns.Trinkets.def[id].rarity == "rare" then run.trinkets[#run.trinkets + 1] = trinket(id) end
+    local rarity = ns.Trinkets.def[id].rarity
+    if rarity == "rare" or rarity == "legendary" then run.trinkets[#run.trinkets + 1] = trinket(id) end
   end
   run.maxTrinkets = #run.trinkets + 1 -- Test rarity fallback rather than the slot limit.
   apply(run, "LEGENDS")

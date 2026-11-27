@@ -24,13 +24,13 @@ local function cardHook(id, c, cd)
   return trinket(id).onCard(c, {}, cd, 1, false)
 end
 
-local VALID_RARITY = { common = true, uncommon = true, rare = true }
+local VALID_RARITY = { common = true, uncommon = true, rare = true, legendary = true }
 local ICON_PREFIX = "Interface\\Icons\\"
 
 T.test("trinkets_complete", function()
   -- The catalog size is derived from the data files: one top-level `id = "X", name = ` per def.
   local defined = 0
-  for _, file in ipairs({ "Trinkets", "TrinketsS", "TrinketsE", "TrinketsD" }) do
+  for _, file in ipairs({ "Trinkets", "TrinketsS", "TrinketsE", "TrinketsD", "TrinketsL" }) do
     local f = assert(io.open("AzerothAnte/Data/" .. file .. ".lua", "r"))
     for line in f:lines() do
       if line:match('^%s*id = "[A-Z_0-9]+", name = ') then defined = defined + 1 end
@@ -54,21 +54,21 @@ T.test("trinkets_complete", function()
     T.ok(def.onCard or def.onHand or def.onRoundEnd or def.rule or def.retrigger
       or def.heldRetrigger or def.onHeld or def.before or def.after or def.otherTrinket or def.copies
       or def.onBlindSelect or def.onDiscard or def.roundUpdate or def.onPackSkipped
-      or def.onPackOpened or def.onFirstDraw
+      or def.onPackOpened or def.onFirstDraw or def.onCardsDestroyed or def.onShopExit
       or def.onShopReroll or def.onSell or def.onSelfSold or def.onLose or def.onBossDefeated
       or def.handSize or def.hands or def.discards or def.interestBonus, id .. ": no effect")
   end
 end)
 
 T.test("full_catalog", function()
-  -- Every row of "The 145" except 94 (Diet Cola) and 114 (Throwback) has a registered WoW id.
+  -- Every row of "The 145" has a registered WoW id; the five legendaries make 150.
   local f = assert(io.open("docs/superpowers/specs/2026-11-07-trinkets-design.md", "r"))
   local rows, inTable = 0, false
   for line in f:lines() do
     if line:match("^| # | Balatro") then inTable = true
     elseif not line:match("^|") then inTable = false end
     local n = inTable and line:match("^| (%d+) |")
-    if n and tonumber(n) ~= 94 and tonumber(n) ~= 114 then
+    if n then
       local id = line:match("%(([A-Z_0-9]+)%) |%s*$")
       T.ok(id, "row " .. n .. " has no id")
       T.ok(ns.Trinkets.def[id], "row " .. n .. " unregistered: " .. tostring(id))
@@ -76,8 +76,8 @@ T.test("full_catalog", function()
     end
   end
   f:close()
-  T.eq(rows, 143)
-  T.eq(#ns.Trinkets.order, 143)
+  T.eq(rows, 145)
+  T.eq(#ns.Trinkets.order, 150)
 end)
 
 T.test("trinket_bloodlust", function()

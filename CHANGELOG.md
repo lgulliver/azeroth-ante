@@ -25,6 +25,8 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - The ante 8 finishers each have their own rule: Ragnaros the Firelord disables one random trinket each hand, C'Thun has a ×6 target and no rule (disabled, it drops to the usual ×2, as Patchwerk does), Yogg-Saron flips your trinkets face down and shuffles them, Xavius debuffs every card until you sell a trinket, and Kel'Thuzad always forces one card into your selection.
 - New painted card backs in the court-card style: a compass for the default deck, Ravenholdt daggers for Rogue, a Horde war banner for Warrior, coins and gears for Goblin, a jade lotus for Monk and a fel eye for Warlock.
 - Jacks, Queens and Kings are double-ended court cards of Warcraft characters: Sir Finley, Azshara and King Mrgl-Mrgl on Spades; Arthas, Jaina and Varian on Hearts; Garrosh, Sylvanas and Durotan on Clubs; Gazlowe, Sassy Hardwrench and Gallywix on Diamonds. A Stone court card still shows no art.
+- Five legendary trinkets, as Balatro's legendary jokers: Frostmourne (gains ×1 Mult per face card destroyed), Shalamayne (played Kings and Queens give ×2 Mult), Shadowmourne (gains ×1 Mult every 23 cards discarded), Ashbringer (disables every boss) and Dragonwrath (leaving the shop makes a Negative copy of a held consumable; a Negative consumable brings its own slot). They never appear in the shop or packs: the Heart of Azeroth now creates one.
+- Darkmoon Fizz (sell for a free Bonus Roll) and Timewalking Badge (×0.25 Mult per blind skipped), completing the Balatro joker set at 150 trinkets.
 
 ## [0.7.0] - 2026-11-09
 
