@@ -488,7 +488,7 @@ function DeckSelect.Build(host)
 
   -- The chosen deck's details sit on a raised tile (a sibling below p.info, so its text draws above).
   p.plate = CreateFrame("Frame", nil, p)
-  p.plate:SetSize(496, 136)
+  p.plate:SetSize(496, 144) -- room under the last line (Best / Wins) before the tile's edge
   p.plate:SetPoint("TOP", p, "TOP", 0, -268)
   Theme.Raised(p.plate)
   p.info = CreateFrame("Frame", nil, p)
@@ -516,7 +516,7 @@ function DeckSelect.Build(host)
   -- The stake row sits between the tile and Play: "<  Red Stake  >", its rules on hover.
   p.stakeRow = CreateFrame("Frame", nil, p)
   p.stakeRow:SetSize(260, 22)
-  p.stakeRow:SetPoint("TOP", p, "TOP", 0, -410)
+  p.stakeRow:SetPoint("TOP", p, "TOP", 0, -418)
   p.stakePrev = host.button(p.stakeRow, "<", 24, 20, function() DeckSelect.StepStake(-1) end)
   p.stakePrev:SetPoint("LEFT", p.stakeRow, "LEFT", 0, 0)
   p.stakeNext = host.button(p.stakeRow, ">", 24, 20, function() DeckSelect.StepStake(1) end)

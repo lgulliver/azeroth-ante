@@ -144,6 +144,15 @@ local function run(w)
     eq(p.stats:GetText(), "4 hands \194\183 4 discards \194\183 4g", "deck numbers")
     eq(p.best:GetText(), "Best: Stage 0 \194\183 Wins: 0", "profile stats for the deck")
     check(p.play:IsEnabled(), "Rogue is playable")
+    -- The deck tile holds its last line (Best / Wins) clear of its bottom edge; the stake row sits under it.
+    local plateBottom = p.plate._points[1][5] - p.plate:GetHeight()
+    check(p.best._points[1][5] - 14 >= plateBottom + 4, "the Best line sits inside the deck tile")
+    check(p.stakeRow._points[1][5] <= plateBottom - 4, "the stake row sits under the deck tile")
+    -- Pack art names the size as the pack does (Large, Heavy), not Balatro's Jumbo or Mega.
+    local PI = ns.UI.Screens.PackInfo
+    eq(PI({ type = "BUFFOON", size = "normal" }).sizeText, "", "a normal pack has no size label")
+    eq(PI({ type = "BUFFOON", size = "jumbo" }).sizeText, "LARGE", "a Large pack's art says LARGE")
+    eq(PI({ type = "BUFFOON", size = "mega" }).sizeText, "HEAVY", "a Heavy pack's art says HEAVY")
     -- Stakes: a fresh deck offers only White; a win unlocks Red for that deck alone.
     check(p.stakeRow:IsShown(), "stake row on an unlocked deck")
     eq(p.stakeName:GetText(), "White Stake", "fresh deck starts at White")

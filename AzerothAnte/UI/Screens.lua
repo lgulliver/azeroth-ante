@@ -422,7 +422,7 @@ function Screens.PackInfo(pack)
   local show = ns.Packs.showCount(pack.type, pack.size)
   return {
     label = SIZE_NAMES[pack.size] .. t.name, tint = t.tint, show = show, picks = size.pick,
-    sizeText = pack.size == "normal" and "" or pack.size:upper(),
+    sizeText = SIZE_NAMES[pack.size]:gsub(" $", ""):upper(), -- LARGE / HEAVY on the art, as the pack's name
     desc = ("Choose %d of %d %s\n%s"):format(size.pick, show, t.contents, t.note),
   }
 end
