@@ -7,7 +7,7 @@ local HandView = {}
 
 local CARD_W, CARD_H = CardWidget.WIDTH, CardWidget.HEIGHT
 local GAP = 6
-local BASE_Y = 12            -- card bottom above the hand area bottom
+local BASE_Y = 8             -- card bottom above the hand area bottom (a lifted card still fits)
 local MOVE_TIME = 0.2        -- re-layout (sort, refill)
 local DEAL_TIME, DEAL_STAGGER = 0.22, 0.04
 local PLAY_TIME, PLAY_STAGGER, PLAY_GAP = 0.25, 0.03, 10

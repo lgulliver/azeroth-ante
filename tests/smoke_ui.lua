@@ -714,6 +714,10 @@ local function run(w)
   for i, cw in ipairs(wide) do
     local x = cw._points[1][4]
     check(x >= 0 and x + ns.UI.CardWidget.WIDTH <= areaW + 1e-6, "hand card " .. i .. " inside the hand area")
+    -- Overlapped, each card still shows its top-left rank and suit (the index column is about 20 wide).
+    if i > 1 then check(x - wide[i - 1]._points[1][4] >= 20, "hand card " .. i .. " leaves its neighbour's index visible") end
+    check(cw._points[1][5] + ns.UI.CardWidget.HEIGHT + ns.UI.CardWidget.LIFT_SELECTED <= Main.handArea:GetHeight() + 1e-6,
+      "a selected hand card stays inside the hand area")
   end
   local polyW = widgetFor(added[3])
   eq(polyW.face.fx.ed, "POLY", "Polychrome attached")

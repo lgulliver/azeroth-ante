@@ -18,9 +18,10 @@ local LIFT_SELECTED, LIFT_HOVER, LIFT_TIME = 14, 6, 0.08
 local TOP_HAND, TOP_NOHAND = -46, -70      -- choice row top, with and without a drawn hand
 local DETAIL_HAND, DETAIL_NOHAND = -156, -196
 local HAND_H, BASE_Y, GAP = 140, 6, 6
--- The drawn hand keeps the 80x112 look of the original cards: the pack screen has no room for the
--- full 96x134 ones under the choices and their detail text. The hand frame is scaled, not each card.
-local HAND_SCALE = 80 / 96
+-- Playing cards on the pack screen (a Darkmoon Card Bundle's choices, the drawn hand) keep the 80x112
+-- look of the original cards: it has no room for full 96x134 ones beside the choices and their detail
+-- text. The hand frame is scaled as a whole; a card choice is scaled itself, so its offsets are divided.
+local CARD_SCALE = 80 / 96
 local MAX_SELECT = 5
 local DEAL_TIME, DEAL_STAGGER, MOVE_TIME = 0.22, 0.04, 0.2
 local PICK_TIME, PICK_SCALE = 0.25, 1.25
@@ -379,6 +380,8 @@ local function buildEntry(c, item, pack)
   local entry = { item = item }
   if pack.type == "STANDARD" then
     local w = CardWidget.Acquire(frame)
+    w:SetScale(CARD_SCALE)
+    entry.scale = CARD_SCALE
     w:SetCard(item)
     w.onClick = function() onChoiceClick(c) end
     w:SetBaseLevel(frame:GetFrameLevel() + 4)
@@ -425,9 +428,11 @@ local function layoutChoices(pack, fresh)
     if isNew then entry = buildEntry(c, pack.choices[c], pack) end
     local x, y = slotPos(k, n, pack)
     local f = entry.frame
+    local s = entry.scale or 1 -- a scaled card's offsets are in its own units
+    x, y = x / s, y / s
     if isNew then
       f:ClearAllPoints()
-      f:SetPoint("TOP", frame, "TOP", 0, y + 24)
+      f:SetPoint("TOP", frame, "TOP", 0, y + 24 / s)
       f:SetAlpha(0)
       Tween.To(f, { x = x, y = y, alpha = 1 }, DEAL_TIME, nil, dealt * DEAL_STAGGER)
       dealt = dealt + 1
@@ -651,9 +656,9 @@ local function build()
   p.handNote:Hide()
 
   p.hand = CreateFrame("Frame", nil, p)
-  p.hand:SetScale(HAND_SCALE)
-  p.hand:SetSize((m.rowsWidth or 618) / HAND_SCALE, HAND_H / HAND_SCALE)
-  p.hand:SetPoint("BOTTOM", p, "BOTTOM", 0, 50 / HAND_SCALE) -- offsets are in the scaled frame's units
+  p.hand:SetScale(CARD_SCALE)
+  p.hand:SetSize((m.rowsWidth or 618) / CARD_SCALE, HAND_H / CARD_SCALE)
+  p.hand:SetPoint("BOTTOM", p, "BOTTOM", 0, 50 / CARD_SCALE) -- offsets are in the scaled frame's units
 
   p.err = W.text(p, Theme.fonts.text, "BOTTOM", 0, 48, 540, "CENTER")
   Theme.setColor(p.err, RED)
