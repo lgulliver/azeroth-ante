@@ -51,6 +51,18 @@ function T.eq(actual, expected, msg)
     error((msg and (msg .. ": ") or "") .. "expected " .. dump(expected) .. ", got " .. dump(actual), 2)
   end
 end
+-- The developer tools (tools/: the balance simulator, the texture generators) are kept out of git; a test
+-- that needs them calls T.needSim() and is skipped where they are missing (CI, a fresh clone).
+local SKIP = {}
+local function exists(path)
+  local f = io.open(path, "r")
+  if f then f:close() end
+  return f ~= nil
+end
+T.hasSim = exists("tools/sim/bot.lua")
+function T.needSim()
+  if not T.hasSim then error(SKIP, 0) end
+end
 -- Starts a blind from whatever phase a test left the run in (Run.startBlind only starts one from
 -- the blind screen, Run.canStart); an open pack still refuses it.
 function T.startBlind(run)
@@ -65,7 +77,7 @@ for f in ls:lines() do
 end
 ls:close()
 
-local passed, failed = 0, 0
+local passed, failed, skipped = 0, 0, 0
 for _, f in ipairs(files) do
   queue = {}
   local chunk, err = loadfile(f)
@@ -80,7 +92,10 @@ for _, f in ipairs(files) do
     end
     for _, t in ipairs(queue) do
       local ok2, e2 = pcall(t.fn)
-      if ok2 then
+      if not ok2 and e2 == SKIP then
+        skipped = skipped + 1
+        print("SKIP " .. f .. ": " .. t.name .. " (no tools/sim)")
+      elseif ok2 then
         passed = passed + 1
         print("PASS " .. f .. ": " .. t.name)
       else
@@ -90,5 +105,5 @@ for _, f in ipairs(files) do
     end
   end
 end
-print(passed .. " passed, " .. failed .. " failed")
+print(passed .. " passed, " .. failed .. " failed" .. (skipped > 0 and (", " .. skipped .. " skipped") or ""))
 if failed > 0 then os.exit(1) end

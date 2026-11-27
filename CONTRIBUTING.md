@@ -28,7 +28,7 @@ luajit tests/syntax.lua       # every addon file parses
 python3 tests/test_media.py   # generated textures are valid
 ```
 
-`tools/sim/sim.lua` plays full runs with a bot and reports win rates per deck; run it when a change could shift balance. CI runs [luacheck](https://github.com/lunarmodules/luacheck) on `AzerothAnte/` and every test suite. If you use a new WoW API global, add it to `read_globals` in `.luacheckrc`.
+CI runs [luacheck](https://github.com/lunarmodules/luacheck) on `AzerothAnte/` and every test suite. If you use a new WoW API global, add it to `read_globals` in `.luacheckrc`.
 
 ## Code style
 

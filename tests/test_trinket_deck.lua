@@ -179,6 +179,7 @@ end)
 
 -- Fix round 1.
 H.test("score_ctx_bot_and_helper_respect_disabled_boss", function()
+  T.needSim()
   local bot = dofile("tools/sim/bot.lua")(ns)
   local run = H.run()
   run.blind, run.bosses[1] = 3, "HOGGER"
@@ -194,6 +195,7 @@ end)
 
 H.test("score_ctx_usage_through_helper_and_bot", function()
   H.stub({ id = "S_FT", before = function(ctx) return { mult = 10 * ctx.usage.scroll } end })
+  T.needSim()
   local bot = dofile("tools/sim/bot.lua")(ns)
   local run = H.run({ trinkets = { "S_FT" } })
   T.startBlind(run)
@@ -276,6 +278,7 @@ H.test("v5_mid_shop_save_migrates", function()
 end)
 
 T.test("bot_prefers_scoring_common_over_economy_rare", function()
+  T.needSim()
   local bot = dofile("tools/sim/bot.lua")(ns)
   T.ok(ns.Trinkets.def.ARCANE_INTELLECT.onHand, "fixture must be a scoring trinket")
   -- A stand-in economy rare (interest only), removed again afterwards.

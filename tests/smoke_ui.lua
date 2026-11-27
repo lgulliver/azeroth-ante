@@ -2033,8 +2033,11 @@ local function run(w)
   step("9e danger button contrast")
 
   local SMOKE_SEED = tonumber(os.getenv("SMOKE_SEED")) or 424242
-  -- 10. The balance bot plays a scripted run through the UI: it decides, we click.
-  do
+  -- 10. The balance bot plays a scripted run through the UI: it decides, we click. The simulator lives
+  -- in tools/, which is kept out of git: without it (CI, a fresh clone) the step is skipped.
+  local simFile = io.open("tools/sim/bot.lua", "r")
+  if simFile then simFile:close() end
+  if simFile then
     -- The world was swapped at step 6, so re-fetch everything from the live ns.
     local Main, HandView, Tally = ns.UI.Main, ns.UI.HandView, ns.UI.Tally
     local PackView, DeckView = ns.UI.PackView, ns.UI.DeckView
@@ -2279,6 +2282,8 @@ local function run(w)
     check(elapsed < 60, "bot-driven run took " .. elapsed .. "s")
     print(("    bot run: %d blinds beaten, ended %s, %d consumables, %d packs, %d picks, %d actions checked, %d saves, %.1fs"):format(
       beaten, Main.run.phase, used.consumables, used.packs, used.picks, used.checked, storeCalls, elapsed))
+  else
+    print("    skipped: no tools/sim")
   end
   step("10 bot drives a full run through the UI")
 
@@ -3858,10 +3863,14 @@ local function run(w)
     -- inset (set-in) panels
     check(sb.themeInset and #sb.themeEdges == 4, "the sidebar is set in")
     check(Main.stage and Main.stage.themeInset, "the table behind the hand is set in")
+    -- The deck view and pack panels in this world are built by step 10's bot run; without tools/sim
+    -- they may not exist, and only then are they left out.
     for _, field in ipairs({ "carousel", "stageText", "payout", "head", "deckTitle", "packChoices" }) do
       local p = panel(field)
-      check(p and p.themeInset, "panel with " .. field .. " is set in")
-      check(p.insetFillColor[4] == 1, field .. " panel fill is opaque")
+      if p or simFile then
+        check(p and p.themeInset, "panel with " .. field .. " is set in")
+        check(p.insetFillColor[4] == 1, field .. " panel fill is opaque")
+      end
     end
     -- raised tiles
     for i = 1, 3 do

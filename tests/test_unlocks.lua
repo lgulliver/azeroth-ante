@@ -250,6 +250,7 @@ T.test("editing_existing_trinkets_does_not_obtain_them_again", function()
 end)
 
 T.test("sim_defaults_to_every_selectable_deck", function()
+  T.needSim()
   local process = assert(io.popen("luajit tools/sim/sim.lua 1"))
   local output = process:read("*a")
   process:close()

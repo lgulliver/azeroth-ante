@@ -5,3 +5,6 @@ __pycache__/
 dist/
 *.swp
 .DS_Store
+
+# Developer tools (simulator, texture generators): kept local, not in git
+tools/

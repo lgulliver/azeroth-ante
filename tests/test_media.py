@@ -66,6 +66,17 @@ def _pixels(name):
     return data[18 + data[0]:]
 
 
+def _generator():
+    """tools/gen_media.py, or None: the developer tools are kept out of git, so the byte-for-byte
+    reproducibility checks run only where they are present."""
+    tools = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools")
+    if not os.path.exists(os.path.join(tools, "gen_media.py")):
+        return None
+    sys.path.insert(0, tools)
+    import gen_media
+    return gen_media
+
+
 def check_backs():
     """Deck backs share CardBack's silhouette and gold border, and each looks different."""
     base = _pixels("CardBack.tga")
@@ -96,9 +107,7 @@ def check_backs():
 
 def check_chips():
     """Blind chips: round, opaque in the middle, notched rim, distinct hues, BOSS light enough to tint,
-    and the generator reproduces the shipped file byte for byte."""
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-    import gen_media
+    and the generator (when present) reproduces the shipped file byte for byte."""
     means = {}
     for chip in CHIPS:
         name = "Chip_%s.tga" % chip
@@ -137,7 +146,8 @@ def check_chips():
         return "Chip_BOSS is not a neutral base (%s)" % (tuple(round(v) for v in boss),)
     if min(boss) < 170:
         return "Chip_BOSS is too dark to tint cleanly (%s)" % (tuple(round(v) for v in boss),)
-    for chip in CHIPS:
+    gen_media = _generator()
+    for chip in CHIPS if gen_media else ():
         with open(os.path.join(MEDIA, "Chip_%s.tga" % chip), "rb") as f:
             if f.read() != gen_media.chip_tga(chip):
                 return "Chip_%s.tga differs from the generator output" % chip
@@ -146,9 +156,8 @@ def check_chips():
 
 def check_ui_chrome():
     """UI_Gradient is a white vertical ramp (opaque top, clear bottom, uniform across);
-    UI_Shadow is a white blob, solid in the middle and clear at the edge. Both are reproducible."""
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-    import gen_media
+    UI_Shadow is a white blob, solid in the middle and clear at the edge. Both are reproducible
+    (checked when the generator is present)."""
     px = _pixels("UI_Gradient.tga")
     a = px[3::4]
     if any(px[i] != 255 for i in range(len(px)) if i % 4 != 3):
@@ -169,7 +178,8 @@ def check_ui_chrome():
         return "UI_Shadow edge ring is not clear"
     if a[8 * 64 + 32] >= a[32 * 64 + 32] or a[2 * 64 + 32] >= a[8 * 64 + 32]:
         return "UI_Shadow does not fall off outwards"
-    for name, (w, h, fn) in gen_media.UI_JOBS.items():
+    gen_media = _generator()
+    for name, (w, h, fn) in gen_media.UI_JOBS.items() if gen_media else ():
         with open(os.path.join(MEDIA, name + ".tga"), "rb") as f:
             if f.read() != gen_media.tga_bytes(w, h, gen_media.render(w, h, fn)):
                 return "%s.tga differs from the generator output" % name

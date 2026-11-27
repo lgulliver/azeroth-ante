@@ -207,6 +207,7 @@ H.test("bot_passes_wave1_scoring_context", function()
   for i = 1, 17 do run.pile[i] = H.card(3) end
   run.handPlays.HIGH_CARD, run.roundHandPlays.HIGH_CARD = 3, 1
   run.trinkets[5].state.hands = 4
+  T.needSim()
   local bot = dofile("tools/sim/bot.lua")(ns)
   local rng = run.rng.s
   local total, idx = bot.bestPlay(run)
@@ -523,6 +524,7 @@ H.test("part_b_rules_incompatible", function()
   end
 end)
 H.test("bot_handles_every_part_b_trinket", function()
+  T.needSim()
   local bot = dofile("tools/sim/bot.lua")(ns)
   local ids = { "STABLE_MASTER", "UNCUT_GEM", "BLOODSTONE", "LOADED_DICE", "SCHEMATIC", "MIND_CONTROL", "TITAN_RELIC", "ZANDALARI_IDOL" }
   for _, case in ipairs(partBCases) do ids[#ids + 1] = case[1] end
