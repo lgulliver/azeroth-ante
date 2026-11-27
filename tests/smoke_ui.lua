@@ -719,6 +719,10 @@ local function run(w)
     check(cw._points[1][5] + ns.UI.CardWidget.HEIGHT + ns.UI.CardWidget.LIFT_SELECTED <= Main.handArea:GetHeight() + 1e-6,
       "a selected hand card stays inside the hand area")
   end
+  -- Five played cards stay clear of the deck pile at the play area's right edge.
+  local playRight = HandView.PlaySlot(5, 5) + ns.UI.CardWidget.WIDTH
+  local pileLeft = Main.playArea:GetWidth() + HandView.deck._points[1][4] - HandView.deck:GetWidth()
+  check(playRight <= pileLeft, ("five played cards (right %.1f) clear the deck pile (%.1f)"):format(playRight, pileLeft))
   local polyW = widgetFor(added[3])
   eq(polyW.face.fx.ed, "POLY", "Polychrome attached")
   check(widgetFor(added[4]).face.fx.tint:IsShown(), "Negative shows its tint")
@@ -1369,6 +1373,12 @@ local function run(w)
     stub.advance(1)
     local cw = pv.packChoices[1].widget
     check(cw and cw.art:GetTexture() == MEDIA .. "Face_GOLD", "Standard choice is a real card with its enhancement")
+    -- Full-size card choices: side by side without overlapping, and the detail text sits below them.
+    local x1, x2 = pv.packChoices[1].frame._points[1][4], pv.packChoices[2].frame._points[1][4]
+    check(x2 - x1 >= ns.UI.CardWidget.WIDTH, "Standard choices do not overlap")
+    eq(cw:GetWidth(), ns.UI.CardWidget.WIDTH, "Standard choices are full-size cards")
+    local cardBottom = pv.packChoices[1].frame._points[1][5] - ns.UI.CardWidget.HEIGHT
+    check(pv.detailTitle._points[1][5] < cardBottom, "the detail text sits below the cards")
     click(cw, "Standard card choice")
     check(pv.detailBody:GetText():find("Gold", 1, true) and pv.detailBody:GetText():find("Foil", 1, true),
       "detail lists the card's enhancement and edition")

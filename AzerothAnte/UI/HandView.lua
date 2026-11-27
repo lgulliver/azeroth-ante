@@ -10,7 +10,7 @@ local GAP = 6
 local BASE_Y = 8             -- card bottom above the hand area bottom (a lifted card still fits)
 local MOVE_TIME = 0.2        -- re-layout (sort, refill)
 local DEAL_TIME, DEAL_STAGGER = 0.22, 0.04
-local PLAY_TIME, PLAY_STAGGER, PLAY_GAP = 0.25, 0.03, 10
+local PLAY_TIME, PLAY_STAGGER, PLAY_GAP = 0.25, 0.03, 6
 local DISCARD_TIME, DISCARD_SLIDE = 0.25, 160
 local MAX_SELECT = 5
 local SHAKE = { 4, -4, 4, -4, 4, 0 } -- six 0.025s legs = 0.15s
@@ -115,14 +115,17 @@ local function deckButtonOrigin()
   return deckOrigin()
 end
 
+-- Played cards are centred, shifted left only as far as keeps them DECK_INSET clear of the deck pile.
 local function playSlot(k, n)
   local hand, play = main().handArea, main().playArea
   local step = CARD_W + PLAY_GAP
   local total = n * CARD_W + (n - 1) * PLAY_GAP
-  local x = (hand:GetWidth() - total) / 2 + (k - 1) * step
+  local pileLeft = hand:GetWidth() - DECK_INSET - DECK_W
+  local x = math.min((hand:GetWidth() - total) / 2, pileLeft - DECK_INSET - total) + (k - 1) * step
   local y = hand:GetHeight() + Theme.margin + (play:GetHeight() - CARD_H) / 2
   return x, y
 end
+HandView.PlaySlot = playSlot -- where the k-th of n played cards lands (layout checks)
 
 -- Row layout, centred; compresses the spacing (overlap) instead of overflowing.
 local function rowX(i, n, areaW)

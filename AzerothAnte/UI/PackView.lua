@@ -16,13 +16,11 @@ local CHOICE_STEP = 92
 local ARC = 2                  -- the fan: outer choices sit lower
 local LIFT_SELECTED, LIFT_HOVER, LIFT_TIME = 14, 6, 0.08
 local TOP_HAND, TOP_NOHAND = -46, -70      -- choice row top, with and without a drawn hand
-local DETAIL_HAND, DETAIL_NOHAND = -156, -196
+local DETAIL_HAND, DETAIL_NOHAND, DETAIL_CARDS = -156, -196, -226 -- DETAIL_CARDS: under full-size card choices
 local HAND_H, BASE_Y, GAP = 156, 6, 6       -- the drawn hand: full-size cards plus their lift
 local HAND_BOTTOM = 46                         -- just above Pick and Skip
 local STATUS_GAP = 60                          -- the status line, under a two-line description
--- A Darkmoon Card Bundle's playing-card choices keep the 80x112 look of the original cards, to sit on
--- the choice spacing like the other packs' faces; each is scaled, so its offsets are divided.
-local CARD_SCALE = 80 / 96
+local CARD_STEP = 104                          -- a Darkmoon Card Bundle's full-size playing-card choices
 local MAX_SELECT = 5
 local DEAL_TIME, DEAL_STAGGER, MOVE_TIME = 0.22, 0.04, 0.2
 local PICK_TIME, PICK_SCALE = 0.25, 1.25
@@ -278,7 +276,7 @@ end
 -- Offset of the k-th of n live choices: a gentle fan, centred.
 local function slotPos(k, n, pack)
   local t = k - (n + 1) / 2
-  return t * CHOICE_STEP, choiceTop(pack) - ARC * t * t
+  return t * (pack.type == "STANDARD" and CARD_STEP or CHOICE_STEP), choiceTop(pack) - ARC * t * t
 end
 
 local function setChoiceSelected(entry, on)
@@ -381,8 +379,6 @@ local function buildEntry(c, item, pack)
   local entry = { item = item }
   if pack.type == "STANDARD" then
     local w = CardWidget.Acquire(frame)
-    w:SetScale(CARD_SCALE)
-    entry.scale = CARD_SCALE
     w:SetCard(item)
     w.onClick = function() onChoiceClick(c) end
     w:SetBaseLevel(frame:GetFrameLevel() + 4)
@@ -429,11 +425,9 @@ local function layoutChoices(pack, fresh)
     if isNew then entry = buildEntry(c, pack.choices[c], pack) end
     local x, y = slotPos(k, n, pack)
     local f = entry.frame
-    local s = entry.scale or 1 -- a scaled card's offsets are in its own units
-    x, y = x / s, y / s
     if isNew then
       f:ClearAllPoints()
-      f:SetPoint("TOP", frame, "TOP", 0, y + 24 / s)
+      f:SetPoint("TOP", frame, "TOP", 0, y + 24)
       f:SetAlpha(0)
       Tween.To(f, { x = x, y = y, alpha = 1 }, DEAL_TIME, nil, dealt * DEAL_STAGGER)
       dealt = dealt + 1
@@ -710,7 +704,7 @@ function PackView.Show(run)
     resetAll()
     shown = pack
     frame.title:SetText(Screens.PackInfo(pack).label)
-    local top = pack.hand and DETAIL_HAND or DETAIL_NOHAND
+    local top = pack.hand and DETAIL_HAND or (pack.type == "STANDARD" and DETAIL_CARDS or DETAIL_NOHAND)
     frame.detailTitle:SetPoint("TOP", frame, "TOP", 0, top)
     frame.detailBody:SetPoint("TOP", frame, "TOP", 0, top - 18)
     frame.status:SetPoint("TOP", frame, "TOP", 0, top - STATUS_GAP)
