@@ -47,6 +47,14 @@ function Run.new(seed, deckId, stake)
     bossDisabled = false, tags = {}, blindTags = {}, skips = 0, skippedBlinds = {}, playedThisAnte = {}, discardsUnusedTotal = 0,
     pile = {}, hand = {}, sortMode = "rank", lastResult = nil, lastPayout = nil,
   }
+  -- The deck's own rules: its starting cards, slots, hand size, vouchers and consumables.
+  if deck.cards then run.deck = ns.Deck.new(deck.cards, run.rng) end
+  run.maxConsumables = run.maxConsumables + (deck.consumableSlots or 0)
+  run.baseHandSize = run.baseHandSize + (deck.handSize or 0)
+  for _, id in ipairs(deck.vouchers or {}) do run.vouchers[id] = true end
+  for _, item in ipairs(deck.consumables or {}) do
+    run.consumables[#run.consumables + 1] = { kind = item.kind, id = item.id }
+  end
   run.target = Run.target(run, 1, 1)
   for _, id in ipairs(ns.Hands.order) do run.handLevels[id] = 1 end
   -- As in Balatro: each stage draws among the bosses it allows (minStage) that have
@@ -422,6 +430,7 @@ function Run.scoreCtx(run, cards, held, overrides)
     firstHandOfRound = (run.handsPlayedRound or 0) == 0,
     consumableRoom = ns.Consumables.slots(run) - #run.consumables, usage = run.usage,
     playedThisAnte = run.playedThisAnte, flags = run.flags, skips = run.skips or 0,
+    balance = ns.Decks.def[run.deckId].balance, -- Balance Druid
   }
   -- Mouth and Eye: a debuffed hand type still plays, but scores nothing.
   if boss and boss.handNotAllowed then
@@ -589,6 +598,7 @@ function Run.winBlind(run, opts)
     end
   end
   if run.blind == 3 then ns.Tags.fire(run, "onBossDefeated", payout) end -- Goblin Investment: payout.investment
+  if run.blind == 3 and deck.bossTag then ns.Tags.add(run, deck.bossTag) end -- Evoker: a Bonus Roll per boss
   payout.total = payout.reward + payout.hands + payout.discards + payout.interest + payout.trinkets + payout.held
     + (payout.investment or 0) + (payout.rental or 0)
   run.lastPayout = payout

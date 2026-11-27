@@ -110,11 +110,18 @@ local function generateCards(run, cards)
   end
   local scroll, tome = ns.Vouchers.scrollWeight(run), ns.Vouchers.tomeWeight(run)
   local playing = ns.Vouchers.playingCardsInShop(run) and 4 or 0
+  -- Death Knight deck: Relics too, after playing cards (Balatro's Ghost deck, spectral weight 2).
+  local relic = ns.Decks.def[run.deckId].relicWeight or 0
   for i = #cards + 1, ns.Vouchers.shopCardSlots(run) do
-    local roll = ns.RNG.next(run.rng) * (20 + scroll + tome + playing)
+    local roll = ns.RNG.next(run.rng) * (20 + scroll + tome + playing + relic)
     if roll < 20 then
       cards[i] = Shop.rollTrinket(run, taken)
-      if not cards[i] then roll = 20 + ns.RNG.next(run.rng) * (scroll + tome + playing) end
+      if not cards[i] then roll = 20 + ns.RNG.next(run.rng) * (scroll + tome + playing + relic) end
+    end
+    if not cards[i] and roll >= 20 + scroll + tome + playing then
+      local item = ns.Consumables.random(run, "relic", blocked)
+      blocked[item.id] = true
+      cards[i] = { type = "relic", id = item.id, cost = ns.Consumables.COST.relic }
     end
     if not cards[i] then
       if roll >= 20 + scroll + tome then

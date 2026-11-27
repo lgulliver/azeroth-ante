@@ -113,6 +113,11 @@ apply to rerolls or the boss reroll.
 stage for 10g; its upgrade, Infinite Bounty, removes the limit. It is only offered on the
 blind screen; at the final stage it rerolls into another finisher.
 
+**Decks**: fifteen, one for each of Balatro's starting decks, each with its own rule and
+painted back: Rogue, Warrior, Goblin, Monk, Warlock, Mage, Draenei, Death Knight, Forsaken,
+Alliance, Trade Prince, Hunter, Evoker, Balance Druid and Gnome. Rogue is open from the start;
+the others unlock in turn as you discover items (trinkets, Scrolls, Tomes, Relics and vouchers).
+
 **Stakes** raise the difficulty, as in Balatro. Pick one under the deck on the deck screen;
 each adds to every stake below it: Red (no small blind reward), Green (faster-scaling
 targets), Black (Eternal trinkets, which can't be sold or destroyed), Blue (one discard fewer),
@@ -187,6 +192,8 @@ Run these checks in Retail and Forever:
 - [ ] Entering combat hides the window.
 - [ ] No trinket icon is blank or a question mark (check Avenging Wrath, Multi-Shot, Whetstone and Hunter's Mark especially, and the legendaries: Frostmourne, Shalamayne, Shadowmourne, Ashbringer, Dragonwrath).
 - [ ] With Dragonwrath and a consumable held, Next Blind adds a Negative copy with the Negative tint in an extra slot.
+- [ ] The deck carousel shows all fifteen backs, each distinct, and the new decks' rule text fits the tile.
+- [ ] A Balance Druid hand shows "Balanced!" in the tally and the chips and mult boxes even out.
 - [ ] The deck screen's stake row (< White Stake >) fits between the deck tile and Play, and its tooltip lists the stake's rules.
 - [ ] On Black Stake and up, sticker badges (E, P5, R) sit on trinket icons without hiding them, and an Eternal trinket's sell button reads "-".
 - [ ] `/reload` in the shop resumes on the shop screen.

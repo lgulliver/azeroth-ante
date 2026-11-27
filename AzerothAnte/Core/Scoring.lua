@@ -297,6 +297,13 @@ function Scoring.score(ctx)
     end
   end
 
+  -- Balance Druid (Balatro's Plasma deck): Chips and Mult become their average.
+  if ctx.balance then
+    local even = math.floor((chips + mult) / 2)
+    chips, mult = even, even
+    emit({ kind = "balance" })
+  end
+
   local total = math.floor(chips * mult)
   emit({ kind = "total", total = total })
 

@@ -255,6 +255,9 @@ local function fire(e)
       stackedFloat(s, holder, "\195\151" .. Sidebar.round2(e.xmult), Theme.mult)
     end
     showRun(e)
+  elseif kind == "balance" then -- Balance Druid
+    showRun(e)
+    stackedFloat(s, main().sidebar and main().sidebar.handName, "Balanced!", CREAM)
   elseif kind == "total" then
     s.count = { from = s.from, to = s.run.score, t = 0 }
   elseif kind == "destroy" then

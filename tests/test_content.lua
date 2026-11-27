@@ -253,7 +253,8 @@ T.test("boss_roster_matches_spec", function()
 end)
 
 T.test("decks_values", function()
-  T.eq(ns.Decks.order, { "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK" })
+  T.eq(ns.Decks.order, { "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK", "MAGE", "DRAENEI", "DEATHKNIGHT",
+    "FORSAKEN", "ALLIANCE", "TRADEPRINCE", "HUNTER", "EVOKER", "DRUID", "GNOME" })
   local d = ns.Decks.def
   T.eq(d.ADVENTURER.hands, 4)
   T.eq(d.ADVENTURER.discards, 3)

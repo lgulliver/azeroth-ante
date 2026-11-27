@@ -2,11 +2,19 @@ local _, ns = ...
 
 local Deck = {}
 
-function Deck.new()
+-- The starting 52 cards, or a deck's variant: "NO_FACES" (40, Forsaken), "CHECKERED" (26 Spades and
+-- 26 Hearts, Alliance) or "ERRATIC" (random rank and suit each, Gnome; needs rng).
+function Deck.new(variant, rng)
   local deck = {}
   for si, suit in ipairs(ns.Cards.SUITS) do
     for rank = 2, 14 do
-      deck[#deck + 1] = { rank = rank, suit = suit, id = (si - 1) * 13 + (rank - 1) }
+      local card = { rank = rank, suit = suit, id = (si - 1) * 13 + (rank - 1) }
+      if variant == "CHECKERED" then
+        card.suit = (suit == "S" or suit == "C") and "S" or "H"
+      elseif variant == "ERRATIC" then
+        card.rank, card.suit = ns.RNG.int(rng, 2, 14), ns.RNG.pick(rng, ns.Cards.SUITS)
+      end
+      if not (variant == "NO_FACES" and rank >= 11 and rank <= 13) then deck[#deck + 1] = card end
     end
   end
   return deck

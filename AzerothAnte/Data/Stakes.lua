@@ -50,11 +50,13 @@ function Stakes.of(run) return run.stake or 1 end
 -- Whether the run's stake includes the rule of stake `id`.
 function Stakes.has(run, id) return Stakes.of(run) >= Stakes.def[id].index end
 
+-- The ante's base score: the stake's scaling, times the deck's targetMult (Balance Druid x2).
 function Stakes.baseTarget(run, stage)
   local scaling = Stakes.has(run, "PURPLE") and 3 or (Stakes.has(run, "GREEN") and 2 or 1)
   -- Scaling 1 reads Run.BASE_TARGETS so the simulator's override still applies.
   local list = scaling == 1 and ns.Run.BASE_TARGETS or Stakes.TARGETS[scaling]
-  return list[stage]
+  local deck = run.deckId and ns.Decks.def[run.deckId]
+  return list[stage] * (deck and deck.targetMult or 1)
 end
 
 -- Rolls the stake's stickers onto a trinket offer (shop or Trinket Lockbox), as Balatro's create_card.

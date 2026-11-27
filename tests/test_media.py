@@ -22,7 +22,8 @@ EXPECTED = {
     "Voucher.tga": (128, 256),
     "Voucher_Plus.tga": (128, 256),
 }
-BACKS = ("ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK")
+BACKS = ("ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK", "MAGE", "DRAENEI", "DEATHKNIGHT",
+         "FORSAKEN", "ALLIANCE", "TRADEPRINCE", "HUNTER", "EVOKER", "DRUID", "GNOME")
 for _deck in BACKS:
     EXPECTED["Back_%s.tga" % _deck] = (128, 256)
     EXPECTED["BackSq_%s.tga" % _deck] = (256, 256)
@@ -68,7 +69,7 @@ def _pixels(name):
 def check_backs():
     """Deck backs share CardBack's silhouette and gold border, and each looks different."""
     base = _pixels("CardBack.tga")
-    means = {}
+    faces = {}
     if any(not os.path.exists(os.path.join(MEDIA, "Back_%s.tga" % d)) for d in BACKS):
         return "missing Back_* files"
     for deck in BACKS:
@@ -80,12 +81,15 @@ def check_backs():
             i = (y * 128 + x) * 4
             if px[i:i + 4] != base[i:i + 4]:
                 return "Back_%s: border pixel (%d,%d) differs from CardBack" % (deck, x, y)
-        n = 128 * 179
-        means[deck] = tuple(sum(px[i::4][:n]) / float(n) for i in range(3))
+        faces[deck] = px[:128 * 179 * 4]  # the card face (the canvas below it is empty)
+    # Each pair differs by a mean of at least 60 (of 765) per pixel across R, G and B: two decks in
+    # the same palette with different emblems pass, a duplicate or a mere tint does not.
     decks = list(BACKS)
     for i, a in enumerate(decks):
         for b in decks[i + 1:]:
-            if sum(abs(means[a][k] - means[b][k]) for k in range(3)) < 25:
+            pa, pb = faces[a], faces[b]
+            diff = sum(abs(pa[k] - pb[k]) for k in range(len(pa)) if k % 4 != 3)
+            if diff / (len(pa) / 4.0) < 60:
                 return "Back_%s and Back_%s are too alike" % (a, b)
     return None
 

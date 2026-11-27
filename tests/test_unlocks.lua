@@ -1,7 +1,8 @@
 local ns, T = ...
 
 T.test("deck_starting_rules_reset_each_round", function()
-  T.eq(ns.Decks.order, { "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK" })
+  T.eq(ns.Decks.order, { "ROGUE", "WARRIOR", "GOBLIN", "MONK", "WARLOCK", "MAGE", "DRAENEI", "DEATHKNIGHT",
+    "FORSAKEN", "ALLIANCE", "TRADEPRINCE", "HUNTER", "EVOKER", "DRUID", "GNOME" })
   local cases = {
     { "ROGUE", 4, 4, 4, 5 }, { "WARRIOR", 5, 3, 4, 5 },
     { "GOBLIN", 4, 3, 14, 5 }, { "MONK", 4, 3, 4, 5 },
