@@ -4,6 +4,8 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-27
+
 ### Changed
 - Packs, Tomes and many Scrolls, Relics, vouchers and trinkets have Warcraft names: Scribe's Satchel, Archivist's Crate, Darkmoon Card Bundle, Trinket Lockbox and Relic Cache (Large and Heavy sizes); Tomes are named for worlds such as Argus and Draenor; Netherweave Bag, Titan Orrery, Kezan Gold Bar, Windfury Weapon and more.
 - Blind targets now follow Balatro's curve (300, 800, 2000, 5000, 11000, 20000, 35000, 50000), up from a flatter curve that topped out at 16000. Later antes need a built deck, so trinkets and new cards matter.
@@ -17,6 +19,7 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Discounts round half down (10g at 25% off is 7g).
 - Baron Rivendare rounds halved chips and mult up, like The Flint.
 - Mirror Image also retriggers end-of-round held effects: Gold cards pay again and Blue seals make another Tome.
+- Playing cards are 20% larger (96x134), so ranks, suits and court figures read better; a full hand overlaps slightly, as in Balatro.
 
 ### Added
 - Fifteen new bosses, each playing as a Balatro boss with its rule, target and minimum ante: Captain Greenskin, Bazil Thredd, Targorr the Dread, Archaedas, Moroes, Patchwerk, Mekgineer Thermaplugg, Ras Frostwhisper, Morogrim Tidewalker, Gluth, The Prophet Skeram, Shade of Aran, Baron Revilgaz, Hakkar the Soulflayer and Gruul the Dragonkiller; and four new ante 8 finishers beside Ragnaros: C'Thun, Yogg-Saron, Xavius and Kel'Thuzad. Face-down cards show their back and flip when played.
@@ -29,7 +32,6 @@ All notable changes to Azeroth Ante. Format follows [Keep a Changelog](https://k
 - Darkmoon Fizz (sell for a free Bonus Roll) and Timewalking Badge (×0.25 Mult per blind skipped), completing the Balatro joker set at 150 trinkets.
 - Stakes: Balatro's eight difficulty levels, chosen under the deck on the deck screen. Each adds to those below it: Red (no small blind reward), Green (faster-scaling targets), Black (Eternal trinkets that can't be sold or destroyed), Blue (-1 discard), Purple (faster still, 200,000 at ante 8), Orange (Perishable trinkets, debuffed after 5 rounds) and Gold (Rental trinkets: 1g to buy, -3g each round). Every deck starts on White; winning at a stake unlocks the next one for that deck.
 - Ten more decks, completing Balatro's fifteen, each with its own painted back: Mage (Dalaran Crystal Ball and 2 Scrolls of Echoes), Draenei (Titan Orrery, one consumable slot fewer), Death Knight (Relics in the shop, start with a Relic of Hexes), Forsaken (no face cards), Alliance (26 Spades and 26 Hearts), Trade Prince (three shop vouchers), Hunter (+2 hand size, one trinket slot fewer), Evoker (a Bonus Roll after each boss), Balance Druid (Chips and Mult are balanced; targets doubled) and Gnome (random ranks and suits). They unlock in turn as you discover more items.
-- Playing cards are 20% larger (96x134), so ranks, suits and court figures read better; a full hand overlaps slightly, as in Balatro.
 
 ### Fixed
 - A trinket Ragnaros disabled for the last hand no longer pays out or updates at the end of the round; it is back on for interest and the shop.
