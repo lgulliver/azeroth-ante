@@ -1302,6 +1302,14 @@ local function run(w)
     click(wD, "pack card D")
     check(pv.pick:IsEnabled(), "Pick enabled with a choice and 2 cards")
     check(pv.status:GetText():find("Ready", 1, true), "status says ready")
+    -- Full-size hand cards: a selected one stays below the status line (about 14 tall).
+    local statusBottom = pv.status._points[1][5] - 14
+    -- The pack panel runs from the play area's top less the sell-button gap (22) to the buttons' bottom.
+    local T2 = ns.UI.Theme
+    local panelH = T2.height - T2.titleHeight - T2.margin - 48 - T2.margin - 22 - T2.margin
+    local liftedTop = -(panelH - (pv.hand._points[1][5] + 6 + ns.UI.CardWidget.HEIGHT + 14))
+    check(liftedTop <= statusBottom, ("a lifted pack card (top %.0f) clears the status line (%.0f)"):format(liftedTop, statusBottom))
+    eq(wC:GetWidth(), ns.UI.CardWidget.WIDTH, "pack hand cards are full size")
     local cardC, cardD = wC.card, wD.card
     gold0 = r.gold
     click(pv.pick, "Pick Fury")

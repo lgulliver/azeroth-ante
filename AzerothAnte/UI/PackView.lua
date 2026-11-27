@@ -17,10 +17,11 @@ local ARC = 2                  -- the fan: outer choices sit lower
 local LIFT_SELECTED, LIFT_HOVER, LIFT_TIME = 14, 6, 0.08
 local TOP_HAND, TOP_NOHAND = -46, -70      -- choice row top, with and without a drawn hand
 local DETAIL_HAND, DETAIL_NOHAND = -156, -196
-local HAND_H, BASE_Y, GAP = 140, 6, 6
--- Playing cards on the pack screen (a Darkmoon Card Bundle's choices, the drawn hand) keep the 80x112
--- look of the original cards: it has no room for full 96x134 ones beside the choices and their detail
--- text. The hand frame is scaled as a whole; a card choice is scaled itself, so its offsets are divided.
+local HAND_H, BASE_Y, GAP = 156, 6, 6       -- the drawn hand: full-size cards plus their lift
+local HAND_BOTTOM = 46                         -- just above Pick and Skip
+local STATUS_GAP = 60                          -- the status line, under a two-line description
+-- A Darkmoon Card Bundle's playing-card choices keep the 80x112 look of the original cards, to sit on
+-- the choice spacing like the other packs' faces; each is scaled, so its offsets are divided.
 local CARD_SCALE = 80 / 96
 local MAX_SELECT = 5
 local DEAL_TIME, DEAL_STAGGER, MOVE_TIME = 0.22, 0.04, 0.2
@@ -656,9 +657,8 @@ local function build()
   p.handNote:Hide()
 
   p.hand = CreateFrame("Frame", nil, p)
-  p.hand:SetScale(CARD_SCALE)
-  p.hand:SetSize((m.rowsWidth or 618) / CARD_SCALE, HAND_H / CARD_SCALE)
-  p.hand:SetPoint("BOTTOM", p, "BOTTOM", 0, 50 / CARD_SCALE) -- offsets are in the scaled frame's units
+  p.hand:SetSize(m.rowsWidth or 618, HAND_H)
+  p.hand:SetPoint("BOTTOM", p, "BOTTOM", 0, HAND_BOTTOM)
 
   p.err = W.text(p, Theme.fonts.text, "BOTTOM", 0, 48, 540, "CENTER")
   Theme.setColor(p.err, RED)
@@ -713,7 +713,7 @@ function PackView.Show(run)
     local top = pack.hand and DETAIL_HAND or DETAIL_NOHAND
     frame.detailTitle:SetPoint("TOP", frame, "TOP", 0, top)
     frame.detailBody:SetPoint("TOP", frame, "TOP", 0, top - 18)
-    frame.status:SetPoint("TOP", frame, "TOP", 0, top - 72)
+    frame.status:SetPoint("TOP", frame, "TOP", 0, top - STATUS_GAP)
   end
   layoutChoices(pack, fresh)
   layoutHand(pack, fresh)
