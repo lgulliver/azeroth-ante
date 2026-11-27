@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # the tags, for the notes' compare link
 
       # Builds AzerothAnte-<version>.zip (Retail) and AzerothAnte-<version>-forever.zip (Forever).
       # Both hold the same addon (the TOC lists both clients' interfaces); WowUp and Wago pick
@@ -62,6 +63,16 @@ jobs:
             *) stability=release ;;
           esac
 
+          # Release notes: this version's CHANGELOG.md section (up to the next "## [" heading) and a
+          # compare link. A version with no section gets GitHub's generated notes instead.
+          awk -v v="$version" 'index($0, "## [" v "]") == 1 {f = 1; next} f && /^## \[/ {exit} f' CHANGELOG.md \
+            | sed -e '/./,$!d' > dist/notes.md
+          prev=$(git tag --sort=-v:refname --list 'v*' | awk -v t="$GITHUB_REF_NAME" 'f {print; exit} $0 == t {f = 1}')
+          if [ -s dist/notes.md ] && [ -n "$prev" ]; then
+            printf '\n**Full Changelog**: %s/compare/%s...%s\n' \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$prev" "$GITHUB_REF_NAME" >> dist/notes.md
+          fi
+
           zip="dist/AzerothAnte-${version}-forever.zip"
           retail_zip="dist/AzerothAnte-${version}.zip"
           (cd dist && zip -qr "../$zip" AzerothAnte && zip -qr "../$retail_zip" AzerothAnte)
@@ -86,10 +97,14 @@ jobs:
           # A re-run replaces the asset on the existing release instead of failing.
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "$ZIP" "$RETAIL_ZIP" --clobber
+          elif [ -s "$NOTES_FILE" ]; then
+            gh release create "$GITHUB_REF_NAME" "$ZIP" "$RETAIL_ZIP" \
+              --title "$GITHUB_REF_NAME" --notes-file "$NOTES_FILE" $flags
           else
             gh release create "$GITHUB_REF_NAME" "$ZIP" "$RETAIL_ZIP" \
               --title "$GITHUB_REF_NAME" --generate-notes $flags
           fi
+          # CurseForge gets the release's notes as published (also on a re-run).
           gh release view "$GITHUB_REF_NAME" --json body --jq .body > "$NOTES_FILE"
 
       - name: Upload to CurseForge
