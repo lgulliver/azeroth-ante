@@ -4,7 +4,6 @@ local _, ns = ...
 -- centre, its neighbours peeking either side (smaller, tilted, dimmed), arrows
 -- and click-to-slide, a short tween that wraps around, and the unlock flourish.
 local Theme = ns.UI.Theme
-local CardWidget = ns.UI.CardWidget
 local DeckSelect = {}
 
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
@@ -15,6 +14,7 @@ local CENTER_SCALE, SIDE_SCALE, FAR_SCALE = 1.35, 0.8, 0.6
 local SIDE_X, FAR_X = 76, 118                    -- card-centre offsets from the middle
 local TILT = math.rad(6)
 local DIM = 0.5
+local DECK_W, DECK_H = 80, 112                   -- a deck card at scale 1 (playing cards are larger)
 local SQ, ART = 256, 160                         -- BackSq_* canvas, and the card's width inside it
 local FADE_INFO = 0.15
 local BAR_W = 240
@@ -70,6 +70,8 @@ local function stepsTo(id)
   local d = (indexOf(id) - 1) - (selRaw % n)
   return (d + half) % n - half
 end
+
+DeckSelect.CARD_W = DECK_W
 
 function DeckSelect.Selected()
   return idAt(selRaw)
@@ -137,7 +139,7 @@ local function layout()
       Theme.Selected(card, false)
       card:Hide()
     else
-      local w, h = CardWidget.WIDTH * scale, CardWidget.HEIGHT * scale
+      local w, h = DECK_W * scale, DECK_H * scale
       card:Show()
       card:SetSize(w, h)
       card:ClearAllPoints()
@@ -412,7 +414,7 @@ end
 
 local function makeCard(p, id)
   local card = CreateFrame("Button", nil, p.carousel)
-  card:SetSize(CardWidget.WIDTH, CardWidget.HEIGHT)
+  card:SetSize(DECK_W, DECK_H)
   -- A square, centre-padded texture so SetRotation turns it rigidly.
   card.art = card:CreateTexture(nil, "ARTWORK")
   card.art:SetPoint("CENTER", card, "CENTER", 0, 0)

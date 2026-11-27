@@ -4,7 +4,7 @@ local Tween = ns.UI.Tween
 local CardWidget = {}
 
 local MEDIA = "Interface\\AddOns\\AzerothAnte\\Media\\"
-local WIDTH, HEIGHT = 80, 112
+local WIDTH, HEIGHT = 96, 134
 local LIFT_SELECTED, LIFT_HOVER, LIFT_TIME = 24, 8, 0.08
 -- Rank and suit print straight onto the face, in an ink chosen per face so each
 -- keeps at least about 3:1 against the art behind it (checked against the
@@ -31,7 +31,7 @@ local INK_LIGHT = {
   D = { 1, 0.9, 0.72 },
 }
 local FACE_INK = { GLASS = { INK_LIGHT, true }, STEEL = { INK_STEEL, false } } -- {inks, outline}
-local INDEX_INSET = 8 -- inside the card's inner border (about 7 on a 80x112 card)
+local INDEX_INSET = 7 -- inside the card's inner border (about 5 on a 96x134 card)
 local RANK_NAMES = { [11] = "Jack", [12] = "Queen", [13] = "King", [14] = "Ace" }
 local MINI_RANK_PX = 9.5      -- rank height on screen (design units) in the deck view
 local BORDER = { 0.1, 0.08, 0.06 }
@@ -40,10 +40,10 @@ local PAPER = ns.UI.Theme.parchment
 local PAPER_GLASS = { 0.12, 0.18, 0.24 } -- opaque, so the see-through Glass face hides cards behind it
 local SEAL_SIZE = 20
 -- Jacks, Queens and Kings show a double-ended court panel (Court_<J|Q|K><suit>)
--- in place of the centre suit, standing between the corner indexes. The art is
--- the top-left 104x250 of its 128x256 canvas.
+-- in place of the centre suit, framed between the corner indexes as on a real
+-- playing card. The art is the top-left 116x254 of its 128x256 canvas.
 local COURT_LETTER = { [11] = "J", [12] = "Q", [13] = "K" }
-local COURT_W, COURT_H, COURT_U, COURT_V = 40, 96, 104 / 128, 250 / 256
+local COURT_W, COURT_H, COURT_U, COURT_V = 54, 118, 116 / 128, 254 / 256
 local TIP_DELAY = 0.4
 local FLASH_TIME, FLASH_PEAK = 0.25, 0.7 -- a card change: tint up (the face swaps), tint down
 local V = ns.UI.Theme.cardV
@@ -344,7 +344,7 @@ local function create(parent)
   face.fxTintBelow = true -- a Negative tint sits on the art, under the text
 
   w.suitBig = face:CreateTexture(nil, "ARTWORK")
-  w.suitBig:SetSize(44, 44)
+  w.suitBig:SetSize(53, 53)
   w.suitBig:SetPoint("CENTER", face, "CENTER", 0, 0)
   w.court = face:CreateTexture(nil, "ARTWORK")
   w.court:SetSize(COURT_W, COURT_H)

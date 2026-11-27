@@ -178,7 +178,7 @@ Run these checks in Retail and Forever:
 - [ ] `/ante` opens it.
 - [ ] Drag and resize work.
 - [ ] Card hover and select feel smooth.
-- [ ] Jacks, Queens and Kings show their double-ended court art between the corner rank and suit.
+- [ ] Jacks, Queens and Kings show their double-ended court art in a thin frame on the card's parchment, clear of the corner rank and suit, and an 8-card hand overlaps neatly at the larger card size.
 - [ ] The tally plays.
 - [ ] A face-down card shows its back and flips when played.
 - [ ] Buying in the shop works.

@@ -41,7 +41,7 @@ EXPECTED["Icon.tga"] = (64, 64)
 COURTS = ["%s%s" % (r, s) for r in "JQK" for s in "SHCD"]
 for _court in COURTS:
     EXPECTED["Court_%s.tga" % _court] = (128, 256)
-COURT_W, COURT_H = 104, 250  # the court panel is the top-left 104x250 of its 128x256 canvas
+COURT_W, COURT_H = 116, 254  # the court panel is the top-left 116x254 of its 128x256 canvas
 
 # Overlays are mostly see-through; faces/seals/frames must be mostly opaque.
 # name -> (min, max) fraction of pixels with alpha > 0
@@ -234,14 +234,21 @@ def check_square(w, h, alpha):
 
 
 def check_court(w, h, alpha):
-    """A double-ended panel in the top-left 104x250: clear outside it, opaque within."""
+    """A double-ended panel in the top-left 116x254: clear outside it, a solid frame round it,
+    and a figure inside (its paper background is transparent, so the card shows through)."""
+    figure = 0
     for y in range(h):
         for x in range(w):
             inside = x < COURT_W and y < COURT_H
-            if inside and alpha[y * w + x] != 255:
-                return "panel not opaque at (%d,%d)" % (x, y)
+            frame = inside and (x < 2 or x >= COURT_W - 2 or y < 2 or y >= COURT_H - 2)
+            if frame and alpha[y * w + x] != 255:
+                return "frame not opaque at (%d,%d)" % (x, y)
             if not inside and alpha[y * w + x] != 0:
                 return "pixel outside the %dx%d panel at (%d,%d)" % (COURT_W, COURT_H, x, y)
+            if inside and not frame and alpha[y * w + x] == 255:
+                figure += 1
+    if figure < 0.4 * COURT_W * COURT_H:
+        return "the figure covers only %d pixels of the panel" % figure
     return None
 
 

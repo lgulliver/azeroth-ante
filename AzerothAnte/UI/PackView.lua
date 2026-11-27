@@ -18,6 +18,9 @@ local LIFT_SELECTED, LIFT_HOVER, LIFT_TIME = 14, 6, 0.08
 local TOP_HAND, TOP_NOHAND = -46, -70      -- choice row top, with and without a drawn hand
 local DETAIL_HAND, DETAIL_NOHAND = -156, -196
 local HAND_H, BASE_Y, GAP = 140, 6, 6
+-- The drawn hand keeps the 80x112 look of the original cards: the pack screen has no room for the
+-- full 96x134 ones under the choices and their detail text. The hand frame is scaled, not each card.
+local HAND_SCALE = 80 / 96
 local MAX_SELECT = 5
 local DEAL_TIME, DEAL_STAGGER, MOVE_TIME = 0.22, 0.04, 0.2
 local PICK_TIME, PICK_SCALE = 0.25, 1.25
@@ -648,8 +651,9 @@ local function build()
   p.handNote:Hide()
 
   p.hand = CreateFrame("Frame", nil, p)
-  p.hand:SetSize(m.rowsWidth or 618, HAND_H)
-  p.hand:SetPoint("BOTTOM", p, "BOTTOM", 0, 50)
+  p.hand:SetScale(HAND_SCALE)
+  p.hand:SetSize((m.rowsWidth or 618) / HAND_SCALE, HAND_H / HAND_SCALE)
+  p.hand:SetPoint("BOTTOM", p, "BOTTOM", 0, 50 / HAND_SCALE) -- offsets are in the scaled frame's units
 
   p.err = W.text(p, Theme.fonts.text, "BOTTOM", 0, 48, 540, "CENTER")
   Theme.setColor(p.err, RED)
