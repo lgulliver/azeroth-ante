@@ -1062,6 +1062,7 @@ local function run(w)
   check(tslots[8]:IsShown() and crow.slots[5]:IsShown(), "all 13 slots are shown")
   check(tslots[8]._points[1][4] + 44 <= Main.trinketRow:GetWidth() + 1e-6, "trinket slots fit their row")
   check(Main.trinketRow:GetWidth() + Main.consumableRow:GetWidth() + ns.UI.Theme.margin <= Main.rowsWidth + 1e-6, "trinket and consumable rows do not overlap")
+  check(ns.UI.ConsumableRow.HEIGHT <= Main.trinketRow:GetHeight() + ns.UI.Theme.margin, "consumable slots stay above the play area")
   check(tslots[2]._points[1][4] - tslots[1]._points[1][4] >= 44, "trinket slots never overlap each other")
   runC.maxTrinkets, runC.maxConsumables, runC.trinkets = 5, 2, {}
   Main.Render(runC)
@@ -2390,7 +2391,7 @@ local function run(w)
     w3.stub.advance(1)
     panel3("carousel").play:Click()
     w3.stub.advance(1)
-    local ab = panel3("preview").abandon
+    local ab = m3.abandon -- the title bar's
     click(ab, "Abandon")
     click(ab, "Abandon (confirm)")
     w3.stub.advance(1)
@@ -3883,7 +3884,8 @@ local function run(w)
       check(b.themeButton, "main-frame button is themed")
     end
     eq(Main.buttons.play.themeButton, "primary", "Play is the primary variant")
-    eq(panel("stageText").abandon.themeButton, "danger", "Abandon Run is the danger variant")
+    eq(panel("offerCards").abandon.themeButton, "danger", "Abandon Run is the danger variant")
+    check(panel("stageText").abandon == nil, "the blind screen leaves Abandon Run to the title bar")
     -- disabled dims, hover brightens (state tracking)
     local b = Main.buttons.discard
     local was = b:IsEnabled()

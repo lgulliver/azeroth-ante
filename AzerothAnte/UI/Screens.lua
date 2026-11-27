@@ -218,7 +218,7 @@ end
 local function buildBlind()
   return ns.UI.BlindSelect.Build({
     makePanel = makePanel, button = button, reasonTip = reasonTip, setReason = setReason,
-    addAbandon = addAbandon, start = startBlind, rerollBoss = rerollBoss, skip = skipBlind,
+    start = startBlind, rerollBoss = rerollBoss, skip = skipBlind,
   })
 end
 

@@ -198,7 +198,7 @@ function BlindSelect.Build(host)
   p.panels = {}
   p.preview = p.panels -- the field the screen is looked up by
   for i = 1, 3 do p.panels[i] = makeBlind(p, i, host) end
-  host.addAbandon(p)
+  -- No Abandon Run of its own: the title bar has one, and the small blind's Skip sits where it was.
   return p
 end
 

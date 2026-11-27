@@ -8,7 +8,7 @@ local FRAMES = { scroll = "Consumable_Scroll", tome = "Consumable_Tome", relic =
 local KIND_NAMES = { scroll = "Scroll", tome = "Tome", relic = "Relic" }
 local TOME_ICON = "Interface\\Icons\\INV_Misc_Book_09"
 local MAX_SLOTS = 5
-local SLOT_W, SLOT_H, SLOT_GAP = 44, 62, 6   -- 5:7, like a card
+local SLOT_W, SLOT_H, SLOT_GAP = 40, 56, 6   -- 5:7, like a card; as tall as the item band (row + margin)
 local ICON_SIZE = 26
 local POP_W, POP_H = 150, 124
 local POP_FROM, POP_TIME = 0.6, 0.2          -- a created consumable pops into its slot
